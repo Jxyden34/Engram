@@ -46,3 +46,7 @@ tmp/
 coverage/
 dist/
 build/
+
+# Local connector secrets
+secrets/*
+!secrets/.keep
