@@ -74,6 +74,8 @@ services:
     build: ./backend
     restart: unless-stopped
     env_file: .env
+    volumes:
+      - ./secrets:/run/secrets:ro
     depends_on:
       db:
         condition: service_healthy
@@ -94,9 +96,23 @@ services:
     build: ./backend
     restart: unless-stopped
     env_file: .env
+    volumes:
+      - ./secrets:/run/secrets:ro
     command: ["rq", "worker", "--url", "${REDIS_URL}", "document-ingest"]
     depends_on:
       api:
+        condition: service_healthy
+    networks: [backend, egress]
+
+  connector-scheduler:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    command: ["python", "-m", "app.connector_scheduler"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks: [backend]
 

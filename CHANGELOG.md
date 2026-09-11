@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.0 - 2026-09-11
+
+### Added
+
+- Connector framework and scheduled sync service.
+- GitHub App repository, README, docs, issues and pull-request ingestion.
+- Optional GitHub source-code ingestion.
+- Browser Capture endpoint and Chrome/Edge extension.
+- `capture:write` and `connector:admin` scopes.
+- Document source provenance and automatic connector/capture candidate analysis.
+
+
 ## 2.0.1 - 2026-09-11
 
 ### Fixed
