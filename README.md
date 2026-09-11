@@ -59,7 +59,7 @@ network so models can be pulled without exposing Ollama publicly.
 ## Quick start
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
+git clone https://github.com/Jxyden34/Memory-Bank.git
 cd memorybank
 
 cp .env.example .env
