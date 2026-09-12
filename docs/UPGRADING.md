@@ -186,6 +186,7 @@ Typical MemoryBank migrations include:
 003  document Memory Inbox
 004  Knowledge Core
 005  Ingestion Mesh
+006  Identity & MCP
 ```
 
 Never modify an already-deployed migration file.

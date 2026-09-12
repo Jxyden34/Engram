@@ -420,3 +420,24 @@ Planned major additions include:
 - namespaces / projects
 - memory consolidation
 - observability
+
+
+## OAuth / MCP identity
+
+MemoryBank v2.2 acts as both the OAuth authorization server and the MCP protected resource server.
+
+```text
+MCP client
+   |
+   +--> Protected Resource Metadata
+   |
+   +--> OAuth Authorization Server Metadata
+   |
+   +--> user consent + PKCE authorization code
+   |
+   +--> short-lived mb_at_ access token
+   |
+   +--> /mcp
+```
+
+OAuth access tokens are bound to the canonical `/mcp` resource. Existing `mem_live_` API keys remain available for scripts and compatibility.

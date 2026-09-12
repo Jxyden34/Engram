@@ -206,9 +206,11 @@ Planned:
 
 ---
 
-## v2.2 — Identity & MCP 🟡
+## v2.2 — Identity & MCP ✅
 
 Modernize how external AI tools authenticate to MemoryBank.
+
+**Status:** Shipped in v2.2.0 with PKCE, protected-resource discovery, CIMD, rotating refresh tokens, resource-bound access tokens, consent and client/grant revocation.
 
 ### OAuth / OIDC
 
@@ -597,7 +599,7 @@ Features:
 1. ✅ v2.1 GitHub connector
 2. ✅ Browser Capture
 3. 🟡 GitHub webhook-triggered sync
-4. 🟡 v2.2 OAuth / MCP authorization
+4. ✅ v2.2 OAuth / MCP authorization
 5. 🟡 v2.3 Disaster Recovery dashboard
 6. 🟡 Email and calendar connectors
 7. 🟡 Improved hybrid retrieval

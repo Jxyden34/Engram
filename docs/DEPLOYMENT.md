@@ -301,3 +301,24 @@ Before considering deployment complete:
 - PostgreSQL backup has been tested
 - MinIO backup exists
 - browser/API keys use least privilege
+
+
+## OAuth / MCP settings
+
+Recommended defaults:
+
+```dotenv
+OAUTH_ACCESS_TOKEN_MINUTES=15
+OAUTH_REFRESH_TOKEN_DAYS=30
+OAUTH_AUTHORIZATION_CODE_MINUTES=5
+OAUTH_CIMD_TIMEOUT_SECONDS=5
+OAUTH_CIMD_MAX_KB=256
+OAUTH_DCR_ENABLED=true
+```
+
+Verify discovery after deployment:
+
+```bash
+curl -s https://YOUR-HOST/.well-known/oauth-protected-resource/mcp
+curl -s https://YOUR-HOST/.well-known/oauth-authorization-server
+```

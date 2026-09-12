@@ -446,3 +446,26 @@ If GitHub sync is stuck:
 6. Check GitHub App repository permissions
 7. Inspect connector_sync_runs
 ```
+
+
+# OAuth / MCP identity
+
+Protected resource metadata:
+
+```bash
+curl -s https://YOUR-HOST/.well-known/oauth-protected-resource/mcp
+```
+
+Authorization server metadata:
+
+```bash
+curl -s https://YOUR-HOST/.well-known/oauth-authorization-server
+```
+
+MCP without credentials should return `401` with a `WWW-Authenticate` discovery challenge:
+
+```bash
+curl -i https://YOUR-HOST/mcp
+```
+
+Review OAuth clients and grants from **AI, API & OAuth** in the web dashboard.
