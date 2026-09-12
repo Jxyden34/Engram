@@ -229,3 +229,10 @@ Never:
 - commit dumps to Git
 - store encryption keys beside encrypted archives
 - share backup files through unsecured channels
+
+
+## Automated restore evidence
+
+MemoryBank v2.3 automatically verifies encrypted backup artifacts and records recovery evidence.
+
+The `dr-monitor` service performs isolated restore tests. See [Disaster Recovery](DISASTER-RECOVERY.md).

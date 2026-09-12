@@ -14,9 +14,10 @@ const links = [
   ["/knowledge", "Knowledge Graph", "◎"],
   ["/timeline", "Timeline", "◷"],
   ["/health", "Memory Health", "♡"],
+  ["/disaster-recovery", "Disaster Recovery", "⛨"],
   ["/approvals", "Approvals", "◇"],
   ["/audit", "Audit trail", "⌁"],
-  ["/settings", "AI & API", "⌘"],
+  ["/settings", "AI, API & OAuth", "⌘"],
 ];
 
 export default function Shell({ children }: { children: ReactNode }) {

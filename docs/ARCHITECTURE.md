@@ -441,3 +441,20 @@ MCP client
 ```
 
 OAuth access tokens are bound to the canonical `/mcp` resource. Existing `mem_live_` API keys remain available for scripts and compatibility.
+
+
+## Disaster Recovery Monitor
+
+v2.3 adds a separate `dr-monitor` service.
+
+It:
+
+- inventories encrypted PostgreSQL and object backups
+- hashes and verifies archive integrity
+- runs isolated database restores
+- validates pgvector
+- checks source-object references
+- records backup filesystem health
+- optionally replicates encrypted artifacts off-host with rclone
+
+The monitor does not receive Docker socket access and does not overwrite production during restore tests.

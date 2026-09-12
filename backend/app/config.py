@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     oauth_cimd_timeout_seconds: int = 5
     oauth_cimd_max_kb: int = 256
     oauth_dcr_enabled: bool = True
+    dr_monitor_interval_seconds: int = 300
+    dr_max_backup_age_hours: int = 36
+    dr_restore_test_interval_hours: int = 24
+    dr_restore_test_max_age_hours: int = 36
+    dr_restore_test_enabled: bool = True
+    dr_offsite_remote: str | None = None
+    dr_offsite_config_path: str = "/run/secrets/rclone.conf"
+    dr_offsite_interval_hours: int = 6
+    dr_min_backup_free_gb: int = 10
 
     minio_endpoint: str = "minio:9000"
     minio_access_key: str

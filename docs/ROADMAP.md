@@ -248,7 +248,7 @@ mcp:use
 
 ---
 
-## v2.3 — Disaster Recovery 🟡
+## v2.3 — Disaster Recovery ✅
 
 ### Backup Dashboard
 

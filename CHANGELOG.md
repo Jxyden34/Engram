@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.3.0 - 2026-09-12
+
+### Added
+
+- Disaster Recovery dashboard and resilience score.
+- Encrypted PostgreSQL and object backup artifact inventory.
+- SHA-256 and decrypt/integrity verification.
+- Automated isolated PostgreSQL restore tests.
+- pgvector validation and restored row counts.
+- MinIO archive extraction and document-object reference checks.
+- Backup filesystem capacity monitoring.
+- Optional encrypted off-site replication via rclone.
+- Manual verify, restore-test and replication actions.
+
+
 ## 2.2.0 - 2026-09-12
 
 ### Added

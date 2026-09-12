@@ -42,6 +42,7 @@ ADMIN_SCOPES = {
     "capture:write",
     "connector:admin",
     "oauth:admin",
+    "dr:admin",
 }
 
 
