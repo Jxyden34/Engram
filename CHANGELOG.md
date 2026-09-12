@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.2.0 - 2026-09-12
+
+### Added
+
+- OAuth authorization code flow for MCP clients.
+- Mandatory PKCE S256.
+- Short-lived access tokens and rotating refresh tokens.
+- Refresh-token reuse detection and family revocation.
+- OAuth Protected Resource Metadata and Authorization Server Metadata.
+- Client ID Metadata Document support.
+- Pre-registered clients and legacy Dynamic Client Registration fallback.
+- Resource-bound MCP tokens and issuer-aware authorization responses.
+- OAuth client / grant management in AI & API settings.
+
+
 ## 2.1.0 - 2026-09-11
 
 ### Added

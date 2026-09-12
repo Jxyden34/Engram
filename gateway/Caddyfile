@@ -1,0 +1,22 @@
+:8080 {
+	encode zstd gzip
+
+	@internal path /internal/*
+	respond @internal 404
+
+	@backend path /api/* /mcp /mcp/* /health
+	header @backend Cache-Control "no-store"
+	reverse_proxy @backend api:8000
+
+	reverse_proxy web:3000
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Content-Security-Policy "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self' data:"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}
