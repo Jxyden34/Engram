@@ -172,6 +172,38 @@ services:
         condition: service_completed_successfully
     networks: [backend]
 
+
+  dr-monitor:
+    build: ./ops/dr-monitor
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_ENCRYPTION_PASSWORD: ${BACKUP_ENCRYPTION_PASSWORD}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS}
+      DR_MONITOR_INTERVAL_SECONDS: ${DR_MONITOR_INTERVAL_SECONDS:-300}
+      DR_MAX_BACKUP_AGE_HOURS: ${DR_MAX_BACKUP_AGE_HOURS:-36}
+      DR_RESTORE_TEST_INTERVAL_HOURS: ${DR_RESTORE_TEST_INTERVAL_HOURS:-24}
+      DR_RESTORE_TEST_ENABLED: ${DR_RESTORE_TEST_ENABLED:-true}
+      DR_OFFSITE_REMOTE: ${DR_OFFSITE_REMOTE:-}
+      DR_OFFSITE_CONFIG_PATH: ${DR_OFFSITE_CONFIG_PATH:-/run/secrets/rclone.conf}
+      DR_OFFSITE_INTERVAL_HOURS: ${DR_OFFSITE_INTERVAL_HOURS:-6}
+      DR_MIN_BACKUP_FREE_GB: ${DR_MIN_BACKUP_FREE_GB:-10}
+    volumes:
+      - ./backups:/backups
+      - ./secrets:/run/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      db-backup:
+        condition: service_started
+      object-backup:
+        condition: service_started
+    networks: [backend, egress]
+
 networks:
   backend:
     internal: true

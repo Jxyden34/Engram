@@ -469,3 +469,36 @@ curl -i https://YOUR-HOST/mcp
 ```
 
 Review OAuth clients and grants from **AI, API & OAuth** in the web dashboard.
+
+
+# Disaster Recovery
+
+Monitor:
+
+```bash
+sudo docker compose logs -f dr-monitor
+```
+
+Dashboard:
+
+```text
+/disaster-recovery
+```
+
+Queue a restore test:
+
+```bash
+make dr-test
+```
+
+Queue off-site replication:
+
+```bash
+make dr-replicate
+```
+
+Recent evidence:
+
+```bash
+make dr-status
+```

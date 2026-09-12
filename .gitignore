@@ -50,3 +50,6 @@ build/
 # Local connector secrets
 secrets/*
 !secrets/.keep
+
+# Disaster-recovery remote credentials
+secrets/rclone.conf

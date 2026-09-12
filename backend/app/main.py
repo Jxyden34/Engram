@@ -13,6 +13,7 @@ from app import health
 from app import knowledge
 from app import connectors
 from app import oauth
+from app import disaster_recovery as dr
 from app import document_memory_import as doc_mem
 from app.audit import log
 from app.capture import create_capture
@@ -92,7 +93,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="MemoryBank API",
-    version="2.2.0",
+    version="2.3.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -197,7 +198,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "memorybank", "version": "2.2.0"}
+    return {"status": "ok", "service": "memorybank", "version": "2.3.0"}
 
 
 @app.post("/api/v1/auth/login")
@@ -1090,6 +1091,60 @@ def oauth_grant_revoke(consent_id: str, request: Request):
     p = require(request, "oauth:admin")
     row = oauth.revoke_consent(consent_id)
     log(p.actor, "oauth.consent_revoked", "oauth_consent", consent_id, request)
+    return row
+
+
+@app.get("/api/v1/dr/summary")
+def disaster_recovery_summary(request: Request):
+    require(request, "dr:admin")
+    return dr.summary()
+
+
+@app.get("/api/v1/dr/artifacts")
+def disaster_recovery_artifacts(request: Request, limit: int = 100):
+    require(request, "dr:admin")
+    return dr.artifacts(limit)
+
+
+@app.get("/api/v1/dr/restore-tests")
+def disaster_recovery_restore_tests(request: Request, limit: int = 50):
+    require(request, "dr:admin")
+    return dr.restore_tests(limit)
+
+
+@app.get("/api/v1/dr/replication-runs")
+def disaster_recovery_replication_runs(request: Request, limit: int = 50):
+    require(request, "dr:admin")
+    return dr.replication_runs(limit)
+
+
+@app.get("/api/v1/dr/requests")
+def disaster_recovery_requests(request: Request, limit: int = 30):
+    require(request, "dr:admin")
+    return dr.recent_requests(limit)
+
+
+@app.post("/api/v1/dr/scan", status_code=202)
+def disaster_recovery_scan(request: Request):
+    p = require(request, "dr:admin")
+    row = dr.queue_request("scan", p.actor)
+    log(p.actor, "dr.scan_queued", "dr_request", str(row["id"]), request)
+    return row
+
+
+@app.post("/api/v1/dr/restore-test", status_code=202)
+def disaster_recovery_restore_test(request: Request):
+    p = require(request, "dr:admin")
+    row = dr.queue_request("restore_test", p.actor)
+    log(p.actor, "dr.restore_test_queued", "dr_request", str(row["id"]), request)
+    return row
+
+
+@app.post("/api/v1/dr/replicate", status_code=202)
+def disaster_recovery_replicate(request: Request):
+    p = require(request, "dr:admin")
+    row = dr.queue_request("replicate", p.actor)
+    log(p.actor, "dr.replication_queued", "dr_request", str(row["id"]), request)
     return row
 
 

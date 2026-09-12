@@ -4,7 +4,7 @@
 
 MemoryBank gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.2.0`  
+**Current release:** `v2.3.0`  
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
 ## Highlights
@@ -30,6 +30,8 @@ MemoryBank gives you one controlled source of truth for personal knowledge. Huma
 - Scheduled ingestion mesh with source provenance
 - OAuth authorization for MCP with PKCE and rotating refresh tokens
 - Client ID Metadata Documents and Protected Resource Metadata
+- Automated disaster-recovery restore testing
+- Backup integrity, retention and off-site replication monitoring
 - MinIO source-document storage
 - Redis/RQ background workers
 - Caddy local gateway
@@ -192,3 +194,8 @@ See [GitHub Connector](docs/GITHUB-CONNECTOR.md) and [Browser Capture](docs/BROW
 ## v2.2 Identity & MCP
 
 See [OAuth and MCP Identity](docs/OAUTH-MCP.md).
+
+
+## v2.3 Disaster Recovery
+
+See [Disaster Recovery](docs/DISASTER-RECOVERY.md).
