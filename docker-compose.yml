@@ -1,6 +1,6 @@
 services:
   db:
-    image: pgvector/pgvector:0.8.6-pg18-trixie
+    image: pgvector/pgvector:0.8.6-pg18-trixie@sha256:78bf48b801e792f99e3ac62b5036fd3876e9be48afda16c1e331af1c75ceb2ff
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -17,7 +17,7 @@ services:
       retries: 15
 
   redis:
-    image: redis:8-alpine
+    image: redis:8-alpine@sha256:becdda6c7f4b3fb42e42fd7f120bbf5c54c4caaaf16f26da24e4563d2c1f0576
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     volumes:
@@ -30,14 +30,14 @@ services:
       retries: 10
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama@sha256:684d8674b4315fa18f4f0e973a118ec2652ed96f67563277839985175858e0ba
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
     networks: [backend, egress]
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -53,7 +53,7 @@ services:
       retries: 10
 
   minio-init:
-    image: minio/mc:latest
+    image: minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
     depends_on:
       minio:
         condition: service_healthy
@@ -127,7 +127,7 @@ services:
     networks: [edge]
 
   gateway:
-    image: caddy:2-alpine
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: unless-stopped
     volumes:
       - ./gateway/Caddyfile:/etc/caddy/Caddyfile:ro
