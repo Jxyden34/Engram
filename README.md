@@ -160,6 +160,7 @@ docker-compose.yml    production stack
 - [Backup and restore](docs/BACKUP-RESTORE.md)
 - [Operations](docs/OPERATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Portfolio & engineering evidence](docs/PORTFOLIO.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
