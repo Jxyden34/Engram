@@ -1,6 +1,6 @@
 # MemoryBank Deployment
 
-This guide covers deployment of MemoryBank v2.1 on a Linux host using Docker Compose.
+This guide covers deployment of MemoryBank v2.3.1 on a Linux host using Docker Compose.
 
 ---
 
@@ -149,7 +149,7 @@ sudo systemctl restart cloudflared
 
 ## GitHub connector configuration
 
-MemoryBank v2.1 supports a GitHub App.
+MemoryBank v2.3.1 supports a GitHub App.
 
 Recommended read-only repository permissions:
 
@@ -322,3 +322,34 @@ Verify discovery after deployment:
 curl -s https://YOUR-HOST/.well-known/oauth-protected-resource/mcp
 curl -s https://YOUR-HOST/.well-known/oauth-authorization-server
 ```
+
+## Validated clean deployment
+
+MemoryBank v2.3.1 was validated from a clean repository clone on a separate Linux host.
+
+The clean deployment verified:
+
+- Docker Compose configuration
+- PostgreSQL initialization from the tracked bootstrap schema
+- pgvector availability
+- Redis connectivity
+- MinIO initialization
+- FastAPI health checks
+- Next.js web startup
+- background worker startup
+- encrypted PostgreSQL backups
+- encrypted object backups
+- successful handling of an empty MinIO bucket
+- HTTP 200 health response through the Caddy gateway
+
+The validation also identified and fixed:
+
+1. unavailable legacy Docker Hub MinIO references
+2. object-backup failure when the MinIO bucket contained zero objects
+
+Fresh deployments should use the immutable image references committed in
+`docker-compose.yml`.
+
+If port 8080 is already occupied on a recovery or test host, use a local Docker
+Compose override to publish the gateway on another loopback port rather than
+modifying the production Compose definition.
