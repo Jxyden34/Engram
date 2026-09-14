@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.3.1 - 2026-09-14
+
+### Added
+
+- Backend schema unit tests.
+- PostgreSQL + pgvector integration testing in GitHub Actions.
+- Redis connectivity and round-trip integration testing.
+- Deterministic frontend dependency installation using `package-lock.json` and `npm ci`.
+- CI validation that externally hosted production images remain pullable.
+
+### Changed
+
+- Production container images are pinned to immutable digests.
+- MinIO Community images use working Quay registry references.
+- CI uses the Python 3.14 production runtime.
+- Dependabot patch and minor updates can auto-merge after required CI checks.
+- Docker and Docker Compose dependency changes remain manual.
+- Main branch requires backend, web and Docker CI checks.
+
+### Fixed
+
+- Fresh deployments no longer depend on previously cached MinIO images.
+- Empty MinIO buckets now produce valid encrypted object backups.
+- PostgreSQL bootstrap schema is tracked for repeatable deployments.
+
+### Validation
+
+- Clean deployment successfully tested on a separate Linux host.
+- MemoryBank health endpoint returned HTTP 200 through Caddy.
+- Real off-site encrypted backups successfully restored on a separate recovery host.
+- 672 memories restored.
+- 422 documents restored.
+- 422 object files restored.
+- Zero missing object references.
+- pgvector successfully validated after restore.
+- Full isolated recovery completed in 17 seconds.
+
+
 ## 2.3.0 - 2026-09-12
 
 ### Added

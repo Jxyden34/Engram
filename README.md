@@ -4,7 +4,7 @@
 
 MemoryBank gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.3.0`  
+**Current release:** `v2.3.1`  
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
 ## Highlights
