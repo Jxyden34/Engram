@@ -4,6 +4,7 @@ mkdir -p /backups /tmp/object-backup
 while true; do
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   rm -rf /tmp/object-backup/*
+  mkdir -p /tmp/object-backup/data
   mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
   mc mirror --overwrite local/"$MINIO_BUCKET" /tmp/object-backup/data
   tar -C /tmp/object-backup -czf "/tmp/memorybank-objects-${stamp}.tar.gz" data
