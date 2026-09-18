@@ -9,24 +9,88 @@ permissions:
   contents: read
 
 jobs:
-  backend:
+  dr-monitor:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install DR test tools
+        run: sudo apt-get update && sudo apt-get install -y postgresql rclone jq shellcheck
+      - name: Check DR scripts
+        run: |
+          shellcheck ops/dr-monitor/monitor.sh ops/db-backup/backup.sh ops/object-backup/backup.sh
+          sh scripts/check-repo-secrets.sh
+      - name: Test DR monitor with isolated PostgreSQL and local replication
+        run: python3 scripts/test-dr-monitor.py
+
+  backend:
+    runs-on: ubuntu-latest
+
+    env:
+      PUBLIC_HOST: localhost
+      PUBLIC_ORIGIN: http://localhost
+      COOKIE_SECURE: "false"
+
+      DATABASE_URL: postgresql://memorybank:memorybank-ci-postgres@127.0.0.1:5432/memorybank
+      REDIS_URL: redis://127.0.0.1:6379/0
+
+      MINIO_ACCESS_KEY: memorybank-ci
+      MINIO_SECRET_KEY: memorybank-ci-secret
+
+    services:
+      postgres:
+        image: "pgvector/pgvector:0.8.6-pg18-trixie@sha256:78bf48b801e792f99e3ac62b5036fd3876e9be48afda16c1e331af1c75ceb2ff"
+        env:
+          POSTGRES_DB: memorybank
+          POSTGRES_USER: memorybank
+          POSTGRES_PASSWORD: memorybank-ci-postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U memorybank -d memorybank"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: "redis:8-alpine@sha256:becdda6c7f4b3fb42e42fd7f120bbf5c54c4caaaf16f26da24e4563d2c1f0576"
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize PostgreSQL schema
+        run: |
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql \
+            -v ON_ERROR_STOP=1 \
+            -U memorybank \
+            -d memorybank \
+            < db/init.sql
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
           cache: pip
           cache-dependency-path: |
             backend/requirements.txt
             backend/requirements-dev.txt
+
       - name: Install backend test dependencies
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
+
       - name: Compile Python
         run: python -m compileall -q backend/app backend/scripts backend/tests
+
       - name: Run backend tests
         working-directory: backend
         run: python -m pytest -q
@@ -36,25 +100,39 @@ jobs:
     defaults:
       run:
         working-directory: web
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
+
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+
       - name: Build
         run: npm run build
 
   docker:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Prepare example environment
         run: cp .env.example .env
+
       - name: Validate compose
         run: docker compose config >/dev/null
+
+      - name: Verify external runtime images are pullable
+        run: docker compose pull db redis ollama minio minio-init gateway
+
       - name: Build application images
-        run: docker compose build api worker web
+        run: >
+          docker compose build
+          api worker connector-scheduler web
+          db-backup object-backup dr-monitor

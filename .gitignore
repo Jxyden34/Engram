@@ -13,6 +13,7 @@ imports/
 data/
 *.dump
 *.sql
+!db/init.sql
 *.sqlite
 *.sqlite3
 
