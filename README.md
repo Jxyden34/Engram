@@ -4,8 +4,11 @@
 
 MemoryBank gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.3.0`  
+**Current release:** `v2.3.1`  
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
+
+The v2.3.1 DR polish source update adds responsive manual actions, safe verification
+caching and replication metrics. See [upgrade notes](UPGRADE-v2.3.1-DR-POLISH.md).
 
 ## Highlights
 
@@ -160,6 +163,7 @@ docker-compose.yml    production stack
 - [Backup and restore](docs/BACKUP-RESTORE.md)
 - [Operations](docs/OPERATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Portfolio & engineering evidence](docs/PORTFOLIO.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)

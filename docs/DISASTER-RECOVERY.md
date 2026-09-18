@@ -208,3 +208,72 @@ Plaintext dumps and extracted objects exist only temporarily inside the DR monit
 They are removed after each run.
 
 Off-site replication copies encrypted artifacts only.
+
+## v2.3.1 recovery validation
+
+A full off-site disaster-recovery exercise was completed on 2026-09-14 using
+encrypted production backup artifacts replicated to a separate recovery host.
+
+Results:
+
+```text
+PostgreSQL restore:         passed
+pgvector validation:        passed
+Object archive extraction:  passed
+Memories restored:          672
+Documents restored:         422
+Object files restored:      422
+Missing object references:  0
+Restore duration:           17 seconds
+```
+
+Artifacts tested:
+
+```text
+memorybank-20260913T174550Z.dump.enc
+memorybank-objects-20260913T174524Z.tar.gz.enc
+```
+
+The restore used a disposable PostgreSQL database and did not modify
+the production database.
+
+Temporary plaintext restore data was removed after the recovery test.
+
+The complete recovery chain demonstrated was:
+
+```text
+Blackwall production
+        |
+        v
+encrypted PostgreSQL + object backups
+        |
+        v
+off-site replication
+        |
+        v
+DarkMatter recovery host
+        |
+        v
+decrypt backups
+        |
+        v
+isolated PostgreSQL restore
+        |
+        v
+pgvector validation
+        |
+        v
+object archive extraction
+        |
+        v
+document object-reference validation
+        |
+        v
+PASS
+```
+
+The validation confirmed that all 422 restored documents with object references
+had matching files in the restored object archive.
+
+This provides tested recovery evidence for the complete MemoryBank data path,
+rather than relying only on the existence of backup files.
