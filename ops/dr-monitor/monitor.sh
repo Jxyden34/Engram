@@ -18,8 +18,17 @@ set -eu
 : "${DR_MIN_BACKUP_FREE_GB:=10}"
 
 export PGPASSWORD
+umask 077
 WORKDIR="/tmp/memorybank-dr"
-mkdir -p "$WORKDIR"
+mkdir -p "$WORKDIR/cache"
+
+log() {
+  printf '%s dr-monitor %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2
+}
+
+fingerprint() {
+  stat -c '%d:%i:%s:%y:%z' "$1"
+}
 
 psql_main() {
   psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
@@ -43,16 +52,16 @@ set_status() {
   "
 }
 
-artifact_upsert() {
+artifact_upsert() (
   type="$1"
   file="$2"
   integrity="$3"
   err="${4:-}"
 
   name="$(basename "$file")"
-  size="$(stat -c '%s' "$file" 2>/dev/null || echo 0)"
-  mtime="$(stat -c '%Y' "$file" 2>/dev/null || date +%s)"
-  digest="$(sha256sum "$file" | awk '{print $1}')"
+  size="$(stat -c '%s' "$file")" || return 1
+  mtime="$(stat -c '%Y' "$file")" || return 1
+  digest="$5"
   err_sql="$(sql_escape "$err")"
   path_sql="$(sql_escape "$file")"
   name_sql="$(sql_escape "$name")"
@@ -81,56 +90,91 @@ artifact_upsert() {
       retention_until=EXCLUDED.retention_until,
       last_checked_at=now();
   "
-}
+)
 
-verify_postgres_artifact() {
-  file="$1"
-  tmp="$WORKDIR/verify.dump"
-  rm -f "$tmp"
-  if openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-      -in "$file" -out "$tmp" -pass env:BACKUP_ENCRYPTION_PASSWORD >/dev/null 2>&1 \
-     && pg_restore --list "$tmp" >/dev/null 2>&1; then
-    artifact_upsert postgres "$file" verified ""
-  else
-    artifact_upsert postgres "$file" failed "decrypt or pg_restore archive verification failed"
+verify_artifact() (
+  type="$1"
+  file="$2"
+  force="${3:-false}"
+  case "$type:$file" in
+    postgres:/backups/postgres/*.enc|objects:/backups/objects/*.enc) ;;
+    *) log "verify rejected invalid artifact path"; return 1 ;;
+  esac
+  [ "$(dirname "$file")" = "/backups/$type" ] || return 1
+  [ -f "$file" ] && [ ! -L "$file" ] || return 1
+  before="$(fingerprint "$file")" || return 1
+  cache_key="$(printf '%s' "$file" | sha256sum | cut -d ' ' -f 1)"
+  cache="$WORKDIR/cache/$cache_key"
+  now="$(date +%s)"
+  if [ "$force" != true ] && [ -f "$cache" ]; then
+    cached_time="$(sed -n '1p' "$cache")"
+    cached_digest="$(sed -n '2p' "$cache")"
+    cached_metadata="$(sed -n '3p' "$cache")"
+    case "$cached_time" in ''|*[!0-9]*) cached_time=0 ;; esac
+    if [ "$before" = "$cached_metadata" ] && [ "$now" -ge "$cached_time" ] &&
+        [ "$(( now - cached_time ))" -lt 86400 ]; then
+      verified="$(psql_main -qAtc "SELECT count(*) FROM dr_backup_artifacts
+        WHERE artifact_type='$type' AND file_path='$(sql_escape "$file")'
+        AND integrity_status='verified' AND sha256='$(sql_escape "$cached_digest")';")" || return 1
+      if [ "$verified" = 1 ] && [ "$(fingerprint "$file")" = "$before" ]; then
+        log "verify cached type=$type artifact=$(basename "$file")"
+        return 0
+      fi
+    fi
   fi
-  rm -f "$tmp"
-}
-
-verify_object_artifact() {
-  file="$1"
-  tmp="$WORKDIR/verify-objects.tar.gz"
-  rm -f "$tmp"
+  rm -f "$cache"
+  tmp="$(mktemp "$WORKDIR/verify.XXXXXX")" || return 1
+  trap 'rm -f "$tmp"' EXIT
+  trap 'exit 1' INT TERM
+  log "verify start type=$type artifact=$(basename "$file")"
+  integrity=failed
+  error="decrypt or archive verification failed"
+  digest="$(sha256sum "$file")" || return 1
+  digest="${digest%% *}"
   if openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-      -in "$file" -out "$tmp" -pass env:BACKUP_ENCRYPTION_PASSWORD >/dev/null 2>&1 \
-     && tar -tzf "$tmp" >/dev/null 2>&1; then
-    artifact_upsert objects "$file" verified ""
-  else
-    artifact_upsert objects "$file" failed "decrypt or tar archive verification failed"
+      -in "$file" -out "$tmp" -pass env:BACKUP_ENCRYPTION_PASSWORD >/dev/null 2>&1; then
+    case "$type" in
+      postgres) if pg_restore --list "$tmp" >/dev/null 2>&1; then integrity=verified; fi ;;
+      objects) if tar -tzf "$tmp" >/dev/null 2>&1; then integrity=verified; fi ;;
+    esac
   fi
-  rm -f "$tmp"
-}
+  after="$(fingerprint "$file")" || return 1
+  if [ "$before" != "$after" ]; then
+    integrity=failed
+    error="artifact changed during verification"
+  fi
+  [ "$integrity" != verified ] || error=""
+  artifact_upsert "$type" "$file" "$integrity" "$error" "$digest" || return 1
+  log "verify result=$integrity type=$type artifact=$(basename "$file")"
+  [ "$integrity" = verified ] || return 1
+  printf '%s\n%s\n%s\n' "$now" "$digest" "$after" > "$cache.tmp" || return 1
+  mv "$cache.tmp" "$cache"
+)
 
-scan_backups() {
+scan_backups() (
+  scan_started="$(date +%s)"
+  force="${1:-false}"
+  log "scan start force=$force"
+  scan_ok=true
   mkdir -p /backups/postgres /backups/objects
 
   for file in /backups/postgres/*.enc; do
     [ -f "$file" ] || continue
-    verify_postgres_artifact "$file"
+    verify_artifact postgres "$file" "$force" || scan_ok=false
   done
 
   for file in /backups/objects/*.enc; do
     [ -f "$file" ] || continue
-    verify_object_artifact "$file"
+    verify_artifact objects "$file" "$force" || scan_ok=false
   done
 
   # Remove DB inventory rows for artifacts that no longer exist after retention cleanup.
-  psql_main -qAtc "SELECT artifact_type || '|' || id || '|' || file_path FROM dr_backup_artifacts;" |
+  psql_main -qAtc "SELECT artifact_type || '|' || id || '|' || file_path FROM dr_backup_artifacts;" > "$WORKDIR/inventory" || return 1
   while IFS='|' read -r type id path; do
     if [ ! -f "$path" ]; then
-      psql_main -qAtc "DELETE FROM dr_backup_artifacts WHERE id='$id';" >/dev/null
+      psql_main -qAtc "DELETE FROM dr_backup_artifacts WHERE id='$id';" >/dev/null || return 1
     fi
-  done
+  done < "$WORKDIR/inventory"
 
   free_kb="$(df -Pk /backups | awk 'NR==2 {print $4}')"
   total_kb="$(df -Pk /backups | awk 'NR==2 {print $2}')"
@@ -143,11 +187,15 @@ scan_backups() {
   fi
 
   set_status backup_disk "$disk_status" \
-    "{\"free_gb\":$free_gb,\"total_gb\":$total_gb,\"minimum_free_gb\":$DR_MIN_BACKUP_FREE_GB}"
+    "{\"free_gb\":$free_gb,\"total_gb\":$total_gb,\"minimum_free_gb\":$DR_MIN_BACKUP_FREE_GB}" || return 1
 
-  set_status monitor healthy \
-    "{\"last_scan\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"interval_seconds\":$DR_MONITOR_INTERVAL_SECONDS}"
-}
+  monitor_status=healthy
+  [ "$scan_ok" = true ] || monitor_status=warning
+  set_status monitor "$monitor_status" \
+    "{\"last_scan\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"interval_seconds\":$DR_MONITOR_INTERVAL_SECONDS}" || return 1
+  log "scan complete status=$monitor_status duration_seconds=$(( $(date +%s) - scan_started ))"
+  [ "$scan_ok" = true ]
+)
 
 latest_verified_path() {
   type="$1"
@@ -171,14 +219,30 @@ latest_verified_id() {
   "
 }
 
-run_restore_test() {
+selected_artifact() (
+  type="$1"
+  file="$(latest_verified_path "$type")" || return 1
+  if [ -z "$file" ] || [ ! -f "$file" ]; then
+    # Backup names contain UTC timestamps. Only discover the newest candidate;
+    # manual actions must not wait for a historical scan on a cold cache.
+    file="$(find "/backups/$type" -maxdepth 1 -type f -name '*.enc' -printf '%f\n' | sort -r | head -n 1)"
+    [ -n "$file" ] || return 0
+    file="/backups/$type/$file"
+  fi
+  verify_artifact "$type" "$file" || return 1
+  printf '%s\n' "$file"
+)
+
+run_restore_test() (
   requested_by="${1:-system:auto}"
-  pg_file="$(latest_verified_path postgres)"
-  obj_file="$(latest_verified_path objects)"
+  log "restore-test start"
+  pg_file="$(selected_artifact postgres)" || return 1
+  obj_file="$(selected_artifact objects)" || return 1
   pg_id="$(latest_verified_id postgres)"
   obj_id="$(latest_verified_id objects)"
 
   if [ -z "$pg_file" ] || [ ! -f "$pg_file" ]; then
+    log "restore-test failed: no PostgreSQL backup available"
     return 1
   fi
 
@@ -191,7 +255,7 @@ run_restore_test() {
       NULLIF('$pg_id','')::uuid,NULLIF('$obj_id','')::uuid,now()
     )
     RETURNING id;
-  ")"
+  ")" || return 1
 
   started="$(date +%s)"
   tmp_dump="$WORKDIR/restore.dump"
@@ -212,7 +276,8 @@ run_restore_test() {
     dropdb -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" --if-exists "$test_db" >/dev/null 2>&1 || true
     rm -rf "$tmp_dump" "$tmp_tar" "$extract_dir"
   }
-  trap cleanup_restore EXIT INT TERM
+  trap cleanup_restore EXIT
+  trap 'exit 1' INT TERM
 
   rm -rf "$tmp_dump" "$tmp_tar" "$extract_dir"
   mkdir -p "$extract_dir"
@@ -302,16 +367,19 @@ run_restore_test() {
         ),
         completed_at=now()
     WHERE id='$test_id';
-  "
+  " || return 1
 
   cleanup_restore
   trap - EXIT INT TERM
 
+  log "restore-test complete id=$test_id status=$final_status duration_seconds=$duration error=$error"
   [ "$final_status" != failed ]
-}
+)
 
-run_replication() {
+run_replication() (
   requested_by="${1:-system:auto}"
+  scope="${2:-all}"
+  log "replication start scope=$scope"
 
   if [ -z "$DR_OFFSITE_REMOTE" ]; then
     psql_main -qAtc "
@@ -322,7 +390,8 @@ run_replication() {
         'disabled','$(sql_escape "$requested_by")',NULL,
         'DR_OFFSITE_REMOTE is not configured',now(),now()
       );
-    "
+    " || return 1
+    log "replication disabled: remote not configured"
     return 0
   fi
 
@@ -335,12 +404,14 @@ run_replication() {
         'failed','$(sql_escape "$requested_by")','$(sql_escape "$DR_OFFSITE_REMOTE")',
         'rclone configuration file is missing',now(),now()
       );
-    "
+    " || return 1
+    log "replication failed: rclone configuration missing"
     return 1
   fi
 
-  pg_file="$(latest_verified_path postgres)"
-  obj_file="$(latest_verified_path objects)"
+  selection_ok=true
+  pg_file="$(selected_artifact postgres)" || selection_ok=false
+  obj_file="$(selected_artifact objects)" || selection_ok=false
   pg_name="$(basename "${pg_file:-}")"
   obj_name="$(basename "${obj_file:-}")"
 
@@ -351,25 +422,74 @@ run_replication() {
       '$(sql_escape "$pg_name")','$(sql_escape "$obj_name")',now()
     )
     RETURNING id;
-  ")"
+  ")" || return 1
 
   started="$(date +%s)"
   status=passed
   error=""
   pg_remote=false
   obj_remote=false
+  files_copied=0
+  bytes_copied=0
 
-  if ! rclone copy /backups/postgres "${DR_OFFSITE_REMOTE%/}/postgres" \
-      --config "$DR_OFFSITE_CONFIG_PATH" --include '*.enc' --checksum >/dev/null 2>&1; then
+  if [ "$selection_ok" != true ] || [ -z "$pg_file" ]; then
     status=failed
-    error="PostgreSQL off-site replication failed"
+    error="No usable PostgreSQL backup or selected artifact verification failed"
   fi
 
-  if [ "$status" != failed ] && ! rclone copy /backups/objects "${DR_OFFSITE_REMOTE%/}/objects" \
-      --config "$DR_OFFSITE_CONFIG_PATH" --include '*.enc' --checksum >/dev/null 2>&1; then
-    status=failed
-    error="Object off-site replication failed"
-  fi
+  for type in postgres objects; do
+    [ "$status" != failed ] || break
+    manifest="$WORKDIR/replicate-$type.files"
+    candidates="$WORKDIR/replicate-$type.candidates"
+    : > "$manifest"
+    if [ "$scope" = selected ]; then
+      case "$type" in postgres) file="$pg_file" ;; objects) file="$obj_file" ;; esac
+      printf '%s\n' "$file" > "$candidates"
+    else
+      if ! psql_main -qAtc "SELECT file_path FROM dr_backup_artifacts
+          WHERE artifact_type='$type' AND integrity_status='verified' ORDER BY file_name;" > "$candidates"; then
+        status=failed
+        error="Could not read replication inventory"
+        break
+      fi
+    fi
+    while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      if verify_artifact "$type" "$file"; then
+        basename "$file" >> "$manifest"
+      else
+        status=failed
+        error="Artifact verification failed before replication"
+        break
+      fi
+    done < "$candidates"
+    [ "$status" != failed ] || break
+    [ -s "$manifest" ] || continue
+    stats_log="$WORKDIR/rclone-$type.jsonl"
+    : > "$stats_log"
+    log "replication copy type=$type"
+    if ! rclone copy "/backups/$type" "${DR_OFFSITE_REMOTE%/}/$type" \
+        --config "$DR_OFFSITE_CONFIG_PATH" --files-from-raw "$manifest" --checksum \
+        --use-json-log --stats 1s --stats-log-level NOTICE > /dev/null 2> "$stats_log"; then
+      status=failed
+      error="$type off-site replication failed (see private rclone-$type.jsonl in monitor workdir)"
+      log "replication copy failed type=$type"
+    fi
+    # Stats are cumulative per invocation: use only its final record.
+    stats="$(jq -sc '[.[] | select(.stats != null) | .stats] | last // empty' "$stats_log" 2>/dev/null)" || stats=""
+    if [ -n "$stats" ]; then
+      copied="$(printf '%s' "$stats" | jq -er '.transfers | select(type == "number" and . >= 0) | floor')" || copied=""
+      bytes="$(printf '%s' "$stats" | jq -er '.bytes | select(type == "number" and . >= 0) | floor')" || bytes=""
+      if [ -n "$copied" ] && [ -n "$bytes" ]; then
+        files_copied="$(( files_copied + copied ))"
+        bytes_copied="$(( bytes_copied + bytes ))"
+      else
+        log "replication stats unavailable type=$type"
+      fi
+    else
+      log "replication stats unavailable type=$type"
+    fi
+  done
 
   if [ "$status" != failed ] && [ -n "$pg_name" ]; then
     if rclone lsf "${DR_OFFSITE_REMOTE%/}/postgres/$pg_name" \
@@ -399,43 +519,46 @@ run_replication() {
     SET status='$status',
         postgres_present_remote=$pg_remote,
         object_present_remote=$obj_remote,
+        files_copied=$files_copied,
+        bytes_copied=$bytes_copied,
         duration_seconds=$duration,
         error_message=NULLIF('$err_sql',''),
         completed_at=now()
     WHERE id='$run_id';
-  "
+  " || return 1
 
+  log "replication complete id=$run_id status=$status files_copied=$files_copied bytes_copied=$bytes_copied duration_seconds=$duration error=$error"
   [ "$status" != failed ]
-}
+)
 
-process_requests() {
+process_requests() (
   psql_main -qAtc "
     SELECT id || '|' || action || '|' || replace(requested_by,'|','')
     FROM dr_requests
     WHERE status='queued'
     ORDER BY created_at
     LIMIT 20;
-  " |
+  " > "$WORKDIR/requests" || return 1
   while IFS='|' read -r request_id action requested_by; do
     [ -n "$request_id" ] || continue
-    psql_main -qAtc "
+    claimed="$(psql_main -qAtc "
       UPDATE dr_requests
       SET status='processing',started_at=now()
-      WHERE id='$request_id' AND status='queued';
-    "
+      WHERE id='$request_id' AND status='queued' RETURNING id;
+    ")" || return 1
+    [ -n "$claimed" ] || continue
+    log "queue processing id=$request_id action=$action"
 
     ok=true
     case "$action" in
       scan)
-        scan_backups || ok=false
+        scan_backups true || ok=false
         ;;
       restore_test)
-        scan_backups || true
         run_restore_test "$requested_by" || ok=false
         ;;
       replicate)
-        scan_backups || true
-        run_replication "$requested_by" || ok=false
+        run_replication "$requested_by" selected || ok=false
         ;;
       *)
         ok=false
@@ -447,17 +570,18 @@ process_requests() {
         UPDATE dr_requests
         SET status='completed',completed_at=now()
         WHERE id='$request_id';
-      "
+      " || return 1
     else
       psql_main -qAtc "
         UPDATE dr_requests
         SET status='failed',error_message='DR action failed; inspect restore/replication records',
             completed_at=now()
         WHERE id='$request_id';
-      "
+      " || return 1
     fi
-  done
-}
+    log "queue complete id=$request_id action=$action success=$ok"
+  done < "$WORKDIR/requests"
+)
 
 auto_restore_due() {
   [ "$DR_RESTORE_TEST_ENABLED" = "true" ] || return 1
@@ -483,18 +607,19 @@ auto_replication_due() {
   [ "$(( now - last_epoch ))" -ge "$due" ]
 }
 
-echo "MemoryBank DR monitor starting"
+log "starting version=2.3.1"
 
 while true; do
-  scan_backups || true
-  process_requests || true
+  process_requests || log "queue processing failed"
+  scan_backups || log "scan failed; inspect artifact inventory"
+  process_requests || log "queue processing failed"
 
   if auto_restore_due; then
-    run_restore_test "system:auto" || true
+    run_restore_test "system:auto" || log "automatic restore-test failed"
   fi
 
   if auto_replication_due; then
-    run_replication "system:auto" || true
+    run_replication "system:auto" || log "automatic replication failed"
   fi
 
   sleep "$DR_MONITOR_INTERVAL_SECONDS"

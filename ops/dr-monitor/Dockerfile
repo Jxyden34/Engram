@@ -8,6 +8,7 @@ RUN apt-get update \
        coreutils \
        findutils \
        rclone \
+       jq \
        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.3.1 DR polish - 2026-09-18
+
+This source update retains version 2.3.1 and all existing v2.3 APIs and database
+tables. The published v2.3.1 tag is unchanged.
+
+- Process manual DR requests before background scans and again after scans.
+- Cache successful archive verification for at most 24 hours using device, inode,
+  size, nanosecond mtime and ctime, and confirm the database still holds the verified
+  digest. Manual scans always force full SHA-256, decrypt and archive checks.
+- Verify only selected backups for manual restore/replicate requests. On a cold
+  inventory, discover the newest candidate of each type without scanning history.
+- Replicate selected backups manually and all inventoried verified backups on
+  automatic runs, preserving encrypted-only Blackwall-to-DarkMatter copy behavior.
+- Record actual rclone transfer counters and UTC operational logs, including
+  cache hits, verification failures, queue outcomes and operation durations.
+- Publish encrypted backups through an atomic `.partial` rename.
+- Add isolated PostgreSQL/rclone regression checks to CI and enforce LF for shell
+  scripts. No migration or new deployment environment variables are required.
+
+See [upgrade notes](UPGRADE-v2.3.1-DR-POLISH.md) for deployment and verification.
+
 ## 2.3.1 - 2026-09-14
 
 ### Added
