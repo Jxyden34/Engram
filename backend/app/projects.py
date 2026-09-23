@@ -12,11 +12,9 @@ def list_projects(principal: Principal) -> list[dict]:
         rows = conn.execute(
             """SELECT p.id, p.slug, p.name, p.created_at
                FROM projects p
-               WHERE %s OR p.id=%s OR EXISTS (
-                   SELECT 1 FROM project_members pm WHERE pm.project_id=p.id AND pm.user_id=%s
-               )
+               WHERE %s OR p.id=%s
                ORDER BY p.created_at, p.name""",
-            (principal.is_admin and principal.auth_type == "session", DEFAULT_PROJECT_ID, principal.user_id),
+            (principal.is_admin and principal.auth_type == "session", principal.project_id or DEFAULT_PROJECT_ID),
         ).fetchall()
     return [dict(row) for row in rows]
 
@@ -34,11 +32,8 @@ def resolve_project(principal: Principal, requested_id: str | None) -> str:
         raise HTTPException(status_code=422, detail="Invalid project ID") from None
     with connect() as conn:
         row = conn.execute(
-            """SELECT id FROM projects p WHERE id=%s AND (
-                 %s OR id=%s OR EXISTS (
-                   SELECT 1 FROM project_members pm WHERE pm.project_id=p.id AND pm.user_id=%s
-                 ))""",
-            (selected, principal.is_admin, DEFAULT_PROJECT_ID, principal.user_id),
+            "SELECT id FROM projects WHERE id=%s AND (%s OR id=%s)",
+            (selected, principal.is_admin, DEFAULT_PROJECT_ID),
         ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Project not found")

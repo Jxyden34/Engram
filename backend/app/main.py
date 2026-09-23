@@ -334,7 +334,7 @@ def stats(request: Request):
             "events": conn.execute("SELECT count(*) AS n FROM events").fetchone()["n"],
             "documents": conn.execute("SELECT count(*) AS n FROM documents WHERE deleted_at IS NULL").fetchone()["n"],
             "pending_deletions": conn.execute("SELECT count(*) AS n FROM deletion_requests WHERE status='pending'").fetchone()["n"],
-            "api_keys": conn.execute("SELECT count(*) AS n FROM api_keys WHERE revoked_at IS NULL").fetchone()["n"],
+            "api_keys": conn.execute("SELECT count(*) AS n FROM api_keys WHERE revoked_at IS NULL AND project_id=%s", (current_project_id(),)).fetchone()["n"],
             "types": [
                 dict(row)
                 for row in conn.execute(

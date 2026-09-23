@@ -70,7 +70,7 @@ def test_project_rls_and_agent_proposals():
             """).fetchone()["id"])
             conn.commit()
         assert scan()["created"]["missing_provenance"] == 1
-        assert any(p["memory_id"] == memory_id for p in list_proposals())
+        assert any(str(p["memory_id"]) == memory_id for p in list_proposals())
     with connect() as conn:
         assert conn.execute("SELECT id FROM memories WHERE id=%s", (memory_id,)).fetchone() is None
         assert conn.execute("SELECT id FROM agent_proposals WHERE memory_id=%s", (memory_id,)).fetchone() is None

@@ -10,12 +10,6 @@ INSERT INTO projects(id, slug, name)
 VALUES ('00000000-0000-0000-0000-000000000001', 'personal', 'Personal')
 ON CONFLICT (id) DO NOTHING;
 
-CREATE TABLE IF NOT EXISTS project_members (
-    project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    PRIMARY KEY (project_id, user_id)
-);
-
 CREATE OR REPLACE FUNCTION memorybank_current_project() RETURNS uuid
 LANGUAGE sql STABLE AS $$
     SELECT COALESCE(NULLIF(current_setting('memorybank.project_id', true), '')::uuid,

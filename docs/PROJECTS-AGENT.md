@@ -6,7 +6,7 @@ Version: `2.7.0-dev-beta.1`.
 
 The migration creates a `Personal` project and assigns existing knowledge records to it. The web sidebar selects a project for the current browser. Search, memories, documents, imports, graph, timeline, connectors, captures and their background jobs use that project. API keys are bound to the project selected when created; a different `X-MemoryBank-Project` header is rejected. Existing keys remain bound to Personal. Existing OAuth MCP grants remain bound to Personal in this beta.
 
-Administrators can create projects at `/projects` or `POST /api/v1/projects`. New browser sessions default to Personal. API callers can supply `X-MemoryBank-Project: <project UUID>`; browser sessions must have access to that project. A project ID is never trusted without checking the session or credential. Project records are not automatically copied into new projects.
+Administrators can create and use projects at `/projects` or `POST /api/v1/projects`. New browser sessions default to Personal. Non-administrator sessions remain in Personal in this beta. API callers can supply `X-MemoryBank-Project: <project UUID>`; the selected project must match their credential or administrator session. Project records are not automatically copied into new projects.
 
 The migration enables and forces PostgreSQL row-level security on knowledge tables. Application database connections switch to the `memorybank_runtime` role so the policy applies even when the bootstrap database account is a superuser. Direct database maintenance by a superuser is outside the application boundary.
 
