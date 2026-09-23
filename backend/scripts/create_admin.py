@@ -5,7 +5,7 @@ from app.security import hash_password
 
 
 def main():
-    print("Create MemoryBank administrator")
+    print("Create Engram administrator")
     username = input("Username: ").strip()
     if not username:
         raise SystemExit("Username is required")

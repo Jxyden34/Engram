@@ -227,7 +227,7 @@ export default function ConnectorsPage() {
 
           <p className="meta">
             Generate a Browser Capture key under AI & API, then load the extension
-            from <code>extensions/memorybank-capture</code>.
+            from <code>extensions/engram-capture</code>.
           </p>
 
           <div className="codeBlock" style={{ marginTop: 14 }}>

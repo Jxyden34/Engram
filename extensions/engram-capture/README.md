@@ -1,17 +1,17 @@
-# MemoryBank Capture Extension
+# Engram Capture Extension
 
-Chrome / Edge Manifest V3 extension for sending pages, selections, links and notes to MemoryBank.
+Chrome / Edge Manifest V3 extension for sending pages, selections, links and notes to Engram.
 
 ## Install
 
-1. In MemoryBank, open **AI & API**.
+1. In Engram, open **AI & API**.
 2. Generate a **Browser Capture** key. It has only `capture:write`.
 3. Open `chrome://extensions` or `edge://extensions`.
 4. Enable **Developer mode**.
 5. Choose **Load unpacked**.
-6. Select this `memorybank-capture` directory.
+6. Select this `engram-capture` directory.
 7. Open the extension popup.
-8. Enter your public MemoryBank origin, for example `https://memory.example.com`.
+8. Enter your public Engram origin, for example `https://engram.example.com`.
 9. Paste the capture key and click **Save connection**.
 
 ## Capture methods
@@ -19,9 +19,9 @@ Chrome / Edge Manifest V3 extension for sending pages, selections, links and not
 - toolbar popup → Capture page
 - toolbar popup → Selection
 - toolbar popup → Quick note
-- right click page → Save page to MemoryBank
-- right click selection → Save selection to MemoryBank
-- right click link → Save link to MemoryBank
+- right click page → Save page to Engram
+- right click selection → Save selection to Engram
+- right click link → Save link to Engram
 
 Captured content becomes a source document, is extracted/embedded, and is automatically sent to the normal candidate Memory Inbox.
 

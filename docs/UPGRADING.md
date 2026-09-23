@@ -1,6 +1,6 @@
-# MemoryBank Upgrading
+# Engram Upgrading
 
-Use this procedure when upgrading an existing MemoryBank deployment.
+Use this procedure when upgrading an existing Engram deployment.
 
 The goal is simple:
 
@@ -178,7 +178,7 @@ sudo docker compose up -d worker connector-scheduler
 
 # Current migration history
 
-Typical MemoryBank migrations include:
+Typical Engram migrations include:
 
 ```text
 001  initial schema

@@ -1,4 +1,4 @@
-# MemoryBank v2.3 — Disaster Recovery
+# Engram v2.3 — Disaster Recovery
 
 v2.3 adds tested recovery evidence rather than relying on backup-file existence alone.
 

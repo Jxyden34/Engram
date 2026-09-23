@@ -42,7 +42,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         <div className="brand">
           <div className="brandMark">M</div>
           <div>
-            <strong>MemoryBank</strong>
+            <strong>Engram</strong>
             <span>private cognition layer</span>
           </div>
         </div>

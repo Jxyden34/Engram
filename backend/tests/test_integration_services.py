@@ -42,7 +42,7 @@ def test_redis_round_trip():
         decode_responses=True,
     )
 
-    key = f"memorybank:ci:{uuid4()}"
+    key = f"engram:ci:{uuid4()}"
 
     try:
         assert client.ping() is True

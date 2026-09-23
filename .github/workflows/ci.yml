@@ -30,23 +30,23 @@ jobs:
       PUBLIC_ORIGIN: http://localhost
       COOKIE_SECURE: "false"
 
-      DATABASE_URL: postgresql://memorybank:memorybank-ci-postgres@127.0.0.1:5432/memorybank
+      DATABASE_URL: postgresql://engram:engram-ci-postgres@127.0.0.1:5432/engram
       REDIS_URL: redis://127.0.0.1:6379/0
 
-      MINIO_ACCESS_KEY: memorybank-ci
-      MINIO_SECRET_KEY: memorybank-ci-secret
+      MINIO_ACCESS_KEY: engram-ci
+      MINIO_SECRET_KEY: engram-ci-secret
 
     services:
       postgres:
         image: "pgvector/pgvector:0.8.6-pg18-trixie@sha256:78bf48b801e792f99e3ac62b5036fd3876e9be48afda16c1e331af1c75ceb2ff"
         env:
-          POSTGRES_DB: memorybank
-          POSTGRES_USER: memorybank
-          POSTGRES_PASSWORD: memorybank-ci-postgres
+          POSTGRES_DB: engram
+          POSTGRES_USER: engram
+          POSTGRES_PASSWORD: engram-ci-postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U memorybank -d memorybank"
+          --health-cmd "pg_isready -U engram -d engram"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -70,8 +70,8 @@ jobs:
             "${{ job.services.postgres.id }}" \
             psql \
             -v ON_ERROR_STOP=1 \
-            -U memorybank \
-            -d memorybank \
+            -U engram \
+            -d engram \
             < db/init.sql
 
       - uses: actions/setup-python@v5

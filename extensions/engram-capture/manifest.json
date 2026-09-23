@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "MemoryBank Capture",
+  "name": "Engram Capture",
   "version": "2.1.0",
-  "description": "Send pages, selections, links and notes to your self-hosted MemoryBank.",
+  "description": "Send pages, selections, links and notes to your self-hosted Engram.",
   "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
   "host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "MemoryBank Capture",
+    "default_title": "Engram Capture",
     "default_popup": "popup.html"
   }
 }

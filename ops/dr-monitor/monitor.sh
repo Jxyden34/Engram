@@ -19,7 +19,7 @@ set -eu
 
 export PGPASSWORD
 umask 077
-WORKDIR="/tmp/memorybank-dr"
+WORKDIR="/tmp/engram-dr"
 mkdir -p "$WORKDIR/cache"
 
 log() {
@@ -261,7 +261,7 @@ run_restore_test() (
   tmp_dump="$WORKDIR/restore.dump"
   tmp_tar="$WORKDIR/objects.tar.gz"
   extract_dir="$WORKDIR/objects"
-  test_db="memorybank_dr_$(date +%s)_$$"
+  test_db="engram_dr_$(date +%s)_$$"
   pg_ok=false
   obj_ok=false
   vector_ok=false
