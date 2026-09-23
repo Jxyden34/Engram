@@ -1,6 +1,6 @@
 # MemoryBank Deployment
 
-This guide covers deployment of MemoryBank v2.3.1 on a Linux host using Docker Compose.
+This guide covers deployment of MemoryBank v2.4.0 on a Linux host using Docker Compose.
 
 ---
 
