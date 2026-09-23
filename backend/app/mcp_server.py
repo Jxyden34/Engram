@@ -11,7 +11,7 @@ mcp_principal: ContextVar[Principal | None] = ContextVar("mcp_principal", defaul
 
 mcp = MCPServer(
     "Personal Memory Bank",
-    version="2.4.0",
+    version="2.7.0-dev-beta.1",
     instructions=(
         "Search and maintain the user's private self-hosted memory bank. "
         "Use search before creating duplicate memories. "

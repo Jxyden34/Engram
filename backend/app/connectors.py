@@ -20,7 +20,7 @@ from redis import Redis
 from rq import Queue
 
 from app.config import settings
-from app.database import connect
+from app.database import connect, current_project_id, project_scope, project_job
 from app.documents import store_bytes
 
 
@@ -433,11 +433,23 @@ def queue_sync(connector_id: str):
         connector_id,
         str(run["id"]),
         job_timeout="2h",
+        meta={"project_id": current_project_id()},
     )
     return dict(run)
 
 
 def queue_due_connectors():
+    with connect() as conn:
+        project_ids = [str(row["id"]) for row in conn.execute("SELECT id FROM projects").fetchall()]
+    return sum(_queue_due_connectors_in_project(project_id) for project_id in project_ids)
+
+
+def _queue_due_connectors_in_project(project_id: str):
+    with project_scope(project_id):
+        return _queue_due_connectors_scoped()
+
+
+def _queue_due_connectors_scoped():
     with connect() as conn:
         rows = conn.execute(
             """
@@ -476,6 +488,7 @@ def queue_due_connectors():
             connector_id,
             str(run["id"]),
             job_timeout="2h",
+            meta={"project_id": current_project_id()},
         )
         queued += 1
     return queued
@@ -1017,6 +1030,7 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                 )
 
 
+@project_job
 def sync_connector(connector_id: str, run_id: str):
     with connect() as conn:
         connector = conn.execute(

@@ -9,6 +9,10 @@ export function csrfToken(): string {
 export async function api<T = any>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers || {});
   const method = (init.method || "GET").toUpperCase();
+  if (typeof window !== "undefined") {
+    const projectId = window.localStorage.getItem("memorybank_project_id");
+    if (projectId) headers.set("X-MemoryBank-Project", projectId);
+  }
 
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");

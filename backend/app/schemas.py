@@ -64,6 +64,11 @@ class ApiKeyCreate(BaseModel):
     scopes: list[str] = Field(min_length=1, max_length=20)
 
 
+class ProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    slug: str = Field(min_length=1, max_length=63)
+
+
 class ChatImportCreate(BaseModel):
     source_document_id: str
 

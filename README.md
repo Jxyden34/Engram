@@ -4,7 +4,8 @@
 
 MemoryBank gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.4.0`
+**Current stable release:** `v2.4.0`
+**Development beta:** `v2.7.0-dev-beta.1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
 The v2.4.0 release adds a read-only Gmail connector preview and restores the Memory
@@ -164,6 +165,7 @@ docker-compose.yml    production stack
 - [Backup and restore](docs/BACKUP-RESTORE.md)
 - [Operations](docs/OPERATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Projects and Memory Agent beta](docs/PROJECTS-AGENT.md)
 - [Portfolio & engineering evidence](docs/PORTFOLIO.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)

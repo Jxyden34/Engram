@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.7.0-dev-beta.1 - unreleased
+
+- Add project selection and project-bound API keys. Existing records migrate to Personal.
+- Enforce project boundaries on memory, document, import, graph and connector tables with PostgreSQL row-level security.
+- Carry project context into queued ingestion and enrichment jobs.
+- Add a read-only memory agent that proposes reviews for duplicates, conflicts, stale facts and missing provenance; it never edits memories.
+- This is a development beta. Apply migration 009 before starting the updated API and workers.
+
 ## 2.4.0 - 2026-09-23
 
 ### Added

@@ -74,6 +74,11 @@ jobs:
             -d memorybank \
             < db/init.sql
 
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U memorybank -d memorybank \
+            < db/migrations/009_projects_agent.sql
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"

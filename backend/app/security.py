@@ -27,6 +27,7 @@ class Principal:
     is_admin: bool
     scopes: set[str]
     auth_type: str
+    project_id: str | None = None
 
 
 ADMIN_SCOPES = {
@@ -143,7 +144,7 @@ def api_key_principal(token: str) -> Principal | None:
     with connect() as conn:
         row = conn.execute(
             """
-            SELECT id, owner_id, name, scopes
+            SELECT id, owner_id, name, scopes, project_id
             FROM api_keys
             WHERE key_hash = %s AND revoked_at IS NULL
             """,
@@ -161,6 +162,7 @@ def api_key_principal(token: str) -> Principal | None:
         is_admin=False,
         scopes=set(row["scopes"]),
         auth_type="api_key",
+        project_id=str(row["project_id"]),
     )
 
 

@@ -9,6 +9,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
       - ./db/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+      - ./db/migrations/009_projects_agent.sql:/docker-entrypoint-initdb.d/009-projects-agent.sql:ro
     networks: [backend]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]

@@ -6,7 +6,7 @@ from docx import Document
 from pypdf import PdfReader
 
 from app.config import settings
-from app.database import connect
+from app.database import connect, project_job
 from app.documents import minio_client
 from app.embeddings import embed_literal
 
@@ -52,6 +52,7 @@ def chunks(text: str, target=1400, overlap=220):
     return [value for value in output if value]
 
 
+@project_job
 def process_document(document_id: str):
     with connect() as conn:
         doc = conn.execute("SELECT * FROM documents WHERE id=%s", (document_id,)).fetchone()
