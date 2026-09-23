@@ -10,9 +10,9 @@ INSERT INTO projects(id, slug, name)
 VALUES ('00000000-0000-0000-0000-000000000001', 'personal', 'Personal')
 ON CONFLICT (id) DO NOTHING;
 
-CREATE OR REPLACE FUNCTION memorybank_current_project() RETURNS uuid
+CREATE OR REPLACE FUNCTION engram_current_project() RETURNS uuid
 LANGUAGE sql STABLE AS $$
-    SELECT COALESCE(NULLIF(current_setting('memorybank.project_id', true), '')::uuid,
+    SELECT COALESCE(NULLIF(current_setting('engram.project_id', true), '')::uuid,
                     '00000000-0000-0000-0000-000000000001'::uuid)
 $$;
 
@@ -77,13 +77,13 @@ BEGIN
         EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS project_id uuid', table_name);
         EXECUTE format('UPDATE %I SET project_id = %L WHERE project_id IS NULL',
                        table_name, '00000000-0000-0000-0000-000000000001');
-        EXECUTE format('ALTER TABLE %I ALTER COLUMN project_id SET DEFAULT memorybank_current_project()', table_name);
+        EXECUTE format('ALTER TABLE %I ALTER COLUMN project_id SET DEFAULT engram_current_project()', table_name);
         EXECUTE format('ALTER TABLE %I ALTER COLUMN project_id SET NOT NULL', table_name);
         EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I(project_id)', table_name || '_project_idx', table_name);
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', table_name);
         EXECUTE format('DROP POLICY IF EXISTS project_access ON %I', table_name);
-        EXECUTE format('CREATE POLICY project_access ON %I USING (project_id = memorybank_current_project()) WITH CHECK (project_id = memorybank_current_project())', table_name);
+        EXECUTE format('CREATE POLICY project_access ON %I USING (project_id = engram_current_project()) WITH CHECK (project_id = engram_current_project())', table_name);
     END LOOP;
 END $$;
 
@@ -94,12 +94,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS entities_project_name_type_idx
 -- A key stays in its selected project even if the caller supplies another header.
 ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES projects(id);
 UPDATE api_keys SET project_id = '00000000-0000-0000-0000-000000000001' WHERE project_id IS NULL;
-ALTER TABLE api_keys ALTER COLUMN project_id SET DEFAULT memorybank_current_project();
+ALTER TABLE api_keys ALTER COLUMN project_id SET DEFAULT engram_current_project();
 ALTER TABLE api_keys ALTER COLUMN project_id SET NOT NULL;
 
 CREATE TABLE IF NOT EXISTS agent_proposals (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id uuid NOT NULL DEFAULT memorybank_current_project() REFERENCES projects(id),
+    project_id uuid NOT NULL DEFAULT engram_current_project() REFERENCES projects(id),
     proposal_type text NOT NULL CHECK (proposal_type IN ('duplicate', 'conflict', 'stale', 'missing_provenance')),
     memory_id uuid NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
     related_memory_id uuid REFERENCES memories(id) ON DELETE CASCADE,
@@ -116,19 +116,19 @@ ALTER TABLE agent_proposals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_proposals FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS project_access ON agent_proposals;
 CREATE POLICY project_access ON agent_proposals
-    USING (project_id = memorybank_current_project())
-    WITH CHECK (project_id = memorybank_current_project());
+    USING (project_id = engram_current_project())
+    WITH CHECK (project_id = engram_current_project());
 
 -- The bootstrap database user is a superuser in the official PostgreSQL image.
 -- Application connections switch to this non-owner role so FORCE RLS applies.
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='memorybank_runtime') THEN
-        CREATE ROLE memorybank_runtime NOLOGIN;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='engram_runtime') THEN
+        CREATE ROLE engram_runtime NOLOGIN;
     END IF;
-    EXECUTE format('GRANT memorybank_runtime TO %I', current_user);
+    EXECUTE format('GRANT engram_runtime TO %I', current_user);
 END $$;
-GRANT USAGE ON SCHEMA public TO memorybank_runtime;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO memorybank_runtime;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO memorybank_runtime;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO memorybank_runtime;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO memorybank_runtime;
+GRANT USAGE ON SCHEMA public TO engram_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO engram_runtime;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO engram_runtime;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO engram_runtime;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO engram_runtime;

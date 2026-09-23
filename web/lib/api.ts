@@ -10,8 +10,8 @@ export async function api<T = any>(path: string, init: RequestInit = {}): Promis
   const headers = new Headers(init.headers || {});
   const method = (init.method || "GET").toUpperCase();
   if (typeof window !== "undefined") {
-    const projectId = window.localStorage.getItem("memorybank_project_id");
-    if (projectId) headers.set("X-MemoryBank-Project", projectId);
+    const projectId = window.localStorage.getItem("engram_project_id");
+    if (projectId) headers.set("X-Engram-Project", projectId);
   }
 
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {

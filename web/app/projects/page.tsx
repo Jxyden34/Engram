@@ -34,8 +34,8 @@ export default function ProjectsPage() {
       {projects.map(project => <div className="healthMemory" key={project.id}>
         <strong>{project.name}</strong><span className="meta">{project.slug}</span>
         <button className="ghostButton" onClick={() => {
-          window.localStorage.setItem("memorybank_project_id", project.id);
-          document.cookie = `memorybank_project=${project.id}; path=/; SameSite=Lax`;
+          window.localStorage.setItem("engram_project_id", project.id);
+          document.cookie = `engram_project=${project.id}; path=/; SameSite=Lax`;
           window.location.assign("/");
         }}>Open project</button>
       </div>)}

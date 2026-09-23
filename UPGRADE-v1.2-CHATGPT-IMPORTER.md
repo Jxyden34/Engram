@@ -1,4 +1,4 @@
-# MemoryBank v1.2 — ChatGPT Importer + Candidate Memory Inbox
+# Engram v1.2 — ChatGPT Importer + Candidate Memory Inbox
 
 This upgrade adds a dedicated ChatGPT-export distillation workflow.
 

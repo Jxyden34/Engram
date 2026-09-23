@@ -1,6 +1,6 @@
-# MemoryBank Deployment
+# Engram Deployment
 
-This guide covers deployment of MemoryBank v2.4.0 on a Linux host using Docker Compose.
+This guide covers deployment of Engram v2.4.0 on a Linux host using Docker Compose.
 
 ---
 
@@ -32,8 +32,8 @@ Additional storage requirements depend on:
 Clone the repository:
 
 ```bash
-git clone https://github.com/Jxyden34/Memory-Bank.git
-cd Memory-Bank
+git clone https://github.com/Jxyden34/Engram.git
+cd Engram
 ```
 
 ---
@@ -117,13 +117,13 @@ Follow the prompts.
 curl http://127.0.0.1:8080/health
 ```
 
-Expected result should indicate that MemoryBank is healthy.
+Expected result should indicate that Engram is healthy.
 
 ---
 
 ## Cloudflare Tunnel
 
-MemoryBank expects `cloudflared` to run on the host.
+Engram expects `cloudflared` to run on the host.
 
 The Compose stack does not manage the Cloudflare Tunnel container.
 
@@ -149,7 +149,7 @@ sudo systemctl restart cloudflared
 
 ## GitHub connector configuration
 
-MemoryBank v2.3.1 supports a GitHub App.
+Engram v2.3.1 supports a GitHub App.
 
 Recommended read-only repository permissions:
 
@@ -209,7 +209,7 @@ and configure the installation ID and repositories.
 The extension source is located at:
 
 ```text
-extensions/memorybank-capture
+extensions/engram-capture
 ```
 
 In Chrome:
@@ -232,7 +232,7 @@ Load unpacked
 
 Select the extension directory.
 
-In MemoryBank, generate a dedicated Browser Capture key.
+In Engram, generate a dedicated Browser Capture key.
 
 The key should use only:
 
@@ -243,7 +243,7 @@ capture:write
 Configure the extension with:
 
 ```text
-https://YOUR-MEMORYBANK-HOST
+https://YOUR-ENGRAM-HOST
 ```
 
 and the generated capture key.
@@ -325,7 +325,7 @@ curl -s https://YOUR-HOST/.well-known/oauth-authorization-server
 
 ## Validated clean deployment
 
-MemoryBank v2.3.1 was validated from a clean repository clone on a separate Linux host.
+Engram v2.3.1 was validated from a clean repository clone on a separate Linux host.
 
 The clean deployment verified:
 

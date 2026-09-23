@@ -29,8 +29,8 @@ export default function Shell({ children }: { children: ReactNode }) {
   const [selectedProject, setSelectedProject] = useState("");
 
   useEffect(() => {
-    setSelectedProject(window.localStorage.getItem("memorybank_project_id") || "00000000-0000-0000-0000-000000000001");
-    document.cookie = `memorybank_project=${window.localStorage.getItem("memorybank_project_id") || "00000000-0000-0000-0000-000000000001"}; path=/; SameSite=Lax`;
+    setSelectedProject(window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001");
+    document.cookie = `engram_project=${window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001"}; path=/; SameSite=Lax`;
     if (pathname !== "/login") {
       api<{ id: string; name: string }[]>("/api/v1/projects").then(setProjects).catch(() => {});
     }
@@ -52,9 +52,9 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandMark">M</div>
+          <div className="brandMark">E</div>
           <div>
-            <strong>MemoryBank</strong>
+            <strong>Engram</strong>
             <span>private cognition layer</span>
           </div>
         </div>
@@ -62,8 +62,8 @@ export default function Shell({ children }: { children: ReactNode }) {
         <label className="projectPicker">
           <span>Project</span>
           <select className="select" value={selectedProject} onChange={(event) => {
-            window.localStorage.setItem("memorybank_project_id", event.target.value);
-            document.cookie = `memorybank_project=${event.target.value}; path=/; SameSite=Lax`;
+            window.localStorage.setItem("engram_project_id", event.target.value);
+            document.cookie = `engram_project=${event.target.value}; path=/; SameSite=Lax`;
             window.location.reload();
           }}>
             {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}

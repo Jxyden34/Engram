@@ -1,6 +1,6 @@
 # OAuth and MCP Identity
 
-MemoryBank v2.2 adds an OAuth authorization server for remote MCP clients.
+Engram v2.2 adds an OAuth authorization server for remote MCP clients.
 
 The implementation is designed around the modern MCP authorization model:
 
@@ -9,7 +9,7 @@ The implementation is designed around the modern MCP authorization model:
 - short-lived opaque access tokens
 - rotating refresh tokens
 - refresh-token family reuse detection
-- RFC 8707-style resource binding to the exact MemoryBank MCP endpoint
+- RFC 8707-style resource binding to the exact Engram MCP endpoint
 - OAuth Protected Resource Metadata
 - OAuth Authorization Server Metadata
 - Client ID Metadata Documents (CIMD)
@@ -71,7 +71,7 @@ OAUTH_AUTHORIZATION_CODE_MINUTES=5
 
 Modern MCP clients can use an HTTPS URL as their `client_id`.
 
-MemoryBank securely fetches the JSON metadata document, validates it, validates
+Engram securely fetches the JSON metadata document, validates it, validates
 the redirect URI, and caches the client registration.
 
 Metadata retrieval:
@@ -86,7 +86,7 @@ Metadata retrieval:
 
 ### Pre-registration
 
-Use **AI, API & OAuth** in the MemoryBank dashboard to create a client manually.
+Use **AI, API & OAuth** in the Engram dashboard to create a client manually.
 
 This returns a client ID beginning with:
 
@@ -118,7 +118,7 @@ Plain PKCE is not supported.
 
 Every refresh exchanges the old refresh token for a new one.
 
-If a rotated refresh token is presented again, MemoryBank assumes token theft
+If a rotated refresh token is presented again, Engram assumes token theft
 and revokes the entire refresh-token family.
 
 ## Scope model

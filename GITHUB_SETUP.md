@@ -1,17 +1,17 @@
-# Put MemoryBank on GitHub
+# Put Engram on GitHub
 
 Create an empty repository on GitHub first.
 
-For sensitive infrastructure like MemoryBank, a **private repository** is recommended.
+For sensitive infrastructure like Engram, a **private repository** is recommended.
 
 Then:
 
 ```bash
-cd memorybank
+cd Engram
 
 git init
 git add .
-git commit -m "Initial MemoryBank v2.0.1"
+git commit -m "Initial Engram v2.0.1"
 git branch -M main
 
 git remote add origin git@github.com:YOUR_USERNAME/YOUR_REPOSITORY.git

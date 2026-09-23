@@ -496,7 +496,7 @@ def _fetch_cimd(url: str) -> dict[str, Any]:
                 f"GET {path} HTTP/1.1\r\n"
                 f"Host: {host_header}\r\n"
                 "Accept: application/json\r\n"
-                "User-Agent: MemoryBank-OAuth/2.2\r\n"
+                "User-Agent: Engram-OAuth/2.2\r\n"
                 "Connection: close\r\n\r\n"
             ).encode("ascii")
             tls.sendall(request_bytes)
@@ -552,7 +552,7 @@ def _load_client(client_id: str, redirect_uri: str | None = None) -> dict[str, A
         if "code" not in (metadata.get("response_types") or ["code"]):
             raise HTTPException(status_code=400, detail="CIMD client does not support code response type")
         if metadata.get("token_endpoint_auth_method", "none") != "none":
-            raise HTTPException(status_code=400, detail="MemoryBank v2.2 supports public OAuth clients only")
+            raise HTTPException(status_code=400, detail="Engram v2.2 supports public OAuth clients only")
 
         with connect() as conn:
             row = conn.execute(
@@ -710,7 +710,7 @@ def render_consent(request_data: dict[str, Any], username: str, csrf_token: str)
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Authorize {html.escape(client['client_name'])} · MemoryBank</title>
+<title>Authorize {html.escape(client['client_name'])} · Engram</title>
 <style>
   :root {{ color-scheme: dark; }}
   * {{ box-sizing:border-box; }}
@@ -731,7 +731,7 @@ def render_consent(request_data: dict[str, Any], username: str, csrf_token: str)
 <main>
   <div class="logo">M</div>
   <h1>Allow {html.escape(client['client_name'])}?</h1>
-  <p>Signed in as <strong>{html.escape(username)}</strong>. This application is requesting access to your private MemoryBank.</p>
+  <p>Signed in as <strong>{html.escape(username)}</strong>. This application is requesting access to your private Engram.</p>
   <div class="box">
     <div class="meta">Client ID</div>
     <div>{html.escape(request_data['client_id'])}</div>
@@ -755,7 +755,7 @@ def render_consent(request_data: dict[str, Any], username: str, csrf_token: str)
 
 def scope_description(scope: str) -> str:
     return {
-        "mcp:use": "Connect to the MemoryBank MCP server",
+        "mcp:use": "Connect to the Engram MCP server",
         "memory:read": "Search and read memories",
         "memory:write": "Create and update memories",
         "memory:delete_request": "Request deletion for human approval",

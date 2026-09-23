@@ -97,7 +97,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="MemoryBank API",
+    title="Engram API",
     version="2.7.0-dev-beta.1",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
@@ -110,7 +110,7 @@ app.add_middleware(
     allow_origin_regex=r"^chrome-extension://[a-z]{32}$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-MemoryBank-Project", "Mcp-*", "Last-Event-ID"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Engram-Project", "Mcp-*", "Last-Event-ID"],
     expose_headers=["Mcp-Session-Id", "WWW-Authenticate"],
 )
 
@@ -140,7 +140,7 @@ async def security_middleware(request: Request, call_next):
     }:
         try:
             selected_project = projects.resolve_project(
-                authenticate(request), request.headers.get("x-memorybank-project") or request.cookies.get("memorybank_project")
+                authenticate(request), request.headers.get("x-engram-project") or request.cookies.get("engram_project")
             )
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
@@ -203,7 +203,7 @@ async def security_middleware(request: Request, call_next):
                 },
             )
         try:
-            selected_project = projects.resolve_project(p, request.headers.get("x-memorybank-project"))
+            selected_project = projects.resolve_project(p, request.headers.get("x-engram-project"))
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
         token = mcp_principal.set(p)
@@ -218,7 +218,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "memorybank", "version": "2.7.0-dev-beta.1"}
+    return {"status": "ok", "service": "engram", "version": "2.7.0-dev-beta.1"}
 
 
 @app.post("/api/v1/auth/login")
@@ -848,7 +848,7 @@ def gmail_callback(request: Request):
     principal = require(request, "connector:admin")
     session = request.cookies.get(SESSION_COOKIE)
     if principal.auth_type != "session" or not principal.user_id or not session:
-        raise HTTPException(status_code=403, detail="Return to MemoryBank in the browser where Gmail setup started")
+        raise HTTPException(status_code=403, detail="Return to Engram in the browser where Gmail setup started")
     state = request.query_params.get("state", "")
     session_hash = sha256(session)
     if request.query_params.get("error"):

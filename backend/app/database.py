@@ -6,7 +6,7 @@ from psycopg.rows import dict_row
 from app.config import settings
 
 DEFAULT_PROJECT_ID = "00000000-0000-0000-0000-000000000001"
-_project_id: ContextVar[str] = ContextVar("memorybank_project_id", default=DEFAULT_PROJECT_ID)
+_project_id: ContextVar[str] = ContextVar("engram_project_id", default=DEFAULT_PROJECT_ID)
 
 
 def current_project_id() -> str:
@@ -36,6 +36,6 @@ def project_job(fn):
 
 def connect():
     conn = psycopg.connect(settings().database_url, row_factory=dict_row)
-    conn.execute("SET ROLE memorybank_runtime")
-    conn.execute("SELECT set_config('memorybank.project_id', %s, false)", (current_project_id(),))
+    conn.execute("SET ROLE engram_runtime")
+    conn.execute("SELECT set_config('engram.project_id', %s, false)", (current_project_id(),))
     return conn

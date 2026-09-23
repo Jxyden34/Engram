@@ -47,7 +47,7 @@ def test_redis_round_trip():
         decode_responses=True,
     )
 
-    key = f"memorybank:ci:{uuid4()}"
+    key = f"engram:ci:{uuid4()}"
 
     try:
         assert client.ping() is True
@@ -60,7 +60,7 @@ def test_redis_round_trip():
 def test_project_rls_and_agent_proposals():
     slug = f"ci-{uuid4().hex[:12]}"
     with connect() as conn:
-        assert conn.execute("SELECT current_user AS role").fetchone()["role"] == "memorybank_runtime"
+        assert conn.execute("SELECT current_user AS role").fetchone()["role"] == "engram_runtime"
         project_id = str(conn.execute(
             "INSERT INTO projects(slug,name) VALUES (%s,'CI project') RETURNING id", (slug,)
         ).fetchone()["id"])
