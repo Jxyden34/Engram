@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.4.0 (Unreleased)
+
+### Added
+
+- Gmail read-only connector preview using the existing scheduled connector flow.
+- OAuth state bound to the active administrator session, with one-use expiry.
+- Encrypted Google refresh tokens, explicit disconnect/revocation, selectable
+  Gmail query/label, bounded message polling and provenance-preserving source
+  documents routed through the Memory Inbox review workflow.
+- Google setup, restricted-scope and migration notes in `docs/GMAIL.md`.
+
+### Scope
+
+- Gmail API `gmail.readonly` only: no sending, modifying, deleting or attachments.
+- Release remains gated on Google OAuth project configuration and applying
+  migration 008 on existing installations.
+- Each Gmail run is capped to the newest 500 matching messages; historical
+  backfill beyond that cap is not supported in this preview.
+
 ## 2.3.1 DR polish - 2026-09-18
 
 This source update retains version 2.3.1 and all existing v2.3 APIs and database

@@ -384,6 +384,7 @@ CREATE TABLE IF NOT EXISTS connectors (
         CHECK (schedule_minutes BETWEEN 5 AND 10080),
     config jsonb NOT NULL DEFAULT '{}'::jsonb,
     cursor jsonb NOT NULL DEFAULT '{}'::jsonb,
+    credential_ciphertext text,
     last_status text,
     last_error text,
     last_sync_at timestamptz,
