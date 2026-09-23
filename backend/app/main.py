@@ -135,7 +135,9 @@ async def security_middleware(request: Request, call_next):
 
     token = None
     selected_project = None
-    if path.startswith("/api/v1/") and path not in {"/api/v1/auth/login", "/api/v1/projects"}:
+    if path.startswith("/api/v1/") and path not in {
+        "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/me", "/api/v1/projects"
+    }:
         try:
             selected_project = projects.resolve_project(
                 authenticate(request), request.headers.get("x-memorybank-project") or request.cookies.get("memorybank_project")
