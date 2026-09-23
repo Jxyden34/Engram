@@ -20,7 +20,7 @@ from redis import Redis
 from rq import Queue
 
 from app.config import settings
-from app.database import connect, current_project_id, project_scope, project_job
+from app.database import DEFAULT_PROJECT_ID, connect, current_project_id, project_scope, project_job
 from app.documents import store_bytes
 
 
@@ -128,6 +128,7 @@ def start_gmail_oauth(data: dict[str, Any], actor: str, owner_id: str, session_h
         "actor": actor,
         "owner_id": owner_id,
         "session_hash": session_hash,
+        "project_id": current_project_id(),
         "name": str(data.get("name") or "Gmail").strip()[:200] or "Gmail",
         "config": _gmail_config(data),
     })
@@ -157,6 +158,8 @@ def finish_gmail_oauth(state: str, code: str, session_hash: str) -> tuple[str, s
     data = json.loads(value)
     if not secrets.compare_digest(data["session_hash"], session_hash):
         raise HTTPException(status_code=403, detail="Gmail authorization must finish in the same browser session")
+    if data.get("project_id", DEFAULT_PROJECT_ID) != current_project_id():
+        raise HTTPException(status_code=409, detail="Select the original project before finishing Gmail authorization")
     if not code:
         raise HTTPException(status_code=400, detail="Google authorization was cancelled")
     redirect_uri = f"{cfg.public_origin.rstrip('/')}{GMAIL_CALLBACK_PATH}"

@@ -16,7 +16,7 @@ Use `/agent` to scan the selected project. The scan proposes review of high-simi
 
 ## Upgrade and verification
 
-1. Back up PostgreSQL and MinIO, then stop the worker and connector scheduler.
+1. Back up PostgreSQL and MinIO, then stop the API, worker and connector scheduler.
 2. Apply `db/migrations/009_projects_agent.sql` once using `psql -v ON_ERROR_STOP=1` before starting the updated API.
 3. Rebuild the API, worker, connector scheduler and web images.
 4. Verify that existing records appear in Personal, create a second project, add a memory there, and check it is absent from Personal search and MCP/API key access.
