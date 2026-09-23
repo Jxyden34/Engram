@@ -1,6 +1,6 @@
-# MemoryBank Operations
+# Engram Operations
 
-This document covers common operational checks for MemoryBank v2.1.
+This document covers common operational checks for Engram v2.1.
 
 ---
 
@@ -36,7 +36,7 @@ curl http://127.0.0.1:8080/health
 For the public hostname:
 
 ```bash
-curl https://YOUR-MEMORYBANK-DOMAIN/health
+curl https://YOUR-ENGRAM-DOMAIN/health
 ```
 
 ---
@@ -389,7 +389,7 @@ Volumes:
 sudo docker volume ls
 ```
 
-Do not run destructive Docker cleanup commands blindly on a production MemoryBank host.
+Do not run destructive Docker cleanup commands blindly on a production Engram host.
 
 ---
 
@@ -414,7 +414,7 @@ Recommended weekly checks:
 
 # Incident triage
 
-If MemoryBank is unreachable:
+If Engram is unreachable:
 
 ```text
 1. Check Caddy

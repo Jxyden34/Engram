@@ -24,7 +24,7 @@ def main():
         pg_bin = subprocess.check_output([pg_config, "--bindir"], text=True).strip()
     else:
         pg_bin = str(sorted(Path("/usr/lib/postgresql").glob("*/bin"))[-1])
-    with tempfile.TemporaryDirectory(prefix="memorybank-dr-test-") as directory:
+    with tempfile.TemporaryDirectory(prefix="engram-dr-test-") as directory:
         root = Path(directory)
         env = dict(os.environ, PATH=pg_bin + os.pathsep + os.environ["PATH"],
                    PGHOST=str(root), PGPORT="5432", PGDATABASE="postgres",
@@ -43,7 +43,7 @@ def main():
 
         source = (ROOT / "ops/dr-monitor/monitor.sh").read_text()
         functions, loop = source.split('log "starting version=2.4.0"', 1)
-        functions = functions.replace('WORKDIR="/tmp/memorybank-dr"',
+        functions = functions.replace('WORKDIR="/tmp/engram-dr"',
                                       f'WORKDIR="{root}/work"')
         functions = functions.replace("/backups", str(root / "backups"))
 
@@ -69,8 +69,8 @@ def main():
             archive = root / "objects.tar.gz"
             with tarfile.open(archive, "w:gz") as tar:
                 tar.add(root / "data", arcname="data")
-            pg = root / "backups/postgres/memorybank-20260918T000000Z.dump.enc"
-            obj = root / "backups/objects/memorybank-objects-20260918T000000Z.tar.gz.enc"
+            pg = root / "backups/postgres/engram-20260918T000000Z.dump.enc"
+            obj = root / "backups/objects/engram-objects-20260918T000000Z.tar.gz.enc"
             for plain, encrypted in ((dump, pg), (archive, obj)):
                 run("openssl", "enc", "-aes-256-cbc", "-salt", "-pbkdf2", "-iter", "200000",
                     "-in", str(plain), "-out", str(encrypted),
@@ -168,7 +168,7 @@ sleep() { exit 0; }
             # Real isolated restore must fail when pgvector is absent, then clean up.
             shell("run_restore_test test:missing-vector", success=False)
             assert sql("SELECT status FROM dr_restore_tests ORDER BY created_at DESC LIMIT 1") == "failed"
-            assert sql("SELECT count(*) FROM pg_database WHERE datname LIKE 'memorybank_dr_%'") == "0"
+            assert sql("SELECT count(*) FROM pg_database WHERE datname LIKE 'engram_dr_%'") == "0"
             assert not (root / "work/restore.dump").exists()
             print("PASS: actual PostgreSQL restore, vector failure gate, temporary DB cleanup")
 

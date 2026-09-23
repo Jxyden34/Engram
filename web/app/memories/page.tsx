@@ -66,7 +66,7 @@ export default function MemoriesPage() {
       {error && <div className="errorBox">{error}</div>}
       <section className="panel">
         <div className="panelHead">
-          <h2>{results ? "Semantic results" : "Active memory bank"}</h2>
+          <h2>{results ? "Semantic results" : "Active memories"}</h2>
           <span className="meta">{visible.length} visible</span>
         </div>
         <div className="tableWrap">

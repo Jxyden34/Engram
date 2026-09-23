@@ -14,11 +14,11 @@ selection are not synced.
 2. Configure the OAuth consent screen for your personal use and add your Gmail
    address as a test user if the app is in Testing mode.
 3. Create an OAuth client with application type **Web application**.
-4. Add this exact authorized redirect URI, shown on MemoryBank's Connectors
+4. Add this exact authorized redirect URI, shown on Engram's Connectors
    page once credentials are configured:
 
    ```text
-   https://YOUR_MEMORYBANK_HOST/api/v1/connectors/gmail/callback
+   https://YOUR_ENGRAM_HOST/api/v1/connectors/gmail/callback
    ```
 
 5. Add the client ID and client secret to the server-side `.env`; never put
@@ -70,6 +70,6 @@ and [testing-mode token expiry](https://support.google.com/cloud/answer/15549945
   selects up to the 500 newest matching messages; there is no historical cursor,
   so increasing the limit will not page through mail beyond those 500 messages.
 - Removing a message or label in Gmail does not delete its imported document or
-  accepted memories. Remove those in MemoryBank explicitly.
+  accepted memories. Remove those in Engram explicitly.
 - Gmail search terms are passed to Gmail's API as a query. Avoid queries that
-  include mail you do not want copied into MemoryBank.
+  include mail you do not want copied into Engram.

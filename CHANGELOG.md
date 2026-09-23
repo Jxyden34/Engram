@@ -1,5 +1,10 @@
 # Changelog
 
+## Engram rename - 2026-09-23
+
+- Renamed the public product, API metadata, browser extension, docs, and new-install defaults to Engram.
+- Existing deployments can keep their database, object bucket, backup artifacts, and credentials while adopting the branding.
+
 ## 2.4.0 - 2026-09-23
 
 ### Added
@@ -70,7 +75,7 @@ See [upgrade notes](UPGRADE-v2.3.1-DR-POLISH.md) for deployment and verification
 ### Validation
 
 - Clean deployment successfully tested on a separate Linux host.
-- MemoryBank health endpoint returned HTTP 200 through Caddy.
+- Engram health endpoint returned HTTP 200 through Caddy.
 - Real off-site encrypted backups successfully restored on a separate recovery host.
 - 672 memories restored.
 - 422 documents restored.
@@ -159,4 +164,4 @@ See [upgrade notes](UPGRADE-v2.3.1-DR-POLISH.md) for deployment and verification
 
 ## 1.0.0
 
-- Initial MemoryBank full-stack platform.
+- Initial Engram full-stack platform.

@@ -306,7 +306,7 @@ export default function SettingsPage() {
       <div className="split">
         <section className="panel" style={{ marginTop: 0 }}>
           <div className="panelHead"><h2>Browser Capture</h2><span className="badge">write-only</span></div>
-          <p className="meta">Generate a key that can only send captures into MemoryBank.</p>
+          <p className="meta">Generate a key that can only send captures into Engram.</p>
           <button className="button primary" onClick={createCaptureKey}>Generate capture key</button>
           <div className="meta" style={{ marginTop: 12 }}>Scope</div>
           <div className="codeBlock">capture:write</div>

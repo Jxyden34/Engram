@@ -1,4 +1,4 @@
-# MemoryBank v2.0 — Knowledge Core
+# Engram v2.0 — Knowledge Core
 
 Upgrades v1.4 in place. Existing memories, documents, imports, MinIO data, API keys and audit history are preserved.
 
