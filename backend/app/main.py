@@ -95,7 +95,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="MemoryBank API",
-    version="2.3.1",
+    version="2.4.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -200,7 +200,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "memorybank", "version": "2.3.1"}
+    return {"status": "ok", "service": "memorybank", "version": "2.4.0"}
 
 
 @app.post("/api/v1/auth/login")
