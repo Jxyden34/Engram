@@ -24,7 +24,9 @@ export default function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname === "/login") return <>{children}</>;
+  if (["/login", "/about", "/privacy", "/terms"].includes(pathname)) {
+    return <>{children}</>;
+  }
 
   async function logout() {
     try {
