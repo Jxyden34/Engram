@@ -10,6 +10,9 @@ MemoryBank gives you one controlled source of truth for personal knowledge. Huma
 The v2.3.1 DR polish source update adds responsive manual actions, safe verification
 caching and replication metrics. See [upgrade notes](UPGRADE-v2.3.1-DR-POLISH.md).
 
+Gmail read-only connector work for v2.4 is in progress. See [Gmail setup and
+OAuth notes](docs/GMAIL.md).
+
 ## Highlights
 
 - PostgreSQL + pgvector memory store

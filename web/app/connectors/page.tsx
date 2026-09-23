@@ -29,9 +29,35 @@ export default function ConnectorsPage() {
 
   useEffect(() => {
     void load();
+    const gmail = new URLSearchParams(window.location.search).get("gmail");
+    if (gmail === "connected") setNotice("Gmail connected. Your first sync will start shortly.");
+    if (gmail === "cancelled") setNotice("Gmail connection was cancelled.");
     const timer = setInterval(() => void load(), 8000);
     return () => clearInterval(timer);
   }, []);
+
+  async function connectGmail(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const f = new FormData(e.currentTarget);
+    const label = String(f.get("label") || "INBOX");
+    try {
+      const result: any = await api("/api/v1/connectors/gmail/authorize", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Gmail",
+          query: String(f.get("query") || "newer_than:30d"),
+          label_ids: label === "ALL" ? [] : [label],
+          max_messages_per_sync: Number(f.get("max_messages_per_sync")),
+        }),
+      });
+      window.location.assign(result.authorization_url);
+    } catch (e: any) {
+      setError(e.message);
+      setBusy(false);
+    }
+  }
 
   async function createConnector(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -147,6 +173,48 @@ export default function ConnectorsPage() {
             Issues read, Pull requests read. No webhook is required for scheduled sync.
           </p>
         </section>
+        <section className="panel" style={{ marginTop: 0 }}>
+          <div className="panelHead">
+            <div>
+              <h2>Gmail</h2>
+              <div className="meta">Read only sync of selected Gmail messages.</div>
+            </div>
+            <span className={`badge ${capabilities?.gmail?.available ? "ready" : "failed"}`}>
+              {capabilities?.gmail?.available ? "configured" : "needs Google OAuth setup"}
+            </span>
+          </div>
+          <p className="meta">
+            Requests Google’s Gmail read-only access. Messages become source documents;
+            attachments are not imported. Google may require OAuth app verification.
+          </p>
+          {capabilities?.gmail?.redirect_uri && (
+            <><div className="meta">Authorized redirect URI for your Google OAuth web client</div>
+              <div className="codeBlock">{capabilities.gmail.redirect_uri}</div></>
+          )}
+          <form className="formGrid" onSubmit={connectGmail}>
+            <div className="field full">
+              <label>Gmail search</label>
+              <input className="input" name="query" defaultValue="newer_than:30d" maxLength={1000} />
+            </div>
+            <div className="field">
+              <label>Mail to sync</label>
+              <select className="select" name="label" defaultValue="INBOX">
+                <option value="INBOX">Inbox</option>
+                <option value="STARRED">Starred</option>
+                <option value="ALL">All mail matching search</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Maximum messages per sync</label>
+              <input className="input" type="number" name="max_messages_per_sync" min="1" max="500" defaultValue="100" />
+            </div>
+            <div className="field full">
+              <button className="button primary" disabled={busy || !capabilities?.gmail?.available}>
+                Connect Gmail
+              </button>
+            </div>
+          </form>
+        </section>
 
         <section className="panel" style={{ marginTop: 0 }}>
           <div className="panelHead">
@@ -246,7 +314,7 @@ export default function ConnectorsPage() {
                 <tr key={c.id}>
                   <td>
                     <strong>{c.name}</strong>
-                    <div className="meta">GitHub · every {c.schedule_minutes}m</div>
+                    <div className="meta">{c.connector_type === "gmail" ? "Gmail" : "GitHub"} · every {c.schedule_minutes}m</div>
                   </td>
                   <td>
                     <span className={`badge ${c.last_status || ""}`}>

@@ -300,6 +300,11 @@ Cover:
 
 ## v2.4 — Expanded Connectors 🟡
 
+Start with the read-only Gmail connector. Keep later sources out of the first
+release until sync, credential storage and source deletion behavior are proven.
+The initial Gmail scope imports selected mail as source documents and candidate
+memories; it does not send, modify, delete messages or import attachments.
+
 ### Email
 
 Potential sources:
@@ -314,6 +319,16 @@ Ingest:
 - labels/folders
 - attachments
 - important threads
+
+#### First release: Gmail
+
+- 🟡 OAuth authorization with `gmail.readonly` only.
+- 🟡 User-selected Gmail query, label and sync limit.
+- 🟡 Scheduled bounded-query sync with idempotent document updates.
+- 🟡 Each run reads up to 500 newest matches; historical cursor/backfill remains future work.
+- 🟡 Encrypted refresh-token storage and account disconnect / revocation.
+- 🟡 Message provenance, search indexing and candidate-memory review.
+- 🟡 No compose, send, modify, delete, attachment or mailbox-wide default sync.
 
 ### Calendar
 

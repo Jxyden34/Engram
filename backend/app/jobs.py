@@ -85,7 +85,7 @@ def process_document(document_id: str):
             )
             conn.commit()
 
-        if doc.get("source_type") in {"browser_capture", "github"}:
+        if doc.get("source_type") in {"browser_capture", "github", "gmail"}:
             try:
                 from app.document_memory_import import create_job
                 create_job(
