@@ -129,20 +129,22 @@ jobs:
         run: docker compose config >/dev/null
 
       - name: Verify external runtime images are pullable
-        run: docker compose pull db redis ollama gateway
+        run: |
+          docker compose pull db redis ollama gateway minio
+          docker pull docker.io/pgsty/mc@sha256:cfc83108c3abb371f8fb84d99c1fdc88f8c237e022409b0081fb7c0a3be634dd
 
-      # Quay currently rejects the pinned MinIO digests (issue #39); keep the
-      # failure visible without blocking the other images and application builds.
-      - name: Check MinIO image availability
-        continue-on-error: true
-        run: docker compose pull minio minio-init
+      - name: Build object storage helper images
+        run: docker compose build object-backup minio-init
+
+      - name: Smoke test S3 bucket initialization
+        run: |
+          docker compose up -d minio minio-init
+          init_container="$(docker compose ps --all --quiet minio-init)"
+          test -n "$init_container"
+          test "$(docker wait "$init_container")" = "0"
 
       - name: Build application images
         run: >
           docker compose build
           api worker connector-scheduler web
           db-backup dr-monitor
-
-      - name: Check object backup image build
-        continue-on-error: true
-        run: docker compose build object-backup

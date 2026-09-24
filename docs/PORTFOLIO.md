@@ -186,6 +186,12 @@ references were no longer available.
 The deployment was changed to use working MinIO Community images from Quay and pinned
 to immutable digests.
 
+Quay later began returning `401 UNAUTHORIZED` for those public image digests. The
+current stack uses pinned PGSTY Silo and `mc`-compatible images instead. Required CI
+checks pull both images, build the object-storage helpers, and start Silo through
+bucket creation and versioning so cached production images cannot mask a fresh-host
+failure.
+
 This demonstrated why testing only an existing host is not sufficient proof of
 repeatable deployment.
 

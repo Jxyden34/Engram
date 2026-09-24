@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Replaced unavailable Quay MinIO images with pinned, maintained Silo and `mc`
+  compatible images; made image pulls and helper-image builds required CI gates.
+- Added a Docker smoke test for S3 startup, bucket creation and versioning.
+
 ## Engram rename - 2026-09-23
 
 - Renamed the public product, API metadata, browser extension, docs, and new-install defaults to Engram.
