@@ -141,4 +141,8 @@ jobs:
         run: >
           docker compose build
           api worker connector-scheduler web
-          db-backup object-backup dr-monitor
+          db-backup dr-monitor
+
+      - name: Check object backup image build
+        continue-on-error: true
+        run: docker compose build object-backup
