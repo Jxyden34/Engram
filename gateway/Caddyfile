@@ -4,7 +4,7 @@
 	@internal path /internal/*
 	respond @internal 404
 
-	@backend path /api/* /mcp /mcp/* /health
+	@backend path /api/* /mcp /mcp/* /health /.well-known/* /oauth/*
 	header @backend Cache-Control "no-store"
 	reverse_proxy @backend api:8000
 
