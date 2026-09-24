@@ -11,7 +11,7 @@ from redis import Redis
 from rq import Queue
 
 from app.config import settings
-from app.database import connect
+from app.database import connect, current_project_id, project_job
 from app.documents import get_document, minio_client
 from app.embeddings import embed, embed_literal
 from app.memories import create as create_memory
@@ -385,10 +385,12 @@ def create_import_job(source_document_id: str, actor: str, owner_id: str | None)
         "app.chatgpt_import.process_chatgpt_export",
         str(row["id"]),
         job_timeout="12h",
+        meta={"project_id": current_project_id()},
     )
     return dict(row)
 
 
+@project_job
 def process_chatgpt_export(import_job_id: str):
     cfg = settings()
 

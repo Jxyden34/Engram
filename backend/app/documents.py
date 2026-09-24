@@ -13,7 +13,7 @@ from redis import Redis
 from rq import Queue
 
 from app.config import settings
-from app.database import connect
+from app.database import connect, current_project_id
 from app.embeddings import embed_literal
 
 
@@ -201,7 +201,8 @@ def store_bytes(
         ).fetchone()
         conn.commit()
 
-    enqueue().enqueue("app.jobs.process_document", document_id, job_timeout="15m")
+    enqueue().enqueue("app.jobs.process_document", document_id, job_timeout="15m",
+                      meta={"project_id": current_project_id()})
     result = dict(row)
     result["duplicate"] = False
     return result

@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
 const links = [
   ["/", "Overview", "◈"],
   ["/memories", "Memories", "◎"],
   ["/documents", "Documents", "▱"],
+  ["/projects", "Projects", "▦"],
+  ["/agent", "Memory Agent", "✧"],
   ["/imports", "Memory Inbox", "✦"],
   ["/connectors", "Connectors", "⇄"],
   ["/knowledge", "Knowledge Graph", "◎"],
@@ -23,6 +25,16 @@ const links = [
 export default function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [selectedProject, setSelectedProject] = useState("");
+
+  useEffect(() => {
+    setSelectedProject(window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001");
+    document.cookie = `engram_project=${window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001"}; path=/; SameSite=Lax`;
+    if (pathname !== "/login") {
+      api<{ id: string; name: string }[]>("/api/v1/projects").then(setProjects).catch(() => {});
+    }
+  }, [pathname]);
 
   if (["/login", "/about", "/privacy", "/terms"].includes(pathname)) {
     return <>{children}</>;
@@ -40,12 +52,23 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandMark">M</div>
+          <div className="brandMark">E</div>
           <div>
             <strong>Engram</strong>
             <span>private cognition layer</span>
           </div>
         </div>
+
+        <label className="projectPicker">
+          <span>Project</span>
+          <select className="select" value={selectedProject} onChange={(event) => {
+            window.localStorage.setItem("engram_project_id", event.target.value);
+            document.cookie = `engram_project=${event.target.value}; path=/; SameSite=Lax`;
+            window.location.reload();
+          }}>
+            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+          </select>
+        </label>
 
         <nav>
           {links.map(([href, label, icon]) => (

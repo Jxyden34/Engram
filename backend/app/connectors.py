@@ -20,7 +20,7 @@ from redis import Redis
 from rq import Queue
 
 from app.config import settings
-from app.database import connect
+from app.database import DEFAULT_PROJECT_ID, connect, current_project_id, project_scope, project_job
 from app.documents import store_bytes
 
 
@@ -128,6 +128,7 @@ def start_gmail_oauth(data: dict[str, Any], actor: str, owner_id: str, session_h
         "actor": actor,
         "owner_id": owner_id,
         "session_hash": session_hash,
+        "project_id": current_project_id(),
         "name": str(data.get("name") or "Gmail").strip()[:200] or "Gmail",
         "config": _gmail_config(data),
     })
@@ -157,6 +158,8 @@ def finish_gmail_oauth(state: str, code: str, session_hash: str) -> tuple[str, s
     data = json.loads(value)
     if not secrets.compare_digest(data["session_hash"], session_hash):
         raise HTTPException(status_code=403, detail="Gmail authorization must finish in the same browser session")
+    if data.get("project_id", DEFAULT_PROJECT_ID) != current_project_id():
+        raise HTTPException(status_code=409, detail="Select the original project before finishing Gmail authorization")
     if not code:
         raise HTTPException(status_code=400, detail="Google authorization was cancelled")
     redirect_uri = f"{cfg.public_origin.rstrip('/')}{GMAIL_CALLBACK_PATH}"
@@ -433,11 +436,23 @@ def queue_sync(connector_id: str):
         connector_id,
         str(run["id"]),
         job_timeout="2h",
+        meta={"project_id": current_project_id()},
     )
     return dict(run)
 
 
 def queue_due_connectors():
+    with connect() as conn:
+        project_ids = [str(row["id"]) for row in conn.execute("SELECT id FROM projects").fetchall()]
+    return sum(_queue_due_connectors_in_project(project_id) for project_id in project_ids)
+
+
+def _queue_due_connectors_in_project(project_id: str):
+    with project_scope(project_id):
+        return _queue_due_connectors_scoped()
+
+
+def _queue_due_connectors_scoped():
     with connect() as conn:
         rows = conn.execute(
             """
@@ -476,6 +491,7 @@ def queue_due_connectors():
             connector_id,
             str(run["id"]),
             job_timeout="2h",
+            meta={"project_id": current_project_id()},
         )
         queued += 1
     return queued
@@ -1017,6 +1033,7 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                 )
 
 
+@project_job
 def sync_connector(connector_id: str, run_id: str):
     with connect() as conn:
         connector = conn.execute(

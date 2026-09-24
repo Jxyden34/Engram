@@ -1,9 +1,14 @@
 from uuid import uuid4
 
 from redis import Redis
+from fastapi import HTTPException
+import pytest
 
 from app.config import settings
-from app.database import connect
+from app.database import connect, project_scope
+from app.memory_agent import scan, list_proposals
+from app.projects import resolve_project
+from app.security import Principal
 
 
 def test_postgres_connectivity_and_schema():
@@ -50,3 +55,49 @@ def test_redis_round_trip():
         assert client.get(key) == "integration-ok"
     finally:
         client.delete(key)
+
+
+def test_project_rls_and_agent_proposals():
+    slug = f"ci-{uuid4().hex[:12]}"
+    with connect() as conn:
+        assert conn.execute("SELECT current_user AS role").fetchone()["role"] == "engram_runtime"
+        project_id = str(conn.execute(
+            "INSERT INTO projects(slug,name) VALUES (%s,'CI project') RETURNING id", (slug,)
+        ).fetchone()["id"])
+        entity_id = str(conn.execute(
+            "INSERT INTO entities(name,normalized_name,created_by,updated_by) VALUES (%s,%s,'test','test') RETURNING id",
+            (slug, slug),
+        ).fetchone()["id"])
+        conn.commit()
+    key = Principal("test", None, None, False, {"memory:read"}, "api_key", project_id)
+    assert resolve_project(key, None) == project_id
+    with pytest.raises(HTTPException) as exc:
+        resolve_project(key, "00000000-0000-0000-0000-000000000001")
+    assert exc.value.status_code == 403
+    with project_scope(project_id):
+        with connect() as conn:
+            project_entity_id = str(conn.execute(
+                "INSERT INTO entities(name,normalized_name,created_by,updated_by) VALUES (%s,%s,'test','test') RETURNING id",
+                (slug, slug),
+            ).fetchone()["id"])
+            memory_id = str(conn.execute("""
+                INSERT INTO memories(title, content, source_type, created_by, updated_by)
+                VALUES ('CI source', 'Project-only content', 'document_import', 'test', 'test')
+                RETURNING id
+            """).fetchone()["id"])
+            conn.commit()
+        assert scan()["created"]["missing_provenance"] == 1
+        assert any(str(p["memory_id"]) == memory_id for p in list_proposals())
+    with connect() as conn:
+        assert conn.execute("SELECT id FROM memories WHERE id=%s", (memory_id,)).fetchone() is None
+        assert conn.execute("SELECT id FROM agent_proposals WHERE memory_id=%s", (memory_id,)).fetchone() is None
+    with project_scope(project_id):
+        with connect() as conn:
+            conn.execute("DELETE FROM agent_proposals WHERE memory_id=%s", (memory_id,))
+            conn.execute("DELETE FROM memories WHERE id=%s", (memory_id,))
+            conn.execute("DELETE FROM entities WHERE id=%s", (project_entity_id,))
+            conn.commit()
+    with connect() as conn:
+        conn.execute("DELETE FROM entities WHERE id=%s", (entity_id,))
+        conn.execute("DELETE FROM projects WHERE id=%s", (project_id,))
+        conn.commit()

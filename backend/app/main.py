@@ -14,6 +14,8 @@ from app import knowledge
 from app import connectors
 from app import oauth
 from app import disaster_recovery as dr
+from app import projects
+from app import memory_agent
 from app import document_memory_import as doc_mem
 from app.audit import log
 from app.capture import create_capture
@@ -29,7 +31,7 @@ from app.chatgpt_import import (
     update_candidate,
 )
 from app.config import settings
-from app.database import connect
+from app.database import connect, current_project_id, project_scope
 from app.documents import bulk_upload, get_document, list_documents, minio_client, search_chunks, upload
 from app.mcp_server import mcp, mcp_principal
 from app.rate_limit import check_rate
@@ -50,6 +52,7 @@ from app.schemas import (
     MemoryUpdate,
     OAuthClientCreate,
     OAuthClientUpdate,
+    ProjectCreate,
     RejectRequest,
     RelationCreate,
     SearchRequest,
@@ -95,7 +98,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.4.0",
+    version="2.7.0-dev-beta.1",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -107,7 +110,7 @@ app.add_middleware(
     allow_origin_regex=r"^chrome-extension://[a-z]{32}$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "Mcp-*", "Last-Event-ID"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Engram-Project", "Mcp-*", "Last-Event-ID"],
     expose_headers=["Mcp-Session-Id", "WWW-Authenticate"],
 )
 
@@ -131,6 +134,16 @@ async def security_middleware(request: Request, call_next):
         check_rate(request, "oauth", 120, 60)
 
     token = None
+    selected_project = None
+    if path.startswith("/api/v1/") and path not in {
+        "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/me", "/api/v1/projects"
+    }:
+        try:
+            selected_project = projects.resolve_project(
+                authenticate(request), request.headers.get("x-engram-project") or request.cookies.get("engram_project")
+            )
+        except HTTPException as exc:
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     if path == "/mcp" or path.startswith("/mcp/"):
         resource_metadata = oauth.protected_resource_metadata_url()
         base_scope = "mcp:use memory:read document:read"
@@ -189,10 +202,15 @@ async def security_middleware(request: Request, call_next):
                     )
                 },
             )
+        try:
+            selected_project = projects.resolve_project(p, request.headers.get("x-engram-project"))
+        except HTTPException as exc:
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
         token = mcp_principal.set(p)
 
     try:
-        return await call_next(request)
+        with project_scope(selected_project or current_project_id()):
+            return await call_next(request)
     finally:
         if token is not None:
             mcp_principal.reset(token)
@@ -200,7 +218,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.4.0"}
+    return {"status": "ok", "service": "engram", "version": "2.7.0-dev-beta.1"}
 
 
 @app.post("/api/v1/auth/login")
@@ -269,7 +287,43 @@ def me(request: Request):
         "username": p.username,
         "is_admin": p.is_admin,
         "scopes": sorted(p.scopes),
+        "project_id": current_project_id(),
     }
+
+
+@app.get("/api/v1/projects")
+def project_list(request: Request):
+    return projects.list_projects(require(request, "memory:read"))
+
+
+@app.post("/api/v1/projects", status_code=201)
+def project_create(body: ProjectCreate, request: Request):
+    p = require(request, "memory:write")
+    row = projects.create_project(body.name, body.slug, p)
+    log(p.actor, "project.created", "project", str(row["id"]), request, new_data=row)
+    return row
+
+
+@app.get("/api/v1/agent/proposals")
+def agent_proposals(request: Request, status: str = "pending", limit: int = 100):
+    require(request, "memory:read")
+    return memory_agent.list_proposals(status, limit)
+
+
+@app.post("/api/v1/agent/scan")
+def agent_scan(request: Request):
+    p = require(request, "memory:write")
+    result = memory_agent.scan()
+    log(p.actor, "agent.scan", "project", current_project_id(), request, new_data=result)
+    return result
+
+
+@app.post("/api/v1/agent/proposals/{proposal_id}/dismiss")
+def agent_dismiss(proposal_id: str, request: Request):
+    p = require(request, "memory:write")
+    row = memory_agent.dismiss(proposal_id, p.actor)
+    log(p.actor, "agent.proposal_dismissed", "agent_proposal", proposal_id, request)
+    return row
 
 
 @app.get("/api/v1/stats")
@@ -282,7 +336,7 @@ def stats(request: Request):
             "events": conn.execute("SELECT count(*) AS n FROM events").fetchone()["n"],
             "documents": conn.execute("SELECT count(*) AS n FROM documents WHERE deleted_at IS NULL").fetchone()["n"],
             "pending_deletions": conn.execute("SELECT count(*) AS n FROM deletion_requests WHERE status='pending'").fetchone()["n"],
-            "api_keys": conn.execute("SELECT count(*) AS n FROM api_keys WHERE revoked_at IS NULL").fetchone()["n"],
+            "api_keys": conn.execute("SELECT count(*) AS n FROM api_keys WHERE revoked_at IS NULL AND project_id=%s", (current_project_id(),)).fetchone()["n"],
             "types": [
                 dict(row)
                 for row in conn.execute(
@@ -1207,8 +1261,10 @@ def keys_list(request: Request):
             """
             SELECT id, name, key_prefix, scopes, created_at, last_used_at, revoked_at
             FROM api_keys
+            WHERE project_id=%s
             ORDER BY created_at DESC
-            """
+            """,
+            (current_project_id(),),
         ).fetchall()
     return [dict(row) for row in rows]
 
@@ -1224,11 +1280,11 @@ def key_create(body: ApiKeyCreate, request: Request):
     with connect() as conn:
         row = conn.execute(
             """
-            INSERT INTO api_keys(owner_id, name, key_prefix, key_hash, scopes)
-            VALUES (%s,%s,%s,%s,%s)
+            INSERT INTO api_keys(owner_id, name, key_prefix, key_hash, scopes, project_id)
+            VALUES (%s,%s,%s,%s,%s,%s)
             RETURNING id, name, key_prefix, scopes, created_at
             """,
-            (p.user_id, body.name, prefix, digest, body.scopes),
+            (p.user_id, body.name, prefix, digest, body.scopes, current_project_id()),
         ).fetchone()
         conn.commit()
     result = dict(row)
@@ -1245,10 +1301,10 @@ def key_revoke(key_id: str, request: Request):
         row = conn.execute(
             """
             UPDATE api_keys SET revoked_at=now()
-            WHERE id=%s AND revoked_at IS NULL
+            WHERE id=%s AND project_id=%s AND revoked_at IS NULL
             RETURNING id, name, revoked_at
             """,
-            (key_id,),
+            (key_id, current_project_id()),
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Active key not found")
