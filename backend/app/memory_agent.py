@@ -1,6 +1,8 @@
+import json
+
 from fastapi import HTTPException
 
-from app.database import connect
+from app.database import connect, current_project_id, project_job, project_scope
 
 
 def scan() -> dict:
@@ -111,3 +113,125 @@ def dismiss(proposal_id: str, actor: str) -> dict:
             raise HTTPException(status_code=404, detail="Pending proposal not found")
         conn.commit()
     return dict(row)
+
+
+def create_run(trigger_type: str) -> dict:
+    with connect() as conn:
+        row = conn.execute("""
+            INSERT INTO agent_scan_runs(trigger_type) VALUES (%s)
+            RETURNING id, trigger_type, status, created_at
+        """, (trigger_type,)).fetchone()
+        conn.commit()
+    return dict(row)
+
+
+def run_scan(run_id: str) -> dict:
+    with connect() as conn:
+        row = conn.execute("""
+            UPDATE agent_scan_runs SET status='running', started_at=now()
+            WHERE id=%s AND status='queued' RETURNING id
+        """, (run_id,)).fetchone()
+        if not row:
+            raise ValueError("Queued agent scan not found in this project")
+        conn.commit()
+    try:
+        result = scan()
+    except Exception as exc:
+        with connect() as conn:
+            conn.execute("""
+                UPDATE agent_scan_runs
+                SET status='failed', error_message=%s, completed_at=now()
+                WHERE id=%s
+            """, (str(exc)[:1000], run_id))
+            conn.commit()
+        raise
+    with connect() as conn:
+        conn.execute("""
+            UPDATE agent_scan_runs
+            SET status='completed', result=%s::jsonb, completed_at=now()
+            WHERE id=%s
+        """, (json.dumps(result), run_id))
+        conn.commit()
+    return result
+
+
+@project_job
+def run_scheduled_scan(run_id: str):
+    return run_scan(run_id)
+
+
+def list_runs(limit: int = 20) -> list[dict]:
+    with connect() as conn:
+        rows = conn.execute("""
+            SELECT id, trigger_type, status, result, error_message,
+                   created_at, started_at, completed_at
+            FROM agent_scan_runs ORDER BY created_at DESC LIMIT %s
+        """, (max(1, min(limit, 100)),)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_schedule() -> dict:
+    with connect() as conn:
+        row = conn.execute("""
+            SELECT enabled, interval_hours, next_scan_at, updated_at
+            FROM agent_scan_schedules WHERE project_id=%s
+        """, (current_project_id(),)).fetchone()
+    return dict(row) if row else {"enabled": False, "interval_hours": 24, "next_scan_at": None}
+
+
+def set_schedule(enabled: bool, interval_hours: int) -> dict:
+    with connect() as conn:
+        row = conn.execute("""
+            INSERT INTO agent_scan_schedules(project_id, enabled, interval_hours, next_scan_at)
+            VALUES (%s, %s, %s,
+                    CASE WHEN %s THEN now() + (%s || ' hours')::interval ELSE NULL END)
+            ON CONFLICT (project_id) DO UPDATE
+            SET enabled=EXCLUDED.enabled, interval_hours=EXCLUDED.interval_hours,
+                next_scan_at=EXCLUDED.next_scan_at, updated_at=now()
+            RETURNING enabled, interval_hours, next_scan_at, updated_at
+        """, (current_project_id(), enabled, interval_hours, enabled, interval_hours)).fetchone()
+        conn.commit()
+    return dict(row)
+
+
+def queue_due_scans() -> int:
+    with connect() as conn:
+        project_ids = [str(row["id"]) for row in conn.execute("SELECT id FROM projects")]
+    queued = 0
+    for project_id in project_ids:
+        with project_scope(project_id):
+            with connect() as conn:
+                schedule = conn.execute("""
+                    SELECT interval_hours FROM agent_scan_schedules
+                    WHERE project_id=%s AND enabled AND next_scan_at <= now()
+                    FOR UPDATE SKIP LOCKED
+                """, (project_id,)).fetchone()
+                if not schedule:
+                    continue
+                run = conn.execute("""
+                    INSERT INTO agent_scan_runs(trigger_type) VALUES ('scheduled') RETURNING id
+                """).fetchone()
+                conn.execute("""
+                    UPDATE agent_scan_schedules
+                    SET next_scan_at=now() + (interval_hours || ' hours')::interval,
+                        updated_at=now()
+                    WHERE project_id=%s
+                """, (project_id,))
+                conn.commit()
+            try:
+                from app.connectors import queue
+                queue().enqueue(
+                    "app.memory_agent.run_scheduled_scan", str(run["id"]),
+                    job_timeout="30m", meta={"project_id": project_id},
+                )
+                queued += 1
+            except Exception as exc:
+                with connect() as conn:
+                    conn.execute("""
+                        UPDATE agent_scan_runs
+                        SET status='failed', error_message=%s, completed_at=now()
+                        WHERE id=%s
+                    """, (str(exc)[:1000], run["id"]))
+                    conn.commit()
+                raise
+    return queued

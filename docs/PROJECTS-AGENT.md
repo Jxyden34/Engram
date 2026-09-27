@@ -14,13 +14,15 @@ The migration enables and forces PostgreSQL row-level security on knowledge tabl
 
 Use `/agent` to scan the selected project. The scan proposes review of high-similarity memories, pending ChatGPT and document import conflicts, facts not updated for two years, memories with confidence below 0.5, and imported memories without a source reference. Proposals link to the source memory and can be dismissed. The agent does not accept candidates, edit, merge or delete memories. Similarity, age and confidence are review hints, not proof that a memory is wrong.
 
+An administrator can enable automatic scans for each project at `/agent`. They are off by default and run daily, every three days, or weekly through the existing worker queue. The first automatic scan is due after the chosen interval; use the manual button to scan now. Recent manual and automatic runs show completion, proposal counts, or errors. A failed queue submission is recorded as a failed run; the administrator can retry manually.
+
 ## Upgrade and verification
 
 1. Back up PostgreSQL and MinIO, then stop the API, worker and connector scheduler.
-2. Apply `db/migrations/009_projects_agent.sql`, then `db/migrations/010_project_oauth.sql`, using `psql -v ON_ERROR_STOP=1` before starting the updated API. A database already running beta migration 009 only needs 010.
+2. Apply `db/migrations/009_projects_agent.sql`, then `db/migrations/010_project_oauth.sql`, then `db/migrations/011_agent_schedules.sql`, using `psql -v ON_ERROR_STOP=1` before starting the updated API. A database already running beta migrations 009 and 010 only needs 011.
 3. Rebuild the API, worker, connector scheduler and web images.
 4. Verify that existing records appear in Personal, create a second project, add a memory there, and check it is absent from Personal search and MCP/API key access. Authorize an OAuth MCP client in the second project, renew its token, and verify both tokens remain there; an old grant should remain in Personal.
-5. Run an agent scan in each project and verify proposals stay in their project.
+5. Run an agent scan in each project and verify proposals and run history stay in their project. Enable a schedule, force a due scan in preprod, and verify the worker completes it without changing memories.
 6. Resume ingestion and check a connector sync and document import in a non-default project.
 
 Do not deploy this beta to the production host before its migration, isolation tests, restore test and connector callback flow have passed. Keep the pre-upgrade backup for rollback; rolling back code alone after adding project-specific data would hide that data from older code.

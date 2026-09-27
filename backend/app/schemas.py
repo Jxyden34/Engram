@@ -134,6 +134,11 @@ class ConnectorUpdate(BaseModel):
     config: dict[str, Any] | None = None
 
 
+class AgentScheduleUpdate(BaseModel):
+    enabled: bool
+    interval_hours: int = Field(default=24, ge=24, le=720)
+
+
 class GmailOAuthStart(BaseModel):
     name: str = Field(default="Gmail", min_length=1, max_length=200)
     query: str = Field(default="newer_than:30d", max_length=1000)

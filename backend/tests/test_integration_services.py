@@ -1,5 +1,6 @@
 from uuid import uuid4
 import json
+from unittest.mock import patch
 
 from redis import Redis
 from fastapi import HTTPException
@@ -7,7 +8,9 @@ import pytest
 
 from app.config import settings
 from app.database import connect, project_scope
-from app.memory_agent import scan, list_proposals
+from app.memory_agent import (
+    scan, list_proposals, list_runs, get_schedule, set_schedule, queue_due_scans, run_scan,
+)
 from app import oauth
 from app.projects import resolve_project
 from app.security import Principal
@@ -159,5 +162,49 @@ def test_oauth_tokens_stay_in_consented_project():
         conn.execute("DELETE FROM oauth_consents WHERE client_id=%s", (client_id,))
         conn.execute("DELETE FROM oauth_clients WHERE client_id=%s", (client_id,))
         conn.execute("DELETE FROM users WHERE id=%s", (user_id,))
+        conn.execute("DELETE FROM projects WHERE id=%s", (project_id,))
+        conn.commit()
+
+
+def test_agent_schedule_queues_and_records_project_scan():
+    slug = f"agent-{uuid4().hex[:12]}"
+    with connect() as conn:
+        project_id = str(conn.execute(
+            "INSERT INTO projects(slug,name) VALUES (%s,'Agent CI') RETURNING id", (slug,)
+        ).fetchone()["id"])
+        conn.commit()
+    with project_scope(project_id):
+        with connect() as conn:
+            memory_id = str(conn.execute("""
+                INSERT INTO memories(title,content,source_type,created_by,updated_by)
+                VALUES ('Agent CI','Check provenance','document_import','ci','ci') RETURNING id
+            """).fetchone()["id"])
+            conn.commit()
+        assert set_schedule(True, 24)["enabled"] is True
+        with connect() as conn:
+            conn.execute("""
+                UPDATE agent_scan_schedules SET next_scan_at=now() - interval '1 minute'
+                WHERE project_id=%s
+            """, (project_id,))
+            conn.commit()
+    with patch("app.connectors.queue") as mock_queue:
+        assert queue_due_scans() == 1
+        mock_queue.return_value.enqueue.assert_called_once()
+        assert mock_queue.return_value.enqueue.call_args.kwargs["meta"] == {"project_id": project_id}
+    with project_scope(project_id):
+        runs = list_runs()
+        assert len(runs) == 1 and runs[0]["status"] == "queued"
+        assert run_scan(str(runs[0]["id"]))["created"]["missing_provenance"] == 1
+        assert list_runs()[0]["status"] == "completed"
+        assert get_schedule()["next_scan_at"] is not None
+    assert list_runs() == []
+    with project_scope(project_id):
+        with connect() as conn:
+            conn.execute("DELETE FROM agent_proposals WHERE memory_id=%s", (memory_id,))
+            conn.execute("DELETE FROM agent_scan_runs WHERE project_id=%s", (project_id,))
+            conn.execute("DELETE FROM agent_scan_schedules WHERE project_id=%s", (project_id,))
+            conn.execute("DELETE FROM memories WHERE id=%s", (memory_id,))
+            conn.commit()
+    with connect() as conn:
         conn.execute("DELETE FROM projects WHERE id=%s", (project_id,))
         conn.commit()

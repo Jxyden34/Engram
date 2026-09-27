@@ -42,6 +42,7 @@ from app.schemas import (
     ChatImportCreate,
     ConnectorCreate,
     ConnectorUpdate,
+    AgentScheduleUpdate,
     GmailOAuthStart,
     DeleteRequest,
     LoginRequest,
@@ -310,11 +311,35 @@ def agent_proposals(request: Request, status: str = "pending", limit: int = 100)
     return memory_agent.list_proposals(status, limit)
 
 
+@app.get("/api/v1/agent/runs")
+def agent_runs(request: Request, limit: int = 20):
+    require(request, "memory:read")
+    return memory_agent.list_runs(limit)
+
+
+@app.get("/api/v1/agent/schedule")
+def agent_schedule(request: Request):
+    require(request, "memory:read")
+    return memory_agent.get_schedule()
+
+
+@app.put("/api/v1/agent/schedule")
+def agent_schedule_update(body: AgentScheduleUpdate, request: Request):
+    p = require(request, "memory:write")
+    if not p.is_admin or p.auth_type != "session":
+        raise HTTPException(status_code=403, detail="Administrator session required")
+    result = memory_agent.set_schedule(body.enabled, body.interval_hours)
+    log(p.actor, "agent.schedule_updated", "project", current_project_id(), request, new_data=result)
+    return result
+
+
 @app.post("/api/v1/agent/scan")
 def agent_scan(request: Request):
     p = require(request, "memory:write")
-    result = memory_agent.scan()
-    log(p.actor, "agent.scan", "project", current_project_id(), request, new_data=result)
+    run = memory_agent.create_run("manual")
+    result = memory_agent.run_scan(str(run["id"]))
+    log(p.actor, "agent.scan", "project", current_project_id(), request,
+        new_data={"run_id": str(run["id"]), **result})
     return result
 
 

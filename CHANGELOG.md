@@ -8,7 +8,8 @@
 - Add a read-only memory agent that proposes reviews for duplicates, conflicts, stale facts and missing provenance; it never edits memories.
 - Bind new OAuth MCP grants and renewed tokens to the project selected at consent. Existing grants remain in Personal.
 - Propose reviews for low-confidence memories and conflicts from document imports.
-- This is a development beta. Apply migrations 009 and 010 before starting the updated API and workers.
+- Add opt-in daily, three-day, or weekly agent scans per project, with a visible run history and failure status.
+- This is a development beta. Apply migrations 009, 010, and 011 before starting the updated API and workers.
 - Replaced unavailable Quay MinIO images with pinned, maintained Silo and `mc`
   compatible images; made image pulls and helper-image builds required CI gates.
 - Added a Docker smoke test for S3 startup, bucket creation and versioning.
