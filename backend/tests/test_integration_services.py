@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from redis import Redis
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 import pytest
 
 from app.config import settings
@@ -15,6 +16,48 @@ from app.memory_agent import (
 from app import oauth
 from app.projects import resolve_project, search_across
 from app.security import Principal
+
+
+def test_mobile_login_project_scope_and_revocation():
+    from app.main import app
+    from app.security import hash_password
+
+    username = f"mobile-{uuid4().hex[:12]}"
+    password = f"beta-{uuid4().hex}"
+    slug = f"mobile-{uuid4().hex[:12]}"
+    with connect() as conn:
+        user_id = conn.execute(
+            "INSERT INTO users(username,password_hash,is_admin) VALUES (%s,%s,true) RETURNING id",
+            (username, hash_password(password)),
+        ).fetchone()["id"]
+        project_id = str(conn.execute(
+            "INSERT INTO projects(slug,name,created_by) VALUES (%s,'Mobile beta',%s) RETURNING id",
+            (slug, user_id),
+        ).fetchone()["id"])
+        conn.commit()
+
+    try:
+        client = TestClient(app)
+        login_response = client.post("/api/v1/mobile/login", json={"username": username, "password": password})
+        assert login_response.status_code == 200
+        assert login_response.headers["cache-control"] == "no-store"
+        assert "set-cookie" not in login_response.headers
+        token = login_response.json()["token"]
+        assert token.startswith("mb_mobile_")
+        headers = {"Authorization": f"Bearer {token}", "X-Engram-Project": project_id}
+        projects_response = client.get("/api/v1/projects", headers=headers)
+        assert projects_response.status_code == 200
+        assert project_id in {str(project["id"]) for project in projects_response.json()}
+        memory_response = client.get("/api/v1/memories", headers=headers)
+        assert memory_response.status_code == 200
+        assert client.post("/api/v1/mobile/logout", headers=headers).status_code == 200
+        assert client.get("/api/v1/memories", headers=headers).status_code == 401
+    finally:
+        with connect() as conn:
+            conn.execute("DELETE FROM projects WHERE id=%s", (project_id,))
+            conn.execute("DELETE FROM users WHERE id=%s", (user_id,))
+            conn.execute("DELETE FROM audit_log WHERE actor=%s", (f"user:{username}",))
+            conn.commit()
 
 
 def test_postgres_connectivity_and_schema():

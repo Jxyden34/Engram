@@ -10,6 +10,7 @@
 - Propose reviews for low-confidence memories and conflicts from document imports.
 - Add opt-in daily, three-day, or weekly agent scans per project, with a visible run history and failure status.
 - Add administrator-selected cross-project memory search and AI consolidation drafts that preserve both source memories.
+- Add an Expo iOS/Android beta app with secure device session storage, project switching, memory browsing and creation, search, and agent findings. Mobile sessions are revocable and expire after 30 days by default.
 - This is a development beta. Apply migrations 009, 010, and 011 before starting the updated API and workers.
 - Replaced unavailable Quay MinIO images with pinned, maintained Silo and `mc`
   compatible images; made image pulls and helper-image builds required CI gates.

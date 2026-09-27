@@ -123,10 +123,10 @@ async def security_middleware(request: Request, call_next):
     if path.startswith("/api/v1/"):
         check_rate(request, "api", 240, 60)
 
-    if path.startswith("/api/v1/auth/login"):
+    if path in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
         check_rate(request, "login", 12, 300)
 
-    if path.startswith("/api/v1/") and path != "/api/v1/auth/login":
+    if path.startswith("/api/v1/") and path not in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
         try:
             validate_csrf(request)
         except HTTPException as exc:
@@ -138,7 +138,8 @@ async def security_middleware(request: Request, call_next):
     token = None
     selected_project = None
     if path.startswith("/api/v1/") and path not in {
-        "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/me", "/api/v1/projects"
+        "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/me", "/api/v1/projects",
+        "/api/v1/mobile/login", "/api/v1/mobile/logout",
     }:
         try:
             selected_project = projects.resolve_project(
@@ -223,8 +224,7 @@ def health():
     return {"status": "ok", "service": "engram", "version": "2.7.0-dev-beta.1"}
 
 
-@app.post("/api/v1/auth/login")
-def login(body: LoginRequest, request: Request, response: Response):
+def _check_login(body: LoginRequest):
     with connect() as conn:
         user = conn.execute(
             """
@@ -236,6 +236,12 @@ def login(body: LoginRequest, request: Request, response: Response):
 
     if not user or not user["is_active"] or not verify_password(user["password_hash"], body.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    return user
+
+
+@app.post("/api/v1/auth/login")
+def login(body: LoginRequest, request: Request, response: Response):
+    user = _check_login(body)
 
     session_token, csrf_token = create_session(str(user["id"]), request)
     response.set_cookie(
@@ -268,6 +274,35 @@ def login(body: LoginRequest, request: Request, response: Response):
         "display_name": user["display_name"],
         "is_admin": user["is_admin"],
     }
+
+
+@app.post("/api/v1/mobile/login")
+def mobile_login(body: LoginRequest, request: Request, response: Response):
+    user = _check_login(body)
+    token, _ = create_session(str(user["id"]), request, mobile=True)
+    response.headers["Cache-Control"] = "no-store"
+    with connect() as conn:
+        conn.execute("UPDATE users SET last_login_at=now() WHERE id=%s", (user["id"],))
+        conn.commit()
+    log(f"user:{user['username']}", "mobile.login", "session", request=request)
+    return {
+        "token": token,
+        "expires_in": cfg.mobile_session_ttl_days * 86400,
+        "username": user["username"],
+        "is_admin": user["is_admin"],
+    }
+
+
+@app.post("/api/v1/mobile/logout")
+def mobile_logout(request: Request):
+    p = authenticate(request)
+    authorization = request.headers.get("authorization", "")
+    token = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
+    if p.auth_type != "mobile" or not token.startswith("mb_mobile_"):
+        raise HTTPException(status_code=403, detail="Mobile session required")
+    revoke_session(token)
+    log(p.actor, "mobile.logout", "session", request=request)
+    return {"ok": True}
 
 
 @app.post("/api/v1/auth/logout")

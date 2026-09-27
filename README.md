@@ -4,6 +4,8 @@
 
 Engram gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
+The 2.7 development beta also includes a shared iOS and Android app for project-scoped memories, search, and memory-agent review. See [mobile beta setup](docs/MOBILE.md).
+
 **Current stable release:** `v2.4.0`
 **Development beta:** `v2.7.0-dev-beta.1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel

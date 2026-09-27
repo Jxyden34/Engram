@@ -16,13 +16,13 @@ def list_projects(principal: Principal) -> list[dict]:
                FROM projects p
                WHERE %s OR p.id=%s
                ORDER BY p.created_at, p.name""",
-            (principal.is_admin and principal.auth_type == "session", principal.project_id or DEFAULT_PROJECT_ID),
+            (principal.is_admin and principal.auth_type in {"session", "mobile"}, principal.project_id or DEFAULT_PROJECT_ID),
         ).fetchall()
     return [dict(row) for row in rows]
 
 
 def resolve_project(principal: Principal, requested_id: str | None) -> str:
-    if principal.auth_type != "session":
+    if principal.auth_type not in {"session", "mobile"}:
         bound = principal.project_id or DEFAULT_PROJECT_ID
         if requested_id and requested_id != bound:
             raise HTTPException(status_code=403, detail="Credential is bound to another project")

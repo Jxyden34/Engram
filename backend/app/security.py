@@ -76,10 +76,13 @@ def client_ip(request: Request) -> str | None:
         return None
 
 
-def create_session(user_id: str, request: Request) -> tuple[str, str]:
-    token = secrets.token_urlsafe(48)
+def create_session(user_id: str, request: Request, mobile: bool = False) -> tuple[str, str]:
+    token = ("mb_mobile_" if mobile else "") + secrets.token_urlsafe(48)
     csrf = secrets.token_urlsafe(32)
-    expires = datetime.now(timezone.utc) + timedelta(hours=settings().session_ttl_hours)
+    expires = datetime.now(timezone.utc) + (
+        timedelta(days=settings().mobile_session_ttl_days) if mobile
+        else timedelta(hours=settings().session_ttl_hours)
+    )
 
     with connect() as conn:
         conn.execute(
@@ -177,7 +180,11 @@ def authenticate(request: Request) -> Principal:
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
         bearer = auth[7:].strip()
-        if bearer.startswith("mb_at_") and not request.url.path.startswith("/mcp"):
+        if bearer.startswith("mb_mobile_"):
+            principal = session_principal(bearer)
+            if principal:
+                principal.auth_type = "mobile"
+        elif bearer.startswith("mb_at_") and not request.url.path.startswith("/mcp"):
             principal = None
         else:
             principal = bearer_principal(bearer)
@@ -200,7 +207,7 @@ def require(request: Request, *scopes: str) -> Principal:
 def validate_csrf(request: Request):
     if request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
         return
-    if request.url.path in {"/api/v1/auth/login"}:
+    if request.url.path in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
         return
     if request.headers.get("authorization", "").lower().startswith("bearer "):
         return
