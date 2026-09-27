@@ -350,6 +350,13 @@ The validation also identified and fixed:
 Fresh deployments should use the immutable image references committed in
 `docker-compose.yml`.
 
+The object store uses PGSTY's maintained Silo server, a MinIO-compatible
+replacement. The Compose service and data volume keep their existing names.
+The `minio-init` and object-backup helper images bundle PGSTY's maintained `mc`
+client in Alpine so the shell-based workflows continue to work. Silo preserves
+MinIO's S3 endpoints, configuration variables and on-disk data format. CI
+verifies both pinned image pulls and the bucket initialization path.
+
 If port 8080 is already occupied on a recovery or test host, use a local Docker
 Compose override to publish the gateway on another loopback port rather than
 modifying the production Compose definition.

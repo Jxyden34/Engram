@@ -8,6 +8,16 @@
 - Add a read-only memory agent that proposes reviews for duplicates, conflicts, stale facts and missing provenance; it never edits memories.
 - This is a development beta. Apply migration 009 before starting the updated API and workers.
 
+## Changes merged from main
+
+## Unreleased
+
+### Fixed
+
+- Replaced unavailable Quay MinIO images with pinned, maintained Silo and `mc`
+  compatible images; made image pulls and helper-image builds required CI gates.
+- Added a Docker smoke test for S3 startup, bucket creation and versioning.
+
 ## Engram rename - 2026-09-23
 
 - Renamed the public product, API metadata, browser extension, docs, and new-install defaults to Engram.
