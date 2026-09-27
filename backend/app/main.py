@@ -1009,6 +1009,11 @@ def oauth_authorize_get(request: Request):
         )
 
     csrf = request.cookies.get(CSRF_COOKIE, "")
+    project_id = projects.resolve_project(principal, request.cookies.get("engram_project"))
+    with connect() as conn:
+        project_name = conn.execute("SELECT name FROM projects WHERE id=%s", (project_id,)).fetchone()["name"]
+    authorization["project_id"] = project_id
+    authorization["project_name"] = project_name
     return oauth.render_consent(
         authorization,
         principal.username or principal.actor,
@@ -1033,6 +1038,9 @@ async def oauth_authorize_post(request: Request):
     )
 
     authorization = oauth.validate_authorization_request(data)
+    project_id = projects.resolve_project(principal, request.cookies.get("engram_project"))
+    if data.get("project_id") != project_id:
+        raise HTTPException(status_code=400, detail="Project selection changed; restart authorization")
     if data.get("decision") != "allow":
         return oauth._redirect_with_params(
             authorization["redirect_uri"],
@@ -1043,14 +1051,15 @@ async def oauth_authorize_post(request: Request):
             },
         )
 
-    code = oauth.create_authorization_code(
-        authorization["client_id"],
-        principal.user_id,
-        authorization["redirect_uri"],
-        authorization["scopes"],
-        authorization["resource"],
-        authorization["code_challenge"],
-    )
+    with project_scope(project_id):
+        code = oauth.create_authorization_code(
+            authorization["client_id"],
+            principal.user_id,
+            authorization["redirect_uri"],
+            authorization["scopes"],
+            authorization["resource"],
+            authorization["code_challenge"],
+        )
     log(
         principal.actor,
         "oauth.authorized",
@@ -1060,6 +1069,7 @@ async def oauth_authorize_post(request: Request):
         new_data={
             "scopes": authorization["scopes"],
             "resource": authorization["resource"],
+            "project_id": project_id,
         },
     )
     return oauth._redirect_with_params(

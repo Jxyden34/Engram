@@ -28,12 +28,33 @@ def scan() -> dict:
             ON CONFLICT DO NOTHING
             RETURNING id
         """).rowcount
+        counts["low_confidence"] = conn.execute("""
+            INSERT INTO agent_proposals(proposal_type, memory_id, reason, evidence)
+            SELECT 'low_confidence', id,
+                   'This memory has low confidence; check the original source before relying on it.',
+                   jsonb_build_object('confidence', confidence)
+            FROM memories
+            WHERE deleted_at IS NULL AND confidence < 0.5
+            ON CONFLICT DO NOTHING
+            RETURNING id
+        """).rowcount
         counts["conflict"] = conn.execute("""
             INSERT INTO agent_proposals(proposal_type, memory_id, reason, evidence)
             SELECT DISTINCT ON (nearest_memory_id) 'conflict', nearest_memory_id,
                    'An imported candidate conflicts with this memory; review it in Memory Inbox.',
                    jsonb_build_object('candidate_id', id)
             FROM candidate_memories
+            WHERE status='pending' AND comparison='conflicts' AND nearest_memory_id IS NOT NULL
+            ORDER BY nearest_memory_id, created_at DESC
+            ON CONFLICT DO NOTHING
+            RETURNING id
+        """).rowcount
+        counts["conflict"] += conn.execute("""
+            INSERT INTO agent_proposals(proposal_type, memory_id, reason, evidence)
+            SELECT DISTINCT ON (nearest_memory_id) 'conflict', nearest_memory_id,
+                   'A document candidate conflicts with this memory; review it in Memory Inbox.',
+                   jsonb_build_object('candidate_id', id, 'source', 'document')
+            FROM document_candidate_memories
             WHERE status='pending' AND comparison='conflicts' AND nearest_memory_id IS NOT NULL
             ORDER BY nearest_memory_id, created_at DESC
             ON CONFLICT DO NOTHING

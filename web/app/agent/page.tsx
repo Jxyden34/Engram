@@ -33,7 +33,7 @@ export default function AgentPage() {
   }
   return <>
     <Topbar eyebrow="Human reviewed maintenance" title="Memory Agent" />
-    <p className="meta">Scans for likely duplicates, conflicts, stale facts and missing provenance. It never changes memories.</p>
+    <p className="meta">Scans for likely duplicates, import conflicts, stale facts, low confidence and missing provenance. It never changes memories.</p>
     <button className="button primary" disabled={busy} onClick={scan}>{busy ? "Scanning…" : "Scan this project"}</button>
     {error && <div className="errorBox">{error}</div>}{notice && <div className="successBox">{notice}</div>}
     <section className="panel"><div className="panelHead"><h2>Proposals</h2><span className="meta">{proposals.length} pending</span></div>

@@ -6,14 +6,9 @@
 - Enforce project boundaries on memory, document, import, graph and connector tables with PostgreSQL row-level security.
 - Carry project context into queued ingestion and enrichment jobs.
 - Add a read-only memory agent that proposes reviews for duplicates, conflicts, stale facts and missing provenance; it never edits memories.
-- This is a development beta. Apply migration 009 before starting the updated API and workers.
-
-## Changes merged from main
-
-## Unreleased
-
-### Fixed
-
+- Bind new OAuth MCP grants and renewed tokens to the project selected at consent. Existing grants remain in Personal.
+- Propose reviews for low-confidence memories and conflicts from document imports.
+- This is a development beta. Apply migrations 009 and 010 before starting the updated API and workers.
 - Replaced unavailable Quay MinIO images with pinned, maintained Silo and `mc`
   compatible images; made image pulls and helper-image builds required CI gates.
 - Added a Docker smoke test for S3 startup, bucket creation and versioning.
