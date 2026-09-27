@@ -10,9 +10,10 @@ from app.config import settings
 from app.database import connect, project_scope
 from app.memory_agent import (
     scan, list_proposals, list_runs, get_schedule, set_schedule, queue_due_scans, run_scan,
+    draft_consolidation,
 )
 from app import oauth
-from app.projects import resolve_project
+from app.projects import resolve_project, search_across
 from app.security import Principal
 
 
@@ -204,6 +205,97 @@ def test_agent_schedule_queues_and_records_project_scan():
             conn.execute("DELETE FROM agent_scan_runs WHERE project_id=%s", (project_id,))
             conn.execute("DELETE FROM agent_scan_schedules WHERE project_id=%s", (project_id,))
             conn.execute("DELETE FROM memories WHERE id=%s", (memory_id,))
+            conn.commit()
+    with connect() as conn:
+        conn.execute("DELETE FROM projects WHERE id=%s", (project_id,))
+        conn.commit()
+
+
+def test_cross_project_search_requires_admin_and_preserves_boundaries():
+    vector = "[" + ",".join(["1"] + ["0"] * 383) + "]"
+    ids = []
+    for name in ("alpha", "beta"):
+        slug = f"search-{name}-{uuid4().hex[:8]}"
+        with connect() as conn:
+            project_id = str(conn.execute(
+                "INSERT INTO projects(slug,name) VALUES (%s,%s) RETURNING id", (slug, name)
+            ).fetchone()["id"])
+            conn.commit()
+        ids.append(project_id)
+        with project_scope(project_id):
+            with connect() as conn:
+                conn.execute("""
+                    INSERT INTO memories(title,content,embedding,created_by,updated_by)
+                    VALUES (%s,'Project-specific fact',%s::vector,'ci','ci')
+                """, (name, vector))
+                conn.commit()
+    key = Principal("ci", None, None, False, {"memory:read"}, "api_key", ids[0])
+    with pytest.raises(HTTPException) as exc:
+        search_across(key, ids, "fact", 10, None, False)
+    assert exc.value.status_code == 403
+    admin = Principal("ci", None, None, True, {"memory:read"}, "session")
+    with patch("app.projects.embed_literal", return_value=vector):
+        both = search_across(admin, ids, "fact", 10, None, False)
+        single = search_across(admin, [ids[0]], "fact", 10, None, False)
+    assert {item["project_id"] for item in both} == set(ids)
+    assert len(single) == 1 and single[0]["project_id"] == ids[0]
+    with connect() as conn:
+        assert conn.execute("SELECT id FROM memories WHERE id=%s", (both[0]["id"],)).fetchone() is None
+    for project_id in ids:
+        with project_scope(project_id):
+            with connect() as conn:
+                conn.execute("DELETE FROM memories")
+                conn.commit()
+        with connect() as conn:
+            conn.execute("DELETE FROM projects WHERE id=%s", (project_id,))
+            conn.commit()
+
+
+def test_agent_draft_is_review_only_and_project_scoped():
+    slug = f"draft-{uuid4().hex[:12]}"
+    with connect() as conn:
+        project_id = str(conn.execute(
+            "INSERT INTO projects(slug,name) VALUES (%s,'Draft CI') RETURNING id", (slug,)
+        ).fetchone()["id"])
+        conn.commit()
+    with project_scope(project_id):
+        with connect() as conn:
+            first = conn.execute("""
+                INSERT INTO memories(title,content,created_by,updated_by)
+                VALUES ('First','Original fact A','ci','ci') RETURNING id
+            """).fetchone()["id"]
+            second = conn.execute("""
+                INSERT INTO memories(title,content,created_by,updated_by)
+                VALUES ('Second','Original fact B','ci','ci') RETURNING id
+            """).fetchone()["id"]
+            proposal_id = str(conn.execute("""
+                INSERT INTO agent_proposals(proposal_type,memory_id,related_memory_id,reason)
+                VALUES ('duplicate',%s,%s,'CI pair') RETURNING id
+            """, (first, second)).fetchone()["id"])
+            conn.commit()
+    with pytest.raises(HTTPException) as exc:
+        draft_consolidation(proposal_id)
+    assert exc.value.status_code == 404
+    with project_scope(project_id):
+        with patch("app.memory_agent._ollama_json", return_value={
+            "safe_to_merge": True, "title": "Combined", "content": "A and B", "reason": "Same topic",
+        }):
+            draft = draft_consolidation(proposal_id)
+        assert draft["title"] == "Combined"
+        assert list_proposals()[0]["evidence"]["draft"]["content"] == "A and B"
+        assert list_proposals()[0]["draft_stale"] is False
+        with connect() as conn:
+            contents = [row["content"] for row in conn.execute(
+                "SELECT content FROM memories WHERE id=ANY(%s::uuid[]) ORDER BY title",
+                ([str(first), str(second)],),
+            )]
+            assert contents == ["Original fact A", "Original fact B"]
+            conn.execute("UPDATE memories SET updated_at=now() + interval '1 second' WHERE id=%s", (first,))
+            conn.commit()
+        assert list_proposals()[0]["draft_stale"] is True
+        with connect() as conn:
+            conn.execute("DELETE FROM agent_proposals WHERE id=%s", (proposal_id,))
+            conn.execute("DELETE FROM memories WHERE id=ANY(%s::uuid[])", ([str(first), str(second)],))
             conn.commit()
     with connect() as conn:
         conn.execute("DELETE FROM projects WHERE id=%s", (project_id,))

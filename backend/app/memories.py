@@ -131,8 +131,8 @@ def supersede(memory_id: str,payload: dict[str,Any],actor: str,owner_id: str|Non
     _queue_enrichment(str(row["id"]),actor); return dict(row),old
 
 
-def search(query: str,limit: int,memory_type: str|None,include_historical: bool=False):
-    qvec=embed_literal(query); history="" if include_historical else "AND (valid_to IS NULL OR valid_to > now())"
+def search(query: str,limit: int,memory_type: str|None,include_historical: bool=False,query_vector: str|None=None):
+    qvec=query_vector or embed_literal(query); history="" if include_historical else "AND (valid_to IS NULL OR valid_to > now())"
     with connect() as conn:
         rows=conn.execute(f"""
           SELECT {MEMORY_FIELDS},1-(embedding<=>%s::vector) AS semantic_score,ts_rank_cd(search_vector,websearch_to_tsquery('english',%s)) AS lexical_score,{MEMORY_SCORE_SQL} AS memory_score

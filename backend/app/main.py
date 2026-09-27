@@ -43,6 +43,7 @@ from app.schemas import (
     ConnectorCreate,
     ConnectorUpdate,
     AgentScheduleUpdate,
+    CrossProjectSearchRequest,
     GmailOAuthStart,
     DeleteRequest,
     LoginRequest,
@@ -305,6 +306,18 @@ def project_create(body: ProjectCreate, request: Request):
     return row
 
 
+@app.post("/api/v1/projects/search")
+def project_search(body: CrossProjectSearchRequest, request: Request):
+    p = require(request, "memory:read")
+    results = projects.search_across(
+        p, [str(project_id) for project_id in body.project_ids],
+        body.query, body.limit, body.memory_type, body.include_historical,
+    )
+    log(p.actor, "project.cross_search", "project", current_project_id(), request,
+        new_data={"project_ids": [str(value) for value in body.project_ids], "result_count": len(results)})
+    return results
+
+
 @app.get("/api/v1/agent/proposals")
 def agent_proposals(request: Request, status: str = "pending", limit: int = 100):
     require(request, "memory:read")
@@ -349,6 +362,15 @@ def agent_dismiss(proposal_id: str, request: Request):
     row = memory_agent.dismiss(proposal_id, p.actor)
     log(p.actor, "agent.proposal_dismissed", "agent_proposal", proposal_id, request)
     return row
+
+
+@app.post("/api/v1/agent/proposals/{proposal_id}/draft")
+def agent_draft(proposal_id: str, request: Request):
+    p = require(request, "memory:write")
+    draft = memory_agent.draft_consolidation(proposal_id)
+    log(p.actor, "agent.draft_created", "agent_proposal", proposal_id, request,
+        new_data={"safe_to_merge": draft["safe_to_merge"]})
+    return draft
 
 
 @app.get("/api/v1/stats")

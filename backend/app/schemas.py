@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -43,6 +44,14 @@ class SearchRequest(BaseModel):
     limit: int = Field(default=10, ge=1, le=50)
     memory_type: str | None = None
     include_documents: bool = True
+    include_historical: bool = False
+
+
+class CrossProjectSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=5000)
+    project_ids: list[UUID] = Field(min_length=1, max_length=20)
+    limit: int = Field(default=20, ge=1, le=50)
+    memory_type: str | None = None
     include_historical: bool = False
 
 

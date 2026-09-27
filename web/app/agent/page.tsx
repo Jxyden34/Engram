@@ -5,7 +5,8 @@ import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { api, dateText } from "@/lib/api";
 
-type Proposal = { id: string; proposal_type: string; memory_id: string; memory_title: string; related_memory_id?: string; related_title?: string; reason: string; created_at: string };
+type Draft = { safe_to_merge: boolean; title?: string; content?: string; reason: string };
+type Proposal = { id: string; proposal_type: string; memory_id: string; memory_title: string; related_memory_id?: string; related_title?: string; reason: string; created_at: string; evidence?: { draft?: Draft }; draft_stale?: boolean };
 type ScanRun = { id: string; trigger_type: string; status: string; result?: { total: number }; error_message?: string; created_at: string };
 type Schedule = { enabled: boolean; interval_hours: number; next_scan_at?: string | null };
 
@@ -15,6 +16,7 @@ export default function AgentPage() {
   const [schedule, setSchedule] = useState<Schedule>({ enabled: false, interval_hours: 24 });
   const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [draftingId, setDraftingId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   async function load() {
@@ -43,6 +45,14 @@ export default function AgentPage() {
     setError("");
     try { await api(`/api/v1/agent/proposals/${id}/dismiss`, { method: "POST" }); await load(); }
     catch (e: any) { setError(e.message); }
+  }
+  async function draft(id: string) {
+    setDraftingId(id); setError(""); setNotice("");
+    try {
+      await api(`/api/v1/agent/proposals/${id}/draft`, { method: "POST" });
+      await load();
+    } catch (e: any) { setError(e.message); }
+    finally { setDraftingId(""); }
   }
   async function saveSchedule() {
     setBusy(true); setError(""); setNotice("");
@@ -89,6 +99,15 @@ export default function AgentPage() {
         <Link href={`/memories/${p.memory_id}`}><strong>{p.memory_title}</strong></Link>
         {p.related_memory_id && <Link href={`/memories/${p.related_memory_id}`}>{p.related_title}</Link>}
         <span>{p.reason}</span><span className="meta">{dateText(p.created_at)}</span>
+        {p.proposal_type === "duplicate" && <button className="ghostButton" disabled={draftingId === p.id} onClick={() => draft(p.id)}>{draftingId === p.id ? "Drafting…" : "Draft consolidation"}</button>}
+        {p.evidence?.draft && <div className="panel" style={{ width: "100%", marginTop: 8 }}>
+          <strong>{p.evidence.draft.safe_to_merge ? p.evidence.draft.title : "Keep these separate"}</strong>
+          <p className="meta">AI suggestion for review. Check the source memories before using it.</p>
+          {p.draft_stale && <p className="errorBox">A source memory changed since this draft. Generate it again before using it.</p>}
+          {p.evidence.draft.content && <p style={{ whiteSpace: "pre-wrap" }}>{p.evidence.draft.content}</p>}
+          <p>{p.evidence.draft.reason}</p>
+          {p.evidence.draft.content && !p.draft_stale && <button className="ghostButton" onClick={() => navigator.clipboard.writeText(`${p.evidence?.draft?.title}\n\n${p.evidence?.draft?.content}`).then(() => setNotice("Draft copied for review.")).catch(() => setError("Could not copy draft."))}>Copy draft</button>}
+        </div>}
         <button className="ghostButton" onClick={() => dismiss(p.id)}>Dismiss</button>
       </div>)}
     </section>

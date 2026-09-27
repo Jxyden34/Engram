@@ -3,7 +3,9 @@ from uuid import UUID
 
 from fastapi import HTTPException
 
-from app.database import DEFAULT_PROJECT_ID, connect
+from app.database import DEFAULT_PROJECT_ID, connect, project_scope
+from app.embeddings import embed_literal
+from app import memories
 from app.security import Principal
 
 
@@ -55,3 +57,33 @@ def create_project(name: str, slug: str, principal: Principal) -> dict:
         ).fetchone()
         conn.commit()
     return dict(row)
+
+
+def search_across(principal: Principal, project_ids: list[str], query: str,
+                  limit: int, memory_type: str | None, include_historical: bool) -> list[dict]:
+    if not principal.is_admin or principal.auth_type != "session":
+        raise HTTPException(status_code=403, detail="Administrator session required")
+    selected = list(dict.fromkeys(project_ids))
+    if not selected or len(selected) > 20:
+        raise HTTPException(status_code=422, detail="Select 1 to 20 projects")
+    with connect() as conn:
+        rows = conn.execute("SELECT id,name FROM projects WHERE id=ANY(%s::uuid[])",
+                            (selected,)).fetchall()
+    names = {str(row["id"]): row["name"] for row in rows}
+    if len(names) != len(selected):
+        raise HTTPException(status_code=404, detail="Project not found")
+    vector = embed_literal(query)
+    results = []
+    for project_id in selected:
+        with project_scope(project_id):
+            for item in memories.search(query, limit, memory_type, include_historical, vector):
+                item["project_id"] = project_id
+                item["project_name"] = names[project_id]
+                item["search_score"] = (
+                    item["semantic_score"] * .72
+                    + min(item["lexical_score"], 1.0) * .13
+                    + item["memory_score"] * .15
+                )
+                results.append(item)
+    results.sort(key=lambda item: item["search_score"], reverse=True)
+    return results[:limit]
