@@ -27,6 +27,7 @@ export default function App() {
   const [draft, setDraft] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [scanMessage, setScanMessage] = useState('');
 
   async function clearSession() {
     await SecureStore.deleteItemAsync(KEY);
@@ -58,6 +59,7 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
     setMemories([]); setProposals([]); setSelected(null); setResults(null); setDraft(null);
+    setScanMessage('');
     load(session).catch(e => setError(String(e.message || e)));
   }, [session?.token, session?.projectId]);
 
@@ -137,7 +139,8 @@ export default function App() {
         {selected && <View style={styles.card}><Text style={styles.cardTitle}>{selected.title}</Text><Text style={styles.content}>{selected.content}</Text></View>}
       </>}
       {tab === 'Agent' && <><Text style={styles.section}>Memory agent findings</Text><Text style={styles.hint}>Suggestions are for review. The agent never changes memories automatically.</Text>
-        <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { await call(session, '/api/v1/agent/scan', 'POST'); await load(session); })}><Text style={styles.link}>Run scan</Text></Pressable>
+        <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { setScanMessage(''); const result = await call<{ total: number }>(session, '/api/v1/agent/scan', 'POST'); await load(session); setScanMessage(result.total ? `Scan complete: ${result.total} new finding${result.total === 1 ? '' : 's'}.` : 'Scan complete: no new findings.'); })}><Text style={styles.link}>Run scan</Text></Pressable>
+        {!!scanMessage && <Text style={styles.hint}>{scanMessage}</Text>}
         {proposals.map(proposal => <View key={proposal.id} style={styles.card}><Text style={styles.cardTitle}>{proposal.memory_title || proposal.proposal_type.replaceAll('_', ' ')}</Text><Text style={styles.meta}>{proposal.proposal_type}</Text><Text style={styles.preview}>{proposal.reason}</Text>
           <View style={styles.row}>{proposal.proposal_type === 'duplicate' && <Pressable onPress={() => act(async () => { setDraft(await call<Record<string, unknown>>(session, `/api/v1/agent/proposals/${proposal.id}/draft`, 'POST')); })}><Text style={styles.link}>Preview draft</Text></Pressable>}<Pressable onPress={() => act(async () => { await call(session, `/api/v1/agent/proposals/${proposal.id}/dismiss`, 'POST'); await load(session); })}><Text style={styles.link}>Dismiss</Text></Pressable></View>
         </View>)}
