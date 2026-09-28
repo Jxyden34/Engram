@@ -11,7 +11,7 @@
 - Add opt-in daily, three-day, or weekly agent scans per project, with a visible run history and failure status.
 - Add administrator-selected cross-project memory search and AI consolidation drafts that preserve both source memories.
 - Add an Expo iOS/Android beta app with secure device session storage, project switching, memory browsing and creation, search, and agent findings. Mobile sessions are revocable and expire after 30 days by default.
-- Align the beta app with the App Store's Expo Go SDK so it can be opened on a physical iPhone without Apple Developer signing during early testing.
+- Check the beta app against a physical iPhone's Expo Go SDK and keep the Expo dependency aligned with the installed client during early testing.
 - This is a development beta. Apply migrations 009, 010, and 011 before starting the updated API and workers.
 - Replaced unavailable Quay MinIO images with pinned, maintained Silo and `mc`
   compatible images; made image pulls and helper-image builds required CI gates.
