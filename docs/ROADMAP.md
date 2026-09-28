@@ -1,8 +1,8 @@
-# MemoryBank Roadmap
+# Engram Roadmap
 
 > A self-hosted personal memory, knowledge and AI context platform.
 
-This roadmap tracks the evolution of MemoryBank from a secure personal memory store into a full personal knowledge operating system.
+This roadmap tracks the evolution of Engram from a secure personal memory store into a full personal knowledge operating system.
 
 ---
 
@@ -208,7 +208,7 @@ Planned:
 
 ## v2.2 — Identity & MCP ✅
 
-Modernize how external AI tools authenticate to MemoryBank.
+Modernize how external AI tools authenticate to Engram.
 
 **Status:** Shipped in v2.2.0 with PKCE, protected-resource discovery, CIMD, rotating refresh tokens, resource-bound access tokens, consent and client/grant revocation.
 
@@ -451,7 +451,7 @@ Examples:
 
 - Personal
 - Work
-- MemoryBank
+- Engram
 - Home Lab
 - Cosmopod
 - Career
@@ -626,7 +626,7 @@ Features:
 
 # North Star
 
-MemoryBank should eventually answer:
+Engram should eventually answer:
 
 > **What do I know, where did I learn it, when was it true, how confident am I, what has changed, and which parts are relevant right now?**
 

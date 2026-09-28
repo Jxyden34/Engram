@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     minio_endpoint: str = "minio:9000"
     minio_access_key: str
     minio_secret_key: str
-    minio_bucket: str = "memorybank"
+    minio_bucket: str = "engram"
     minio_secure: bool = False
 
     model_config = SettingsConfigDict(case_sensitive=False)

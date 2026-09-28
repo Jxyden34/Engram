@@ -243,8 +243,8 @@ CREATE INDEX IF NOT EXISTS candidate_memories_embedding_hnsw_idx
     WHERE status='pending';
 
 
--- MemoryBank v2.0 Knowledge Core
--- MemoryBank v2.0 Knowledge Core
+-- Engram v2.0 Knowledge Core
+-- Engram v2.0 Knowledge Core
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS valid_from timestamptz;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS valid_to timestamptz;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS supersedes_memory_id uuid REFERENCES memories(id) ON DELETE SET NULL;
@@ -360,7 +360,7 @@ CREATE INDEX IF NOT EXISTS knowledge_enrichment_status_idx ON knowledge_enrichme
 
 -- v2.1 Ingestion Mesh
 
--- MemoryBank v2.1 - Ingestion Mesh + Browser Capture
+-- Engram v2.1 - Ingestion Mesh + Browser Capture
 
 ALTER TABLE documents
     ADD COLUMN IF NOT EXISTS source_type text NOT NULL DEFAULT 'upload',
@@ -453,7 +453,7 @@ CREATE INDEX IF NOT EXISTS browser_captures_created_idx
 
 -- v2.2 OAuth / MCP Identity
 
--- MemoryBank v2.2 - OAuth / MCP Identity
+-- Engram v2.2 - OAuth / MCP Identity
 
 CREATE TABLE IF NOT EXISTS oauth_clients (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -564,7 +564,7 @@ CREATE INDEX IF NOT EXISTS oauth_access_user_idx
 
 -- v2.3 Disaster Recovery
 
--- MemoryBank v2.3 - Disaster Recovery evidence and restore testing
+-- Engram v2.3 - Disaster Recovery evidence and restore testing
 
 CREATE TABLE IF NOT EXISTS dr_backup_artifacts (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

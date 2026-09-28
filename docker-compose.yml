@@ -37,7 +37,8 @@ services:
     networks: [backend, egress]
 
   minio:
-    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    # Maintained MinIO-compatible Silo release; keep its multi-arch manifest pinned.
+    image: docker.io/pgsty/silo@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -47,13 +48,14 @@ services:
       - minio_data:/data
     networks: [backend]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "/usr/bin/silo", "healthcheck", "ready"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
 
   minio-init:
-    image: quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    image: engram-minio-init
+    build: ./ops/minio-init
     depends_on:
       minio:
         condition: service_healthy

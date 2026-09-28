@@ -10,6 +10,8 @@
 # Runtime data
 backups/
 imports/
+!web/app/imports/
+!web/app/imports/**
 data/
 *.dump
 *.sql
