@@ -55,7 +55,7 @@ export default function App() {
   }
 
   async function keepComposer(current: Session) {
-    if (composer.current.content.trim()) await storeComposer(current);
+    if (composer.current.content.trim() || composer.current.title.trim()) await storeComposer(current);
     else { stopEditing(); changeTitle(''); changeContent(''); }
   }
 
@@ -197,7 +197,7 @@ export default function App() {
         {!!editingId && <Text style={styles.hint}>Editing a saved draft</Text>}
         <TextInput style={[styles.input, styles.multiline]} value={content} onChangeText={value => { changeContent(value); setCaptureMessage(''); }} placeholder="What should Engram remember?" placeholderTextColor="#718094" multiline textAlignVertical="top" maxLength={1200} accessibilityLabel="Capture text" />
         <TextInput style={styles.input} value={title} onChangeText={changeTitle} placeholder="Title (optional)" placeholderTextColor="#718094" maxLength={100} accessibilityLabel="Capture title" />
-        <Pressable style={styles.primary} disabled={busy || !content.trim()} onPress={capture} accessibilityRole="button"><Text style={styles.primaryText}>Save capture</Text></Pressable>
+        <Pressable style={styles.primary} disabled={busy || (!content.trim() && !title.trim())} onPress={capture} accessibilityRole="button"><Text style={styles.primaryText}>Save capture</Text></Pressable>
         <Text style={styles.hint}>Saved securely on this device first. Engram sends it now if the server is reachable.</Text>
         {!!captureMessage && <Text style={styles.hint}>{captureMessage}</Text>}
         <Text style={[styles.section, { marginTop: 28 }]}>Saved drafts ({draftsFor(drafts, session).length})</Text>

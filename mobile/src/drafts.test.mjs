@@ -18,6 +18,7 @@ test('captures stay with their account and project until removed', async () => {
   const device = store();
   const personal = newDraft(account, '', 'A thought\nwith context');
   const work = newDraft({ ...account, projectId: 'work' }, 'Work note', 'Private work content');
+  assert.equal(newDraft(account, 'Title only', '').content, 'Title only');
   await saveDraft(device, personal);
   await saveDraft(device, work);
   const saved = await readDrafts(device);

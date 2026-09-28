@@ -27,7 +27,7 @@ async function ids(store: Store): Promise<string[]> {
 }
 
 export function newDraft(session: Session, title: string, content: string): CaptureDraft {
-  const body = content.trim();
+  const body = content.trim() || title.trim();
   return {
     id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`,
     origin: session.origin,
