@@ -1,6 +1,6 @@
 # Security Policy
 
-MemoryBank stores highly sensitive personal information and should be treated like private-cloud infrastructure.
+Engram stores highly sensitive personal information and should be treated like private-cloud infrastructure.
 
 ## Reporting a vulnerability
 

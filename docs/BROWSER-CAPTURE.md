@@ -1,9 +1,9 @@
 # Browser Capture
 
-MemoryBank v2.1 includes a Manifest V3 extension under:
+Engram v2.1 includes a Manifest V3 extension under:
 
 ```text
-extensions/memorybank-capture/
+extensions/engram-capture/
 ```
 
 The extension uses a dedicated `capture:write` API key.

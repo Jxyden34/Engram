@@ -1,11 +1,15 @@
-# MemoryBank
+# Engram
 
 > Self-hosted personal memory, source-ingestion and AI context platform.
 
-MemoryBank gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
+Engram gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.3.0`  
+**Current release:** `v2.4.0`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
+
+The v2.4.0 release adds a read-only Gmail connector preview and restores the Memory
+Inbox review page. See [Gmail setup and OAuth notes](docs/GMAIL.md) and the
+[changelog](CHANGELOG.md).
 
 ## Highlights
 
@@ -66,8 +70,8 @@ network so models can be pulled without exposing Ollama publicly.
 ## Quick start
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
-cd memorybank
+git clone https://github.com/Jxyden34/Engram.git
+cd Engram
 
 cp .env.example .env
 nano .env
@@ -112,7 +116,7 @@ curl http://127.0.0.1:8080/health
 
 ## Cloudflare Tunnel
 
-MemoryBank intentionally does **not** include a `cloudflared` container.
+Engram intentionally does **not** include a `cloudflared` container.
 
 Run your existing host-level `cloudflared` service and configure a published
 hostname to:
@@ -160,6 +164,7 @@ docker-compose.yml    production stack
 - [Backup and restore](docs/BACKUP-RESTORE.md)
 - [Operations](docs/OPERATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Portfolio & engineering evidence](docs/PORTFOLIO.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
