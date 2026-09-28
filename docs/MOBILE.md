@@ -2,6 +2,10 @@
 
 The `mobile/` app is part of `2.7.0-dev-beta.1`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 57, which matched the Expo Go version reported by our physical iPhone test on 2026-09-28. It supports account sign-in, project switching, recent memories, new manual memories, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
 
+## iPhone home-screen app without Apple Developer membership
+
+Open the Engram web server in Safari over HTTPS. Tap Share, choose **Add to Home Screen**, and open the new Engram icon. This installs the web interface as a standalone home-screen app without Expo Go or an Apple Developer membership. It uses the server you opened in Safari and needs a connection to that server; offline memory access is not provided. This is a web app, not an App Store or TestFlight build, and its screens differ from the Expo mobile app.
+
 ## First phone test with Expo Go
 
 1. Install Expo Go from the App Store or Google Play on the test device. Create a free Expo account and sign in to Expo Go.
