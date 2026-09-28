@@ -3,7 +3,7 @@ import "./globals.css";
 import Shell from "@/components/Shell";
 
 export const metadata: Metadata = {
-  title: "MemoryBank",
+  title: "Engram",
   description: "Self-hosted personal memory and AI context platform",
 };
 

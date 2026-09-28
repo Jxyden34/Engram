@@ -10,10 +10,10 @@ from app.security import Principal
 mcp_principal: ContextVar[Principal | None] = ContextVar("mcp_principal", default=None)
 
 mcp = MCPServer(
-    "Personal Memory Bank",
-    version="2.2.0",
+    "Personal Engram",
+    version="2.4.0",
     instructions=(
-        "Search and maintain the user's private self-hosted memory bank. "
+        "Search and maintain the user's private self-hosted Engram. "
         "Use search before creating duplicate memories. "
         "Deletion is request-only and always requires human approval."
     ),

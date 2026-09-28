@@ -1,6 +1,6 @@
 # GitHub Connector
 
-MemoryBank v2.1 uses a GitHub App rather than a personal access token.
+Engram v2.1 uses a GitHub App rather than a personal access token.
 
 ## Recommended GitHub App permissions
 
@@ -19,11 +19,11 @@ Scheduled sync does not require a webhook.
 
 Create a GitHub App under your GitHub account or organization settings.
 
-Set the permissions above and install it only on the repositories you want MemoryBank to see.
+Set the permissions above and install it only on the repositories you want Engram to see.
 
 Generate a private key (`.pem`).
 
-## Configure MemoryBank
+## Configure Engram
 
 Place the generated private key at:
 
@@ -79,4 +79,4 @@ The `connector-scheduler` container checks for due connectors and queues work in
 
 ## Private repositories
 
-MemoryBank can only read repositories granted to the GitHub App installation.
+Engram can only read repositories granted to the GitHub App installation.
