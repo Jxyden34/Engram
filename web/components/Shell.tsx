@@ -24,7 +24,9 @@ export default function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname === "/login") return <>{children}</>;
+  if (["/login", "/about", "/privacy", "/terms"].includes(pathname)) {
+    return <>{children}</>;
+  }
 
   async function logout() {
     try {
@@ -40,7 +42,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         <div className="brand">
           <div className="brandMark">M</div>
           <div>
-            <strong>MemoryBank</strong>
+            <strong>Engram</strong>
             <span>private cognition layer</span>
           </div>
         </div>

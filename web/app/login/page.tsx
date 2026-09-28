@@ -39,7 +39,7 @@ export default function LoginPage() {
     <div className="loginPage">
       <form className="loginCard" onSubmit={submit}>
         <div className="loginLogo">M</div>
-        <h1>Enter MemoryBank</h1>
+        <h1>Enter Engram</h1>
         <p>Your private cognition layer. Human-readable, AI-accessible, and under your control.</p>
         {error && <div className="errorBox">{error}</div>}
         <div className="field">
