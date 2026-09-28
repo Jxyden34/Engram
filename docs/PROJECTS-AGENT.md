@@ -1,6 +1,6 @@
 # Engram Projects and Memory Agent development beta
 
-Version: `2.7.0-dev-beta.1`.
+Version: `2.7.0-beta2`.
 
 ## Projects
 

@@ -7,7 +7,7 @@ Engram gives you one controlled source of truth for personal knowledge. Humans u
 The 2.7 development beta also includes a shared iOS and Android app for project-scoped memories, search, and memory-agent review. See [mobile beta setup](docs/MOBILE.md).
 
 **Current stable release:** `v2.4.0`
-**Development beta:** `v2.7.0-dev-beta.1`
+**Development beta:** `v2.7.0-beta2`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
 The v2.4.0 release adds a read-only Gmail connector preview and restores the Memory

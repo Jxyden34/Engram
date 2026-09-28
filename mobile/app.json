@@ -8,10 +8,12 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.jxyden34.engram.beta"
+      "bundleIdentifier": "com.jxyden34.engram.beta",
+      "buildNumber": "2"
     },
     "android": {
       "package": "com.jxyden34.engram.beta",
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#0C1420",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -21,7 +23,7 @@
       "predictiveBackGestureEnabled": false
     },
     "extra": {
-      "release": "2.7.0-dev-beta.1",
+      "release": "2.7.0-beta2",
       "eas": {
         "projectId": "4bfa32da-3316-4752-aa52-605ded14d3c2"
       }

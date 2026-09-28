@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.0-beta2 - unreleased
+
+- Add one-tap mobile Quick Capture with device-secured offline drafts scoped to the original account and project.
+- Allow saved drafts to be edited, sent manually, or deleted. Keep an unfinished capture when switching projects or signing out.
+- Open the mobile app on Capture, keep a saved session usable while the server is offline, and bump the Android preview build version.
+- Add the installable iPhone home-screen web app; it requires a connection and has separate storage from the Expo app.
+
 ## 2.7.0-dev-beta.1 - unreleased
 
 - Add project selection and project-bound API keys. Existing records migrate to Personal.

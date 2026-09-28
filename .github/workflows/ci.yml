@@ -150,6 +150,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check TypeScript
         run: pnpm check
+      - name: Check offline draft storage
+        run: pnpm test:drafts
       - name: Check Expo package versions
         run: pnpm exec expo install --check
       - name: Bundle iOS and Android

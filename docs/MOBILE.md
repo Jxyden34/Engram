@@ -1,6 +1,12 @@
 # Engram mobile beta (iOS and Android)
 
-The `mobile/` app is part of `2.7.0-dev-beta.1`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 57, which matched the Expo Go version reported by our physical iPhone test on 2026-09-28. It supports account sign-in, project switching, recent memories, new manual memories, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
+The `mobile/` app is part of `2.7.0-beta2`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 57, which matched the Expo Go version reported by our physical iPhone test on 2026-09-28. It supports account sign-in, project switching, recent memories, quick capture, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
+
+## Quick capture and offline drafts
+
+Capture opens first after sign-in. Enter a thought and tap **Save capture**. The app saves it in device secure storage before attempting to send it. If the server cannot be reached, the draft stays under the account and project where it was written. You can edit, send, or delete saved drafts in Capture. Retrying a saved draft is manual; the app does not silently retry or create memories in another project. If a send times out, check Memories before retrying because the server may have accepted it. Switching projects or signing out saves an unfinished capture first. Short captures only: the app rejects a draft that is too large for secure storage and leaves its text on screen to shorten.
+
+Drafts are local to that installation. Expo Go and the standalone Android APK do not share drafts; uninstalling the Android app may remove them. Send important drafts before uninstalling or switching apps. The iPhone home-screen web app remains online-only and does not use the native app's draft storage.
 
 ## iPhone home-screen app without Apple Developer membership
 

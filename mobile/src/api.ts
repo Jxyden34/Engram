@@ -1,4 +1,4 @@
-export type Session = { origin: string; token: string; username: string; isAdmin: boolean; projectId: string };
+export type Session = { origin: string; token: string; username: string; isAdmin: boolean; projectId: string; projectName?: string };
 export type Project = { id: string; name: string; slug: string };
 export type Memory = { id: string; title: string; content: string; memory_type: string; updated_at: string; tags?: string[] };
 export type Proposal = { id: string; proposal_type: string; memory_title?: string; reason: string; evidence?: unknown; draft_stale?: boolean };
