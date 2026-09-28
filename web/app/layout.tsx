@@ -15,6 +15,7 @@ export const viewport: Viewport = { themeColor: "#090a0c" };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
+      <head><meta name="apple-mobile-web-app-capable" content="yes" /></head>
       <body>
         <Shell>{children}</Shell>
       </body>
