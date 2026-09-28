@@ -21,7 +21,11 @@
       "predictiveBackGestureEnabled": false
     },
     "extra": {
-      "release": "2.7.0-dev-beta.1"
-    }
+      "release": "2.7.0-dev-beta.1",
+      "eas": {
+        "projectId": "4bfa32da-3316-4752-aa52-605ded14d3c2"
+      }
+    },
+    "owner": "jxyden34"
   }
 }
