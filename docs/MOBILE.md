@@ -1,19 +1,19 @@
 # Engram mobile beta (iOS and Android)
 
-The `mobile/` app is part of `2.7.0-dev-beta.1`. It uses one Expo/React Native codebase for iOS and Android. It supports account sign-in, project switching, recent memories, new manual memories, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
+The `mobile/` app is part of `2.7.0-dev-beta.1`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 54 so the iPhone App Store version of Expo Go can open it. It supports account sign-in, project switching, recent memories, new manual memories, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
 
 ## First phone test with Expo Go
 
-1. Start an isolated Engram 2.7 beta server with database migrations 009, 010, and 011 applied. Use a publicly trusted HTTPS origin that your phone can reach. The current production host is on 2.4.0 and does not have the mobile login endpoint.
-2. Install Node.js 24 and pnpm 11.19.0.
-3. Run `cd mobile`, `pnpm install --frozen-lockfile`, then `pnpm start`.
-4. Open the project in Expo Go on an iOS or Android device and sign in with a test Engram user account. Enter the preprod server origin only, for example `https://preprod.engram.example.com`. On a physical iPhone, sign in to Expo Go and Expo CLI with the same Expo account.
+1. Install Expo Go from the App Store on your iPhone. Create a free Expo account and sign in to Expo Go.
+2. On the development computer, install Node.js 24 and pnpm 11.19.0. Run `cd mobile`, `pnpm install --frozen-lockfile`, and `pnpm exec expo login` with the **same Expo account**.
+3. Run `pnpm start` and scan the terminal QR code with the iPhone Camera. Keep the development server running while testing. The phone and computer should be on the same Wi-Fi; use Expo's tunnel mode if the LAN connection fails.
+4. The sign-in screen can be checked immediately. To test authentication and data, start an isolated Engram 2.7 beta server with migrations 009, 010, and 011 applied and a test account. Enter its publicly trusted HTTPS origin in the app, for example `https://preprod.engram.example.com`. The production host was on 2.4.0 on 2026-09-28 and did not have the mobile login endpoint.
 
 For a local simulator, `pnpm ios` requires macOS and an iOS simulator; `pnpm android` requires an Android emulator or connected device.
 
 ## Installable preview builds
 
-The `preview` profile in `mobile/eas.json` is set up for an Android APK and an internally distributed iOS app. From `mobile/`, install EAS CLI and sign in to an Expo account, then link this app to an Expo project when prompted:
+The `preview` profile in `mobile/eas.json` is set up for an Android APK and an internally distributed iOS app. This later route produces an Engram app icon on the home screen and does not need the development server. From `mobile/`, install EAS CLI and sign in to an Expo account, then link this app to an Expo project when prompted:
 
 ```sh
 pnpm dlx eas-cli login
