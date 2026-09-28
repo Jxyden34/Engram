@@ -1,4 +1,4 @@
-# MemoryBank v2.1 — Ingestion Mesh + Browser Capture
+# Engram v2.1 — Ingestion Mesh + Browser Capture
 
 v2.1 adds:
 
@@ -139,9 +139,9 @@ Open:
 The extension is included under:
 
 ```text
-extensions/memorybank-capture
+extensions/engram-capture
 ```
 
 Generate a capture key under **AI & API**.
 
-Load the directory unpacked in Chrome/Edge developer mode and configure your MemoryBank public origin + capture key.
+Load the directory unpacked in Chrome/Edge developer mode and configure your Engram public origin + capture key.

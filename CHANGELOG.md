@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Replaced unavailable Quay MinIO images with pinned, maintained Silo and `mc`
+  compatible images; made image pulls and helper-image builds required CI gates.
+- Added a Docker smoke test for S3 startup, bucket creation and versioning.
+
+## Engram rename - 2026-09-23
+
+- Renamed the public product, API metadata, browser extension, docs, and new-install defaults to Engram.
+- Existing deployments can keep their database, object bucket, backup artifacts, and credentials while adopting the branding.
+
+## 2.4.0 - 2026-09-23
+
+### Added
+
+- Gmail read-only connector preview using the existing scheduled connector flow.
+- OAuth state bound to the active administrator session, with one-use expiry.
+- Public About, Privacy and Terms pages for OAuth app verification.
+- Encrypted Google refresh tokens, explicit disconnect/revocation, selectable
+  Gmail query/label, bounded message polling and provenance-preserving source
+  documents routed through the Memory Inbox review workflow.
+- Restored the Memory Inbox page used to review imported content.
+- Google setup, restricted-scope and migration notes in `docs/GMAIL.md`.
+
+### Scope
+
+- Gmail API `gmail.readonly` only: no sending, modifying, deleting or attachments.
+- Gmail setup requires Google OAuth project configuration and migration 008 on
+  existing installations.
+- Each Gmail run is capped to the newest 500 matching messages; historical
+  backfill beyond that cap is not supported in this preview.
+
 ## 2.3.1 DR polish - 2026-09-18
 
 This source update retains version 2.3.1 and all existing v2.3 APIs and database
@@ -49,7 +83,7 @@ See [upgrade notes](UPGRADE-v2.3.1-DR-POLISH.md) for deployment and verification
 ### Validation
 
 - Clean deployment successfully tested on a separate Linux host.
-- MemoryBank health endpoint returned HTTP 200 through Caddy.
+- Engram health endpoint returned HTTP 200 through Caddy.
 - Real off-site encrypted backups successfully restored on a separate recovery host.
 - 672 memories restored.
 - 422 documents restored.
@@ -138,4 +172,4 @@ See [upgrade notes](UPGRADE-v2.3.1-DR-POLISH.md) for deployment and verification
 
 ## 1.0.0
 
-- Initial MemoryBank full-stack platform.
+- Initial Engram full-stack platform.

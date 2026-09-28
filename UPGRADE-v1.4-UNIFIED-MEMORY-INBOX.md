@@ -1,4 +1,4 @@
-# MemoryBank v1.4 — Unified Memory Inbox
+# Engram v1.4 — Unified Memory Inbox
 
 This patch replaces the separate ChatGPT Inbox and Document Inbox with one streamlined **Memory Inbox**.
 

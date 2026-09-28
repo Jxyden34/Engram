@@ -5,7 +5,7 @@ from io import BytesIO
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from mcp.server.transport_security import TransportSecuritySettings
 
 from app import memories
@@ -40,6 +40,7 @@ from app.schemas import (
     ChatImportCreate,
     ConnectorCreate,
     ConnectorUpdate,
+    GmailOAuthStart,
     DeleteRequest,
     LoginRequest,
     MemoryCreate,
@@ -64,6 +65,7 @@ from app.security import (
     create_session,
     generate_api_key,
     require,
+    sha256,
     revoke_session,
     session_principal,
     validate_csrf,
@@ -92,8 +94,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="MemoryBank API",
-    version="2.3.1",
+    title="Engram API",
+    version="2.4.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -198,7 +200,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "memorybank", "version": "2.3.1"}
+    return {"status": "ok", "service": "engram", "version": "2.4.0"}
 
 
 @app.post("/api/v1/auth/login")
@@ -774,6 +776,39 @@ def memory_health(request: Request):
 def connector_capabilities(request: Request):
     require(request, "connector:admin")
     return connectors.capabilities()
+
+
+@app.post("/api/v1/connectors/gmail/authorize")
+def gmail_authorize(body: GmailOAuthStart, request: Request):
+    principal = require(request, "connector:admin")
+    session = request.cookies.get(SESSION_COOKIE)
+    if principal.auth_type != "session" or not principal.user_id or not session:
+        raise HTTPException(status_code=403, detail="Gmail authorization requires an administrator browser session")
+    return {"authorization_url": connectors.start_gmail_oauth(
+        body.model_dump(), principal.actor, principal.user_id, sha256(session)
+    )}
+
+
+@app.get("/api/v1/connectors/gmail/callback", include_in_schema=False)
+def gmail_callback(request: Request):
+    principal = require(request, "connector:admin")
+    session = request.cookies.get(SESSION_COOKIE)
+    if principal.auth_type != "session" or not principal.user_id or not session:
+        raise HTTPException(status_code=403, detail="Return to Engram in the browser where Gmail setup started")
+    state = request.query_params.get("state", "")
+    session_hash = sha256(session)
+    if request.query_params.get("error"):
+        if state:
+            connectors.cancel_gmail_oauth(state, session_hash)
+        return RedirectResponse("/connectors?gmail=cancelled", status_code=303,
+                                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+    connector_id, email_address = connectors.finish_gmail_oauth(
+        state, request.query_params.get("code", ""), session_hash
+    )
+    log(principal.actor, "connector.created", "connector", connector_id, request,
+        new_data={"connector_type": "gmail", "email_address": email_address})
+    return RedirectResponse("/connectors?gmail=connected", status_code=303,
+                            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
 
 @app.get("/api/v1/connectors")

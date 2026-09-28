@@ -4,7 +4,7 @@ umask 077
 mkdir -p /backups
 while true; do
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-  plain="/backups/memorybank-${stamp}.dump"
+  plain="/backups/engram-${stamp}.dump"
   encrypted="${plain}.enc"
   pg_dump -Fc -f "$plain"
   openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \

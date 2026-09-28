@@ -1,4 +1,4 @@
-# MemoryBank v2.3.1 DR polish
+# Engram v2.3.1 DR polish
 
 Apply this source update to an existing v2.3/v2.3.1 deployment with the DR tables
 already installed. VERSION remains `2.3.1`; the earlier release tag is not moved.

@@ -1,6 +1,6 @@
 # Disaster Recovery
 
-MemoryBank v2.3 turns backup files into tested recovery evidence.
+Engram v2.3 turns backup files into tested recovery evidence.
 
 ## What is covered
 
@@ -275,5 +275,5 @@ PASS
 The validation confirmed that all 422 restored documents with object references
 had matching files in the restored object archive.
 
-This provides tested recovery evidence for the complete MemoryBank data path,
+This provides tested recovery evidence for the complete Engram data path,
 rather than relying only on the existence of backup files.
