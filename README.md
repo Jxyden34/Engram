@@ -4,12 +4,13 @@
 
 Engram gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.4.0`
+**Current release:** `v2.4.5`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
-The v2.4.0 release adds a read-only Gmail connector preview and restores the Memory
-Inbox review page. See [Gmail setup and OAuth notes](docs/GMAIL.md) and the
-[changelog](CHANGELOG.md).
+The v2.4.5 release restores pullable object-storage images and makes clean
+storage startup a required CI check. See the [changelog](CHANGELOG.md).
+The v2.4.0 release added the read-only Gmail connector preview and restored
+the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 
 ## Highlights
 
