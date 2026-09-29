@@ -23,6 +23,7 @@ export default function App() {
   const [usingOffline, setUsingOffline] = useState(false);
   const [searchIsOffline, setSearchIsOffline] = useState(false);
   const activeScope = useRef('');
+  const loadSequence = useRef(0);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [runs, setRuns] = useState<ScanRun[]>([]);
   const [reviewId, setReviewId] = useState<string | null>(null);
@@ -84,22 +85,23 @@ export default function App() {
   }
 
   async function load(current: Session) {
+    const sequence = ++loadSequence.current;
     const scope = `${current.origin}\u0000${current.username}\u0000${current.projectId}`;
     const cached = await readOfflineLibrary(SecureStore, current).catch(() => ({ items: [], savedAt: null }));
-    if (activeScope.current !== scope) return;
+    if (activeScope.current !== scope || sequence !== loadSequence.current) return;
     setOfflineLibrary(cached);
     if (cached.savedAt) { setMemories(cached.items); setUsingOffline(true); }
     try {
       const nextMemories = await call<Memory[]>(current, '/api/v1/memories?limit=50');
-      if (activeScope.current !== scope) return;
+      if (activeScope.current !== scope || sequence !== loadSequence.current) return;
       setMemories(nextMemories); setUsingOffline(false);
       const saved = await saveOfflineLibrary(SecureStore, current, nextMemories).catch(() => null);
-      if (saved && activeScope.current === scope) setOfflineLibrary(saved);
+      if (saved && activeScope.current === scope && sequence === loadSequence.current) setOfflineLibrary(saved);
       const [nextProposals, nextRuns] = await Promise.all([
         call<Proposal[]>(current, '/api/v1/agent/proposals?status=pending&limit=50'),
         call<ScanRun[]>(current, '/api/v1/agent/runs?limit=5'),
       ]);
-      if (activeScope.current === scope) { setProposals(nextProposals); setRuns(nextRuns); }
+      if (activeScope.current === scope && sequence === loadSequence.current) { setProposals(nextProposals); setRuns(nextRuns); }
     } catch (error) {
       if (!cached.savedAt) throw error;
     }
