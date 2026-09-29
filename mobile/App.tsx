@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { api, AgentDraft, ApiError, login, Memory, normalizeOrigin, Project, Proposal, ScanRun, Session } from './src/api';
 import { CaptureDraft, draftsFor, newDraft, readDrafts, removeDraft, saveDraft, updateDraft } from './src/drafts';
+import { clearOfflineLibrary, OfflineLibrary, readOfflineLibrary, saveOfflineLibrary, searchOffline } from './src/offline';
 
 const KEY = 'engram_mobile_session';
 type Tab = 'Capture' | 'Memories' | 'Search' | 'Agent' | 'Settings';
@@ -18,6 +19,10 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tab, setTab] = useState<Tab>('Capture');
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [offlineLibrary, setOfflineLibrary] = useState<OfflineLibrary>({ items: [], savedAt: null });
+  const [usingOffline, setUsingOffline] = useState(false);
+  const [searchIsOffline, setSearchIsOffline] = useState(false);
+  const activeScope = useRef('');
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [runs, setRuns] = useState<ScanRun[]>([]);
   const [reviewId, setReviewId] = useState<string | null>(null);
@@ -67,7 +72,8 @@ export default function App() {
     clearing.current = (async () => {
       await keepComposer(current);
       await SecureStore.deleteItemAsync(KEY);
-      setSession(null); setProjects([]); setMemories([]); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null);
+      activeScope.current = '';
+      setSession(null); setProjects([]); setMemories([]); setOfflineLibrary({ items: [], savedAt: null }); setUsingOffline(false); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null);
     })();
     try { await clearing.current; } finally { clearing.current = null; }
   }
@@ -78,12 +84,25 @@ export default function App() {
   }
 
   async function load(current: Session) {
-    const [nextMemories, nextProposals, nextRuns] = await Promise.all([
-      call<Memory[]>(current, '/api/v1/memories?limit=50'),
-      call<Proposal[]>(current, '/api/v1/agent/proposals?status=pending&limit=50'),
-      call<ScanRun[]>(current, '/api/v1/agent/runs?limit=5'),
-    ]);
-    setMemories(nextMemories); setProposals(nextProposals); setRuns(nextRuns);
+    const scope = `${current.origin}\u0000${current.username}\u0000${current.projectId}`;
+    const cached = await readOfflineLibrary(SecureStore, current).catch(() => ({ items: [], savedAt: null }));
+    if (activeScope.current !== scope) return;
+    setOfflineLibrary(cached);
+    if (cached.savedAt) { setMemories(cached.items); setUsingOffline(true); }
+    try {
+      const nextMemories = await call<Memory[]>(current, '/api/v1/memories?limit=50');
+      if (activeScope.current !== scope) return;
+      setMemories(nextMemories); setUsingOffline(false);
+      const saved = await saveOfflineLibrary(SecureStore, current, nextMemories).catch(() => null);
+      if (saved && activeScope.current === scope) setOfflineLibrary(saved);
+      const [nextProposals, nextRuns] = await Promise.all([
+        call<Proposal[]>(current, '/api/v1/agent/proposals?status=pending&limit=50'),
+        call<ScanRun[]>(current, '/api/v1/agent/runs?limit=5'),
+      ]);
+      if (activeScope.current === scope) { setProposals(nextProposals); setRuns(nextRuns); }
+    } catch (error) {
+      if (!cached.savedAt) throw error;
+    }
   }
 
   useEffect(() => {
@@ -101,7 +120,8 @@ export default function App() {
 
   useEffect(() => {
     if (!session) return;
-    setMemories([]); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null); setDraft(null);
+    activeScope.current = `${session.origin}\u0000${session.username}\u0000${session.projectId}`;
+    setMemories([]); setOfflineLibrary({ items: [], savedAt: null }); setUsingOffline(false); setSearchIsOffline(false); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null); setDraft(null);
     setScanMessage('');
     load(session).catch(e => setError(String(e.message || e)));
   }, [session?.token, session?.projectId]);
@@ -168,6 +188,21 @@ export default function App() {
     });
   }
 
+  async function runSearch() {
+    if (!session || !query.trim()) return;
+    await act(async () => {
+      try {
+        setResults(await call<Memory[]>(session, '/api/v1/search', 'POST', { query: query.trim(), limit: 20, include_documents: false }));
+        setSearchIsOffline(false);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) throw error;
+        if (!offlineLibrary.savedAt) throw error;
+        setResults(searchOffline(offlineLibrary.items, query));
+        setSearchIsOffline(true);
+      }
+    });
+  }
+
   async function openReview(proposal: Proposal) {
     if (!session) return;
     await act(async () => {
@@ -201,14 +236,14 @@ export default function App() {
   const card = (item: Memory) => <Pressable key={item.id} style={styles.card} onPress={() => setSelected(item)} accessibilityRole="button">
     <Text style={styles.cardTitle}>{item.title}</Text>
     <Text style={styles.meta}>{item.memory_type} · {new Date(item.updated_at).toLocaleDateString()}</Text>
-    <Text style={styles.preview} numberOfLines={2}>{item.content}</Text>
+    <Text style={styles.preview} numberOfLines={2}>{item.content}</Text>{item.truncated && <Text style={styles.meta}>Offline excerpt</Text>}
   </Pressable>;
 
   if (!ready) return <SafeAreaView style={styles.center}><ActivityIndicator color="#7ccaff" /></SafeAreaView>;
   if (!session) return <SafeAreaView style={styles.root}><StatusBar style="light" /><KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView contentContainerStyle={styles.login} keyboardShouldPersistTaps="handled">
       <Text style={styles.brand}>ENGRAM</Text><Text style={styles.hero}>Your memory, anywhere.</Text>
-      <Text style={styles.sub}>2.7 beta 2 · iOS + Android</Text>
+      <Text style={styles.sub}>2.7 beta 3 · iOS + Android</Text>
       <Text style={styles.label}>Server URL</Text><TextInput style={styles.input} value={server} onChangeText={setServer} placeholder="https://engram.example.com" placeholderTextColor="#718094" autoCapitalize="none" keyboardType="url" />
       <Text style={styles.label}>Username</Text><TextInput style={styles.input} value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Username" placeholderTextColor="#718094" />
       <Text style={styles.label}>Password</Text><TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor="#718094" onSubmitEditing={signIn} />
@@ -219,7 +254,7 @@ export default function App() {
   </KeyboardAvoidingView></SafeAreaView>;
 
   return <SafeAreaView style={styles.root}><StatusBar style="light" />
-    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>BETA 2</Text></View>
+    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>BETA 3</Text></View>
     <ScrollView horizontal style={styles.tabBar} contentContainerStyle={styles.tabContent} showsHorizontalScrollIndicator={false}>
       {tabs.map(item => <Pressable key={item} style={[styles.tab, tab === item && styles.tabActive]} onPress={() => { setTab(item); setSelected(null); setError(''); }} accessibilityRole="button"><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item}</Text></Pressable>)}
     </ScrollView>
@@ -250,11 +285,15 @@ export default function App() {
         {!draftsFor(drafts, session).length && <Text style={styles.empty}>No drafts waiting to send in this project.</Text>}
       </>}
       {tab === 'Memories' && <>
-        {selected ? <><Pressable onPress={() => setSelected(null)}><Text style={styles.link}>← Back to memories</Text></Pressable><Text style={styles.heading}>{selected.title}</Text><Text style={styles.meta}>{selected.memory_type}</Text><Text style={styles.content}>{selected.content}</Text></> :
-          <><View style={styles.row}><Text style={styles.section}>{memories.length} recent memories</Text><Pressable onPress={() => setTab('Capture')}><Text style={styles.link}>＋ Capture</Text></Pressable></View>{memories.map(card)}{!memories.length && <Text style={styles.empty}>No memories in this project yet.</Text>}</>}
+        {selected ? <><Pressable onPress={() => setSelected(null)}><Text style={styles.link}>← Back to memories</Text></Pressable><Text style={styles.heading}>{selected.title}</Text><Text style={styles.meta}>{selected.memory_type}</Text>{selected.truncated && <Text style={styles.hint}>Saved excerpt. Connect for the complete memory.</Text>}<Text style={styles.content}>{selected.content}</Text></> :
+          <><View style={styles.row}><Text style={styles.section}>{memories.length} recent memories</Text><Pressable onPress={() => setTab('Capture')}><Text style={styles.link}>＋ Capture</Text></Pressable></View>
+            {offlineLibrary.savedAt && <Text style={styles.hint}>{usingOffline ? 'Offline library' : 'Saved for offline reading'} · {new Date(offlineLibrary.savedAt).toLocaleString()} · latest {offlineLibrary.items.length} memories</Text>}
+            <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => load(session))} accessibilityRole="button"><Text style={styles.link}>Refresh from server</Text></Pressable>
+            {memories.map(card)}{!memories.length && <Text style={styles.empty}>No memories in this project yet.</Text>}</>}
       </>}
-      {tab === 'Search' && <><Text style={styles.section}>Search this project</Text><TextInput style={styles.input} value={query} onChangeText={setQuery} placeholder="What are you looking for?" placeholderTextColor="#718094" returnKeyType="search" onSubmitEditing={() => act(async () => setResults(await call<Memory[]>(session, '/api/v1/search', 'POST', { query: query.trim(), limit: 20, include_documents: false })))} />
-        <Pressable style={styles.primary} disabled={busy || !query.trim()} onPress={() => act(async () => setResults(await call<Memory[]>(session, '/api/v1/search', 'POST', { query: query.trim(), limit: 20, include_documents: false })))}><Text style={styles.primaryText}>Search</Text></Pressable>
+      {tab === 'Search' && <><Text style={styles.section}>Search this project</Text><TextInput style={styles.input} value={query} onChangeText={value => { setQuery(value); setResults(null); setSelected(null); setSearchIsOffline(false); }} placeholder="What are you looking for?" placeholderTextColor="#718094" returnKeyType="search" onSubmitEditing={runSearch} />
+        <Pressable style={styles.primary} disabled={busy || !query.trim()} onPress={runSearch}><Text style={styles.primaryText}>Search</Text></Pressable>
+        {searchIsOffline && <Text style={styles.hint}>Offline results from the {offlineLibrary.items.length} saved recent memories. Connect for full search.</Text>}
         {results?.map(card)}{results?.length === 0 && <Text style={styles.empty}>No matches found.</Text>}
         {selected && <View style={styles.card}><Text style={styles.cardTitle}>{selected.title}</Text><Text style={styles.content}>{selected.content}</Text></View>}
       </>}
@@ -283,7 +322,9 @@ export default function App() {
         {runs.map(run => <View key={run.id} style={styles.card}><Text style={styles.cardTitle}>{run.trigger_type === 'scheduled' ? 'Automatic' : 'Manual'} scan · {run.status}</Text><Text style={styles.meta}>{new Date(run.created_at).toLocaleString()}</Text>{run.result && <Text style={styles.preview}>{run.result.total} new findings</Text>}{!!run.error_message && <Text style={styles.error}>{run.error_message}</Text>}</View>)}
         {!runs.length && <Text style={styles.empty}>No scans yet.</Text>}
       </>}
-      {tab === 'Settings' && <><Text style={styles.section}>Account</Text><Text style={styles.content}>{session.username}</Text><Text style={styles.meta}>{session.origin}</Text><Text style={styles.hint}>Project: {projects.find(p => p.id === session.projectId)?.name || 'Personal'}</Text><Pressable style={styles.secondary} onPress={signOut} disabled={busy}><Text style={styles.link}>Sign out and revoke session</Text></Pressable></>}
+      {tab === 'Settings' && <><Text style={styles.section}>Account</Text><Text style={styles.content}>{session.username}</Text><Text style={styles.meta}>{session.origin}</Text><Text style={styles.hint}>Project: {projects.find(p => p.id === session.projectId)?.name || 'Personal'}</Text>
+        <Pressable style={styles.secondary} disabled={busy || !offlineLibrary.savedAt} onPress={() => Alert.alert('Clear offline library?', 'Remove saved memory copies for this project from this device? Memories on the server are unaffected.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: () => { void act(async () => { await clearOfflineLibrary(SecureStore, session); setOfflineLibrary({ items: [], savedAt: null }); if (usingOffline) setMemories([]); }); } }])} accessibilityRole="button"><Text style={styles.link}>Clear this project’s offline copies</Text></Pressable>
+        <Pressable style={styles.secondary} onPress={signOut} disabled={busy}><Text style={styles.link}>Sign out and revoke session</Text></Pressable></>}
     </ScrollView>
     {busy && <ActivityIndicator style={styles.spinner} color="#7ccaff" />}
   </SafeAreaView>;

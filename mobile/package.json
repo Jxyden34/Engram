@@ -1,7 +1,7 @@
 {
   "name": "engram-mobile",
   "private": true,
-  "version": "2.7.0-beta2",
+  "version": "2.7.0-beta3",
   "packageManager": "pnpm@11.19.0",
   "main": "index.ts",
   "dependencies": {
@@ -23,6 +23,7 @@
     "ios": "expo start --ios",
     "check": "tsc --noEmit",
     "test:drafts": "node --experimental-strip-types --test src/drafts.test.mjs",
+    "test:offline": "node --experimental-strip-types --test src/offline.test.mjs",
     "export": "expo export --platform all"
   }
 }

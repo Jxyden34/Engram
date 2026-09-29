@@ -1,12 +1,16 @@
 # Engram mobile beta (iOS and Android)
 
-The `mobile/` app is part of `2.7.0-beta2`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 57, which matched the Expo Go version reported by our physical iPhone test on 2026-09-28. It supports account sign-in, project switching, recent memories, quick capture, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
+The `mobile/` app is part of `2.7.0-beta3`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 57, which matched the Expo Go version reported by our physical iPhone test on 2026-09-28. It supports account sign-in, project switching, recent memories, quick capture, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
 
 ## Quick capture and offline drafts
 
 Capture opens first after sign-in. Enter a thought and tap **Save capture**. The app saves it in device secure storage before attempting to send it. If the server cannot be reached, the draft stays under the account and project where it was written. You can edit, send, or delete saved drafts in Capture. Retrying a saved draft is manual; the app does not silently retry or create memories in another project. If a send times out, check Memories before retrying because the server may have accepted it. Switching projects or signing out saves an unfinished capture first. Short captures only: the app rejects a draft that is too large for secure storage and leaves its text on screen to shorten.
 
 Drafts are local to that installation. Expo Go and the standalone Android APK do not share drafts; uninstalling the Android app may remove them. Send important drafts before uninstalling or switching apps. The iPhone home-screen web app remains online-only and does not use the native app's draft storage.
+
+## Offline memory library
+
+After the app loads a project online, it saves up to 20 recent memories in device secure storage for that server, account, and project. The Memories tab can show those copies while disconnected. Long content is saved as a clearly marked excerpt to fit secure storage; connect to read the complete memory. Search falls back to those saved excerpts when the server cannot be reached and labels the local results. The saved timestamp shows how old the library is. Refresh from server when back online. Settings can clear the current project's offline copies without changing server memories. Offline copies are separate between Expo Go and installed APKs and may be removed by uninstalling the app.
 
 ## Agent review on mobile
 
@@ -49,7 +53,7 @@ Open the completed build link on the Android device, download the APK, and allow
 
 ## Preview updates
 
-Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The native runtime is `2.7.0-beta2-native1`; increment this value whenever native dependencies, Expo SDK, or native configuration change. JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
+Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The native runtime is `2.7.0-beta3-native1`; increment this value whenever native dependencies, Expo SDK, or native configuration change. JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
 
 ```sh
 eas update --channel preview --platform android --environment preview --message "Describe the tested change"

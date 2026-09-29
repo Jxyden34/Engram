@@ -152,6 +152,8 @@ jobs:
         run: pnpm check
       - name: Check offline draft storage
         run: pnpm test:drafts
+      - name: Check offline memory library
+        run: pnpm test:offline
       - name: Check Expo package versions
         run: pnpm exec expo install --check
       - name: Bundle iOS and Android

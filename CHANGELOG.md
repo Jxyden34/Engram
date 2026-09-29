@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.7.0-beta3 - unreleased
+
+- Add a project-scoped offline memory library on mobile. Save up to 20 recent memories in device secure storage, read excerpts while disconnected, and fall back to local search when the server is unreachable.
+- Show when an offline copy was saved and allow clearing a project's local copies from Settings. Full server search and long memory content still require a connection.
+- Add mobile Agent review actions, recent scan history, and navigation visible above Android system UI.
+- Add Android development builds and a dedicated EAS Update preview channel for compatible JavaScript and asset updates.
+- Bump the Android preview to build 5 and iOS build number to 3.
+
 ## 2.7.0-beta2 - unreleased
 
 - Add one-tap mobile Quick Capture with device-secured offline drafts scoped to the original account and project.

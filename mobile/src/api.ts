@@ -1,6 +1,6 @@
 export type Session = { origin: string; token: string; username: string; isAdmin: boolean; projectId: string; projectName?: string };
 export type Project = { id: string; name: string; slug: string };
-export type Memory = { id: string; title: string; content: string; memory_type: string; updated_at: string; tags?: string[] };
+export type Memory = { id: string; title: string; content: string; memory_type: string; updated_at: string; tags?: string[]; truncated?: boolean };
 export type AgentDraft = { safe_to_merge: boolean; title?: string; content?: string; reason: string };
 export type Proposal = { id: string; proposal_type: string; memory_id: string; memory_title?: string; related_memory_id?: string; related_title?: string; reason: string; evidence?: { draft?: AgentDraft; [key: string]: unknown }; draft_stale?: boolean };
 export type ScanRun = { id: string; trigger_type: string; status: string; result?: { total: number }; error_message?: string; created_at: string };
