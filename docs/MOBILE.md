@@ -21,6 +21,15 @@ Open the Engram web server in Safari over HTTPS. Tap Share, choose **Add to Home
 
 For a local simulator, `pnpm ios` requires macOS and an iOS simulator; `pnpm android` requires an Android emulator or connected device.
 
+## Android development build for rapid testing
+
+The `development` EAS profile includes `expo-dev-client`. Build and install it once on the USB-connected tablet, then run `pnpm start -- --dev-client` from `mobile/`. Open Engram on the tablet and connect to the development server. JavaScript and layout edits appear after a refresh without rebuilding the APK. Rebuild when native packages, Expo SDK, or app configuration change. This development build uses the same Android package ID as the standalone preview, so installing either one replaces the other; keep Metro running while using the development build.
+
+```sh
+eas build --platform android --profile development
+pnpm start -- --dev-client
+```
+
 ## Installable preview builds
 
 The `preview` profile in `mobile/eas.json` is set up for an Android APK and an internally distributed iOS app. This route produces an Engram app icon on the home screen and does not need the development server. From `mobile/`, install EAS CLI and sign in to the `jxyden34` Expo account. The app is linked to the `engram-mobile` Expo project:
