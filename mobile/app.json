@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.jxyden34.engram.beta",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#0C1420",
         "foregroundImage": "./assets/android-icon-foreground.png",
