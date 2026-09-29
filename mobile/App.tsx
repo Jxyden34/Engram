@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
-import { api, ApiError, login, Memory, normalizeOrigin, Project, Proposal, Session } from './src/api';
+import { api, AgentDraft, ApiError, login, Memory, normalizeOrigin, Project, Proposal, ScanRun, Session } from './src/api';
 import { CaptureDraft, draftsFor, newDraft, readDrafts, removeDraft, saveDraft, updateDraft } from './src/drafts';
 
 const KEY = 'engram_mobile_session';
@@ -19,6 +19,9 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('Capture');
   const [memories, setMemories] = useState<Memory[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [runs, setRuns] = useState<ScanRun[]>([]);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [reviewSources, setReviewSources] = useState<Memory[]>([]);
   const [selected, setSelected] = useState<Memory | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Memory[] | null>(null);
@@ -30,7 +33,7 @@ export default function App() {
   const clearing = useRef<Promise<void> | null>(null);
   const [drafts, setDrafts] = useState<CaptureDraft[]>([]);
   const [captureMessage, setCaptureMessage] = useState('');
-  const [draft, setDraft] = useState<Record<string, unknown> | null>(null);
+  const [draft, setDraft] = useState<AgentDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const busyNow = useRef(false);
   const [error, setError] = useState('');
@@ -64,7 +67,7 @@ export default function App() {
     clearing.current = (async () => {
       await keepComposer(current);
       await SecureStore.deleteItemAsync(KEY);
-      setSession(null); setProjects([]); setMemories([]); setProposals([]); setSelected(null); setResults(null);
+      setSession(null); setProjects([]); setMemories([]); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null);
     })();
     try { await clearing.current; } finally { clearing.current = null; }
   }
@@ -75,11 +78,12 @@ export default function App() {
   }
 
   async function load(current: Session) {
-    const [nextMemories, nextProposals] = await Promise.all([
+    const [nextMemories, nextProposals, nextRuns] = await Promise.all([
       call<Memory[]>(current, '/api/v1/memories?limit=50'),
       call<Proposal[]>(current, '/api/v1/agent/proposals?status=pending&limit=50'),
+      call<ScanRun[]>(current, '/api/v1/agent/runs?limit=5'),
     ]);
-    setMemories(nextMemories); setProposals(nextProposals);
+    setMemories(nextMemories); setProposals(nextProposals); setRuns(nextRuns);
   }
 
   useEffect(() => {
@@ -97,7 +101,7 @@ export default function App() {
 
   useEffect(() => {
     if (!session) return;
-    setMemories([]); setProposals([]); setSelected(null); setResults(null); setDraft(null);
+    setMemories([]); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null); setDraft(null);
     setScanMessage('');
     load(session).catch(e => setError(String(e.message || e)));
   }, [session?.token, session?.projectId]);
@@ -164,6 +168,36 @@ export default function App() {
     });
   }
 
+  async function openReview(proposal: Proposal) {
+    if (!session) return;
+    await act(async () => {
+      const ids = [proposal.memory_id, proposal.related_memory_id].filter((id): id is string => !!id);
+      const sources = await Promise.all(ids.map(id => call<Memory>(session, `/api/v1/memories/${id}`)));
+      setReviewSources(sources); setReviewId(proposal.id); setDraft(proposal.evidence?.draft || null);
+    });
+  }
+
+  async function useAgentDraft(proposal: Proposal, suggestion: AgentDraft) {
+    if (!session || !suggestion.safe_to_merge || !suggestion.title || !suggestion.content || proposal.draft_stale) return;
+    await act(async () => {
+      await keepComposer(session);
+      changeTitle(suggestion.title || ''); changeContent(suggestion.content || '');
+      setTab('Capture'); setCaptureMessage('Review this draft before saving it as a new memory. The source memories stay unchanged.');
+    });
+  }
+
+  function confirmDismiss(proposal: Proposal) {
+    if (!session) return;
+    Alert.alert('Dismiss finding?', 'This removes the finding from the pending review list. It does not change either memory.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Dismiss', style: 'destructive', onPress: () => { void act(async () => {
+        await call(session, `/api/v1/agent/proposals/${proposal.id}/dismiss`, 'POST');
+        setReviewId(null); setReviewSources([]); setDraft(null); await load(session);
+      }); } },
+    ]);
+  }
+
+  const review = proposals.find(item => item.id === reviewId);
   const card = (item: Memory) => <Pressable key={item.id} style={styles.card} onPress={() => setSelected(item)} accessibilityRole="button">
     <Text style={styles.cardTitle}>{item.title}</Text>
     <Text style={styles.meta}>{item.memory_type} · {new Date(item.updated_at).toLocaleDateString()}</Text>
@@ -224,14 +258,30 @@ export default function App() {
         {results?.map(card)}{results?.length === 0 && <Text style={styles.empty}>No matches found.</Text>}
         {selected && <View style={styles.card}><Text style={styles.cardTitle}>{selected.title}</Text><Text style={styles.content}>{selected.content}</Text></View>}
       </>}
-      {tab === 'Agent' && <><Text style={styles.section}>Memory agent findings</Text><Text style={styles.hint}>Suggestions are for review. The agent never changes memories automatically.</Text>
+      {tab === 'Agent' && <><Text style={styles.section}>Memory agent findings</Text><Text style={styles.hint}>Review source memories before using a suggestion. The agent never changes them automatically.</Text>
         <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { setScanMessage(''); const result = await call<{ total: number }>(session, '/api/v1/agent/scan', 'POST'); await load(session); setScanMessage(result.total ? `Scan complete: ${result.total} new finding${result.total === 1 ? '' : 's'}.` : 'Scan complete: no new findings.'); })}><Text style={styles.link}>Run scan</Text></Pressable>
         {!!scanMessage && <Text style={styles.hint}>{scanMessage}</Text>}
-        {proposals.map(proposal => <View key={proposal.id} style={styles.card}><Text style={styles.cardTitle}>{proposal.memory_title || proposal.proposal_type.replaceAll('_', ' ')}</Text><Text style={styles.meta}>{proposal.proposal_type}</Text><Text style={styles.preview}>{proposal.reason}</Text>
-          <View style={styles.row}>{proposal.proposal_type === 'duplicate' && <Pressable onPress={() => act(async () => { setDraft(await call<Record<string, unknown>>(session, `/api/v1/agent/proposals/${proposal.id}/draft`, 'POST')); })}><Text style={styles.link}>Preview draft</Text></Pressable>}<Pressable onPress={() => act(async () => { await call(session, `/api/v1/agent/proposals/${proposal.id}/dismiss`, 'POST'); await load(session); })}><Text style={styles.link}>Dismiss</Text></Pressable></View>
-        </View>)}
+        {review ? <>
+          <Pressable onPress={() => { setReviewId(null); setReviewSources([]); setDraft(null); }} accessibilityRole="button"><Text style={styles.link}>← Back to findings</Text></Pressable>
+          <Text style={[styles.section, { marginTop: 20 }]}>{review.proposal_type.replaceAll('_', ' ')} review</Text>
+          <Text style={styles.preview}>{review.reason}</Text>
+          {Object.entries(review.evidence || {}).filter(([key]) => key !== 'draft').map(([key, value]) => <Text key={key} style={styles.meta}>{key.replaceAll('_', ' ')}: {String(value)}</Text>)}
+          <Text style={[styles.section, { marginTop: 24 }]}>Source memories</Text>
+          {reviewSources.map(source => <View key={source.id} style={styles.card}><Text style={styles.cardTitle}>{source.title}</Text><Text style={styles.content}>{source.content}</Text><Text style={styles.meta}>Updated {new Date(source.updated_at).toLocaleString()}</Text></View>)}
+          {review.proposal_type === 'duplicate' && <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { const result = await call<AgentDraft>(session, `/api/v1/agent/proposals/${review.id}/draft`, 'POST'); setDraft(result); await load(session); })} accessibilityRole="button"><Text style={styles.link}>{draft ? 'Regenerate draft' : 'Generate consolidation draft'}</Text></Pressable>}
+          {draft && <View style={[styles.card, { marginTop: 16 }]}><Text style={styles.cardTitle}>{draft.safe_to_merge ? draft.title : 'Keep these separate'}</Text><Text style={styles.preview}>{draft.reason}</Text>{!!draft.content && <Text style={styles.content}>{draft.content}</Text>}
+            {review.draft_stale && <Text style={styles.error}>A source changed since this draft. Regenerate it before use.</Text>}
+            {draft.safe_to_merge && !review.draft_stale && !!draft.title && !!draft.content && <Pressable style={styles.secondary} disabled={busy} onPress={() => useAgentDraft(review, draft)} accessibilityRole="button"><Text style={styles.link}>Use as new capture</Text></Pressable>}
+          </View>}
+          <Pressable style={styles.secondary} disabled={busy} onPress={() => confirmDismiss(review)} accessibilityRole="button"><Text style={styles.link}>Dismiss finding</Text></Pressable>
+        </> : <>
+          <Text style={[styles.section, { marginTop: 24 }]}>{proposals.length} pending</Text>
+          {proposals.map(proposal => <View key={proposal.id} style={styles.card}><Text style={styles.cardTitle}>{proposal.memory_title || proposal.proposal_type.replaceAll('_', ' ')}</Text><Text style={styles.meta}>{proposal.proposal_type.replaceAll('_', ' ')}{proposal.related_title ? ` · ${proposal.related_title}` : ''}</Text><Text style={styles.preview}>{proposal.reason}</Text><Pressable style={styles.secondary} disabled={busy} onPress={() => openReview(proposal)} accessibilityRole="button"><Text style={styles.link}>Review sources and actions</Text></Pressable></View>)}
+        </>}
         {!proposals.length && <Text style={styles.empty}>No pending findings. Run a scan to check this project.</Text>}
-        {draft && <View style={styles.card}><Text style={styles.cardTitle}>Review draft</Text><Text style={styles.preview}>{JSON.stringify(draft, null, 2)}</Text><Text style={styles.hint}>This is a preview only. Review and apply changes in the web app.</Text></View>}
+        <Text style={[styles.section, { marginTop: 28 }]}>Recent scans</Text>
+        {runs.map(run => <View key={run.id} style={styles.card}><Text style={styles.cardTitle}>{run.trigger_type === 'scheduled' ? 'Automatic' : 'Manual'} scan · {run.status}</Text><Text style={styles.meta}>{new Date(run.created_at).toLocaleString()}</Text>{run.result && <Text style={styles.preview}>{run.result.total} new findings</Text>}{!!run.error_message && <Text style={styles.error}>{run.error_message}</Text>}</View>)}
+        {!runs.length && <Text style={styles.empty}>No scans yet.</Text>}
       </>}
       {tab === 'Settings' && <><Text style={styles.section}>Account</Text><Text style={styles.content}>{session.username}</Text><Text style={styles.meta}>{session.origin}</Text><Text style={styles.hint}>Project: {projects.find(p => p.id === session.projectId)?.name || 'Personal'}</Text><Pressable style={styles.secondary} onPress={signOut} disabled={busy}><Text style={styles.link}>Sign out and revoke session</Text></Pressable></>}
     </ScrollView>

@@ -8,6 +8,10 @@ Capture opens first after sign-in. Enter a thought and tap **Save capture**. The
 
 Drafts are local to that installation. Expo Go and the standalone Android APK do not share drafts; uninstalling the Android app may remove them. Send important drafts before uninstalling or switching apps. The iPhone home-screen web app remains online-only and does not use the native app's draft storage.
 
+## Agent review on mobile
+
+Open a finding to read its evidence and source memories. For possible duplicates, generate a consolidation draft; the app flags a stale draft when a source has changed. If the draft is safe and current, **Use as new capture** puts it in the Capture composer for human editing and an explicit save. Saving creates a new memory and leaves both source memories in place. **Dismiss finding** requires confirmation and only clears the pending suggestion. The Agent screen also shows recent scan results.
+
 ## iPhone home-screen app without Apple Developer membership
 
 Open the Engram web server in Safari over HTTPS. Tap Share, choose **Add to Home Screen**, and open the new Engram icon. This installs the web interface as a standalone home-screen app without Expo Go or an Apple Developer membership. It uses the server you opened in Safari and needs a connection to that server; offline memory access is not provided. This is a web app, not an App Store or TestFlight build, and its screens differ from the Expo mobile app.
@@ -45,7 +49,7 @@ Open the completed build link on the Android device, download the APK, and allow
 
 ## Preview updates
 
-Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The native runtime uses Expo's fingerprint policy, so JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
+Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The native runtime is `2.7.0-beta2-native1`; increment this value whenever native dependencies, Expo SDK, or native configuration change. JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
 
 ```sh
 eas update --channel preview --platform android --environment preview --message "Describe the tested change"

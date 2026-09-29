@@ -29,9 +29,7 @@
       }
     },
     "owner": "jxyden34",
-    "runtimeVersion": {
-      "policy": "fingerprint"
-    },
+    "runtimeVersion": "2.7.0-beta2-native1",
     "updates": {
       "url": "https://u.expo.dev/4bfa32da-3316-4752-aa52-605ded14d3c2"
     }
