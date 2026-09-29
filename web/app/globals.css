@@ -330,6 +330,7 @@ td strong { color:#f7f8fa; }
 .publicHeader a:hover,.publicFooter a:hover{color:#d8ff9d}
 .publicBrand{display:flex;align-items:center;gap:10px!important;color:#e6e9ed!important;font-size:17px!important;font-weight:700}
 .publicBrand span{width:29px;height:29px;border:1px solid #b6ff4a;border-radius:9px;display:grid;place-items:center;color:#b6ff4a}
+.brandMark,.loginLogo,.publicBrand span{background:url("/favicon.svg") center/contain no-repeat;border:0}
 .publicHeader .publicSignIn{border:1px solid #3a424c;border-radius:9px;padding:9px 13px;color:#e6e9ed}
 .publicHero{max-width:900px;margin:clamp(72px,12vh,140px) auto 82px}
 .publicEyebrow{color:#b6ff4a;font-size:10px;font-weight:700;letter-spacing:.16em}

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Self-hosted personal memory and AI context platform",
   applicationName: "Engram",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Engram" },
-  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
+  icons: { icon: [{ url: "/favicon.svg", type: "image/svg+xml" }], apple: "/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = { themeColor: "#090a0c" };
