@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.jxyden34.engram.beta",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#0C1420",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -28,6 +28,12 @@
         "projectId": "4bfa32da-3316-4752-aa52-605ded14d3c2"
       }
     },
-    "owner": "jxyden34"
+    "owner": "jxyden34",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4bfa32da-3316-4752-aa52-605ded14d3c2"
+    }
   }
 }

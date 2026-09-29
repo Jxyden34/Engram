@@ -43,6 +43,16 @@ eas build --platform ios --profile preview
 
 Open the completed build link on the Android device, download the APK, and allow the browser or Files app to install it when Android prompts. The iOS build requires an Apple Developer Program account and registered test devices for ad hoc provisioning. Keep these builds with testers; they are not App Store or Play Store submissions.
 
+## Preview updates
+
+Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The native runtime uses Expo's fingerprint policy, so JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
+
+```sh
+eas update --channel preview --platform android --environment preview --message "Describe the tested change"
+```
+
+Force close and reopen the preview app twice to download and apply an update. A native dependency, Expo SDK, or app configuration change may require a new runtime and APK. Older APKs, including the first beta2 builds, were created before EAS Update was configured and cannot receive these updates. Development builds use Metro for live edits; the `development` channel stays separate from `preview`.
+
 ## Session behavior
 
 `POST /api/v1/mobile/login` accepts the same user credentials as browser login and returns a mobile bearer token. The app stores the token in Expo SecureStore, never saves the password, and sends `X-Engram-Project` with API requests. The default token lifetime is 30 days (`MOBILE_SESSION_TTL_DAYS`); sign-out revokes it immediately. Keep the server behind HTTPS. Mobile bearer tokens do not grant MCP access.
