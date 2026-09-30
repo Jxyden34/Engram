@@ -23,12 +23,12 @@ absorb unfinished preview work.
 
 | Track | Current position | Scope |
 | --- | --- | --- |
-| Stable | **v2.4.5 shipped**; **v2.5.5 in development** | Production self-hosted releases. v2.5.5 delivers Memory Intelligence without projects, mobile beta work or the Memory Agent from the preview track. |
+| Stable | **v2.5.5 shipped** | Production self-hosted releases. v2.5.5 delivers Memory Intelligence without projects, mobile beta work or the Memory Agent from the preview track. |
 | Preview | **v2.7.0-dev beta4 in development** | Projects, mobile companion and proposal-only Agent work. It remains a pre-release until project isolation, mobile flows and release qualification are complete. |
 
-v2.4.5 is the current GitHub stable release and is deployed on Blackwall. It
-includes the maintained S3-compatible storage image change and Docker storage
-smoke coverage.
+v2.5.5 is the current GitHub stable release and is deployed on Blackwall. It
+includes explainable retrieval, compact context and reviewed contradiction
+resolution. The v2.4.5 S3-compatible storage change remains part of stable.
 
 ---
 
@@ -390,10 +390,9 @@ Potential connectors:
 
 ---
 
-## v2.5 — Memory Intelligence 🟢
+## v2.5 — Memory Intelligence ✅
 
-**Current stable milestone:** v2.5.5 is in development. It is intentionally
-separate from the v2.7 preview line.
+**Stable milestone:** v2.5.5 is separate from the v2.7 preview line.
 
 ### Hybrid Retrieval
 
@@ -437,8 +436,12 @@ Compare:
 
 Nothing should be silently deleted.
 
-The v2.5.5 review flow must preserve both sides of a contradiction, their
-provenance and the resolution decision.
+Shipped in v2.5.5: the Intelligence page exposes a bounded context preview,
+retrieval explanations, similar-pair review and an explicit resolution action.
+Choosing a current fact retains the other as historical and records its previous
+version, provenance and the resolution decision. This release does not include
+Projects, the memory agent, Ask Engram or mobile features planned separately
+for v2.7.
 
 ---
 
@@ -694,7 +697,7 @@ Features:
 
 # Immediate Priorities
 
-1. 🟢 Complete and qualify stable v2.5.5 Memory Intelligence.
+1. ✅ Complete and qualify stable v2.5.5 Memory Intelligence.
 2. 🟢 Complete v2.7 beta4 voice capture and device-local Inbox without merging
    preview work into the stable track.
 3. 🟡 Qualify v2.7 project isolation, mobile flows and proposal-only Agent
