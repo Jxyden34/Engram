@@ -1,8 +1,10 @@
 # Engram mobile beta (iOS and Android)
 
-The `mobile/` app is part of `2.7.0-beta3`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 57, which matched the Expo Go version reported by our physical iPhone test on 2026-09-28. It supports account sign-in, project switching, recent memories, quick capture, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
+The `mobile/` app is part of `2.7.0-beta4`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 57, which matched the Expo Go version reported by our physical iPhone test on 2026-09-28. It supports account sign-in, project switching, recent memories, quick capture, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
 
 ## Quick capture and offline drafts
+
+Beta4 adds **Idea**, **Decision** and **Meeting** templates above the composer. Starting a template or reusing a version/answer saves unfinished capture text as a local draft first. Edit the template before saving it.
 
 Capture opens first after sign-in. Enter a thought and tap **Save capture**. The app saves it in device secure storage before attempting to send it. If the server cannot be reached, the draft stays under the account and project where it was written. You can edit, send, or delete saved drafts in Capture. Retrying a saved draft is manual; the app does not silently retry or create memories in another project. If a send times out, check Memories before retrying because the server may have accepted it. Switching projects or signing out saves an unfinished capture first. Short captures only: the app rejects a draft that is too large for secure storage and leaves its text on screen to shorten.
 
@@ -18,7 +20,17 @@ Open a memory from Memories or Search and tap **Save favourite**. The app keeps 
 
 The type chips filter the current Recent or Favourites list. **Share** opens the native iOS or Android share menu with the selected title and text. Choose a destination explicitly; the app does not share automatically. An offline excerpt is labelled in the shared text. These features use the existing beta3 native runtime and can arrive through EAS Update.
 
-## Agent review on mobile
+## Ask Engram and memory exploration (beta4)
+
+Open **Ask**, enter a question, and tap **Ask Engram**. The server retrieves up to five current memories from the selected project and asks the configured Ollama chat model for a short answer. Each answer point includes an exact supporting excerpt and a link to its memory. The server rejects unknown source numbers and quotations absent from the retrieved text. This checks citation identity, not whether an AI interpretation is correct; read the sources. Empty or insufficient evidence is shown explicitly, and an unavailable model produces an actionable error. Ask requires the beta4 API and working embedding/chat models. It does not search other projects or documents. Questions are independent; the current screen shows up to five answers, and switching away clears them.
+
+**Review answer as new capture** starts an editable capture without changing a source memory. Nothing is saved to the server until you tap Save capture. Long answer text may need shortening to fit secure draft storage.
+
+Open a memory and tap **Fetch full memory**, **Version history**, or **Connections**. Expand a previous version to read its saved text and optionally use it as a new capture. Connected memories open in the same project. Full content, history and connections need a server connection; existing saved excerpts remain readable offline. Version reuse creates a separate memory after explicit review and saving, rather than rolling back the current memory.
+
+Beta4 uses the unchanged `2.7.0-beta3-native1` native runtime. Android beta3 build 5 can receive these features through EAS Update. The beta4 version label describes the JavaScript/API release; the native runtime describes APK compatibility.
+
+## Agent review actions
 
 Open a finding to read its evidence and source memories. For possible duplicates, generate a consolidation draft; the app flags a stale draft when a source has changed. If the draft is safe and current, **Use as new capture** puts it in the Capture composer for human editing and an explicit save. Saving creates a new memory and leaves both source memories in place. **Dismiss finding** requires confirmation and only clears the pending suggestion. The Agent screen also shows recent scan results.
 

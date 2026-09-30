@@ -1,7 +1,7 @@
 {
   "name": "engram-mobile",
   "private": true,
-  "version": "2.7.0-beta3",
+  "version": "2.7.0-beta4",
   "packageManager": "pnpm@11.19.0",
   "main": "index.ts",
   "dependencies": {
@@ -24,6 +24,7 @@
     "check": "tsc --noEmit",
     "test:drafts": "node --experimental-strip-types --test src/drafts.test.mjs",
     "test:offline": "node --experimental-strip-types --test src/offline.test.mjs",
+    "test:memory-tools": "node --experimental-strip-types --test src/memoryTools.test.mjs",
     "export": "expo export --platform all"
   }
 }

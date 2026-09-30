@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.7.0-beta4 - unreleased
+
+- Add Ask Engram: ask questions about the active project's memories, read AI answer points alongside verified source excerpts, and open the supporting memories. Reject invented citations and show explicit insufficient-information or service-unavailable states.
+- Add mobile version history with expandable previous content and an explicit action to review a previous version as a new capture. Current memories remain unchanged.
+- Add navigation between linked memories and fetching full server content from a saved excerpt.
+- Add quick capture templates for ideas, decisions and meeting notes. Preserve unfinished capture text before starting a template or reusing an answer/version.
+- Deliver the mobile features through the existing EAS preview runtime; no new native package or APK is required for beta3 build 5 users.
+
 ## 2.7.0-beta3 - unreleased
 
 - Add device-secured mobile favourites: keep up to 10 memories per project in the offline library even after they leave the recent list. Refresh newer copies when available.

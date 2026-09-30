@@ -7,7 +7,7 @@ Engram gives you one controlled source of truth for personal knowledge. Humans u
 The 2.7 development beta also includes a shared iOS and Android app for project-scoped memories, search, memory-agent review, and a secure offline library of recent memories. See [mobile beta setup](docs/MOBILE.md).
 
 **Current stable release:** `v2.4.5`
-**Development beta:** `v2.7.0-beta3`
+**Development beta:** `v2.7.0-beta4`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
 The v2.4.5 release restores pullable object-storage images and makes clean

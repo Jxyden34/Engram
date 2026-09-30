@@ -50,9 +50,31 @@ def test_mobile_login_project_scope_and_revocation():
         assert project_id in {str(project["id"]) for project in projects_response.json()}
         memory_response = client.get("/api/v1/memories", headers=headers)
         assert memory_response.status_code == 200
+        with project_scope(project_id):
+            with connect() as conn:
+                first = str(conn.execute("INSERT INTO memories(title,content,embedding,created_by,updated_by) VALUES ('Mobile decision','We decided to launch on Friday after review.',%s::vector,'test','test') RETURNING id", ('[' + ','.join(['0'] * 384) + ']',)).fetchone()['id'])
+                second = str(conn.execute("INSERT INTO memories(title,content,created_by,updated_by) VALUES ('Mobile context','Connected context','test','test') RETURNING id").fetchone()['id'])
+                conn.execute("INSERT INTO memory_versions(memory_id,version_no,snapshot,actor,reason) VALUES (%s,1,%s::jsonb,'test','Previous decision')", (first, json.dumps({'title': 'Mobile decision', 'content': 'Earlier decision text'})))
+                conn.execute("INSERT INTO memory_relations(from_memory_id,to_memory_id,relation_type,created_by) VALUES (%s,%s,'supports','test')", (first, second))
+                conn.commit()
+        versions_response = client.get(f'/api/v1/memories/{first}/versions', headers=headers)
+        assert versions_response.json()[0]['snapshot']['content'] == 'Earlier decision text'
+        assert client.get(f'/api/v1/memories/{first}/relations', headers=headers).json()[0]['to_memory_id'] == second
+        with patch('app.memories.embed_literal', return_value='[' + ','.join(['0'] * 384) + ']'), patch('app.ask._ollama_json', return_value={'claims': [], 'insufficient': True}):
+            answer_response = client.post('/api/v1/ask', headers=headers, json={'question': 'When is launch?'})
+        assert answer_response.status_code == 200
+        assert answer_response.json()['project_id'] == project_id
+        assert [source['id'] for source in answer_response.json()['sources']] == [first]
+        personal_headers = {**headers, 'X-Engram-Project': '00000000-0000-0000-0000-000000000001'}
+        for suffix in ['', '/versions', '/relations']:
+            assert client.get(f'/api/v1/memories/{first}{suffix}', headers=personal_headers).status_code == 404
         assert client.post("/api/v1/mobile/logout", headers=headers).status_code == 200
         assert client.get("/api/v1/memories", headers=headers).status_code == 401
     finally:
+        with project_scope(project_id):
+            with connect() as conn:
+                conn.execute('DELETE FROM memories WHERE project_id=%s', (project_id,))
+                conn.commit()
         with connect() as conn:
             conn.execute("DELETE FROM projects WHERE id=%s", (project_id,))
             conn.execute("DELETE FROM users WHERE id=%s", (user_id,))

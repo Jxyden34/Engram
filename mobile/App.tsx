@@ -5,10 +5,13 @@ import * as SecureStore from 'expo-secure-store';
 import { api, AgentDraft, ApiError, login, Memory, normalizeOrigin, Project, Proposal, ScanRun, Session } from './src/api';
 import { CaptureDraft, draftsFor, newDraft, readDrafts, removeDraft, saveDraft, updateDraft } from './src/drafts';
 import { clearOfflineLibrary, OfflineLibrary, readOfflineLibrary, saveOfflineLibrary, searchOffline, toggleFavorite } from './src/offline';
+import MemoryDetail from './src/MemoryDetail';
+import Ask from './src/Ask';
+import { captureTemplates } from './src/memoryTools';
 
 const KEY = 'engram_mobile_session';
-type Tab = 'Capture' | 'Memories' | 'Search' | 'Agent' | 'Settings';
-const tabs: Tab[] = ['Capture', 'Memories', 'Search', 'Agent', 'Settings'];
+type Tab = 'Capture' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Settings';
+const tabs: Tab[] = ['Capture', 'Memories', 'Search', 'Ask', 'Agent', 'Settings'];
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -215,6 +218,15 @@ export default function App() {
     });
   }
 
+  async function seedCapture(nextTitle: string, nextContent: string) {
+    if (!session) return;
+    await act(async () => {
+      await keepComposer(session);
+      changeTitle(nextTitle); changeContent(nextContent); setTab('Capture'); setSelected(null);
+      setCaptureMessage('Review and edit before saving as a new memory. Shorten long text if it exceeds secure draft storage.');
+    });
+  }
+
   async function openReview(proposal: Proposal) {
     if (!session) return;
     await act(async () => {
@@ -270,7 +282,7 @@ export default function App() {
   if (!session) return <SafeAreaView style={styles.root}><StatusBar style="light" /><KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView contentContainerStyle={styles.login} keyboardShouldPersistTaps="handled">
       <Text style={styles.brand}>ENGRAM</Text><Text style={styles.hero}>Your memory, anywhere.</Text>
-      <Text style={styles.sub}>2.7 beta 3 · iOS + Android</Text>
+      <Text style={styles.sub}>2.7 beta 4 · iOS + Android</Text>
       <Text style={styles.label}>Server URL</Text><TextInput style={styles.input} value={server} onChangeText={setServer} placeholder="https://engram.example.com" placeholderTextColor="#718094" autoCapitalize="none" keyboardType="url" />
       <Text style={styles.label}>Username</Text><TextInput style={styles.input} value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Username" placeholderTextColor="#718094" />
       <Text style={styles.label}>Password</Text><TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor="#718094" onSubmitEditing={signIn} />
@@ -281,7 +293,7 @@ export default function App() {
   </KeyboardAvoidingView></SafeAreaView>;
 
   return <SafeAreaView style={styles.root}><StatusBar style="light" />
-    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>BETA 3</Text></View>
+    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>BETA 4</Text></View>
     <ScrollView horizontal style={styles.tabBar} contentContainerStyle={styles.tabContent} showsHorizontalScrollIndicator={false}>
       {tabs.map(item => <Pressable key={item} style={[styles.tab, tab === item && styles.tabActive]} onPress={() => { setTab(item); setSelected(null); setError(''); }} accessibilityRole="button"><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item}</Text></Pressable>)}
     </ScrollView>
@@ -294,6 +306,7 @@ export default function App() {
         <Text style={styles.section}>Quick capture</Text>
         <Text style={styles.hint}>Project: {projects.find(project => project.id === session.projectId)?.name || session.projectName || 'Selected project'}</Text>
         {!!editingId && <Text style={styles.hint}>Editing a saved draft</Text>}
+        <ScrollView horizontal style={styles.filterRow} contentContainerStyle={styles.filterContent} showsHorizontalScrollIndicator={false}>{captureTemplates.map(template => <Pressable key={template.name} style={styles.chip} disabled={busy} accessibilityRole="button" accessibilityLabel={`${template.name} capture template`} onPress={() => seedCapture(template.title, template.content)}><Text style={styles.chipText}>＋ {template.name}</Text></Pressable>)}</ScrollView>
         <TextInput style={[styles.input, styles.multiline]} value={content} onChangeText={value => { changeContent(value); setCaptureMessage(''); }} placeholder="What should Engram remember?" placeholderTextColor="#718094" multiline textAlignVertical="top" maxLength={1200} accessibilityLabel="Capture text" />
         <TextInput style={styles.input} value={title} onChangeText={changeTitle} placeholder="Title (optional)" placeholderTextColor="#718094" maxLength={100} accessibilityLabel="Capture title" />
         <Pressable style={styles.primary} disabled={busy || (!content.trim() && !title.trim())} onPress={capture} accessibilityRole="button"><Text style={styles.primaryText}>Save capture</Text></Pressable>
@@ -312,7 +325,7 @@ export default function App() {
         {!draftsFor(drafts, session).length && <Text style={styles.empty}>No drafts waiting to send in this project.</Text>}
       </>}
       {tab === 'Memories' && <>
-        {selected ? <><Pressable onPress={() => setSelected(null)}><Text style={styles.link}>← Back to memories</Text></Pressable><Text style={styles.heading}>{selected.title}</Text><Text style={styles.meta}>{selected.memory_type}</Text>{selected.truncated && <Text style={styles.hint}>Saved excerpt. Connect for the complete memory.</Text>}<Text style={styles.content}>{selected.content}</Text>{memoryActions(selected)}</> :
+        {selected ? <><Pressable onPress={() => setSelected(null)}><Text style={styles.link}>← Back to memories</Text></Pressable><MemoryDetail key={`${session.token}:${session.projectId}:${selected.id}`} memory={selected} request={path => call(session, path)} onOpen={setSelected} onCapture={seedCapture} disabled={busy} />{memoryActions(selected)}</> :
           <><View style={styles.row}><Text style={styles.section}>{favoritesOnly ? `${favorites.length} favourites` : `${memories.length} recent memories`}</Text><Pressable onPress={() => setTab('Capture')}><Text style={styles.link}>＋ Capture</Text></Pressable></View>
             {offlineLibrary.savedAt && <Text style={styles.hint}>{usingOffline ? 'Offline library' : 'Saved for offline reading'} · refreshed {new Date(offlineLibrary.savedAt).toLocaleString()} · {offlineLibrary.items.length} copies</Text>}
             <Pressable style={styles.secondary} disabled={busy || libraryLoading} onPress={() => act(async () => load(session))} accessibilityRole="button"><Text style={styles.link}>{libraryLoading ? 'Refreshing…' : 'Refresh from server'}</Text></Pressable>
@@ -325,8 +338,9 @@ export default function App() {
         <Pressable style={styles.primary} disabled={busy || !query.trim()} onPress={runSearch}><Text style={styles.primaryText}>Search</Text></Pressable>
         {searchIsOffline && <Text style={styles.hint}>Offline results from {offlineLibrary.items.length} saved memories, including favourites. Connect for full search.</Text>}
         {results?.map(card)}{results?.length === 0 && <Text style={styles.empty}>No matches found.</Text>}
-        {selected && <View style={styles.card}><Text style={styles.cardTitle}>{selected.title}</Text>{selected.truncated && <Text style={styles.hint}>Saved excerpt. Connect for the complete memory.</Text>}<Text style={styles.content}>{selected.content}</Text>{memoryActions(selected)}</View>}
+        {selected && <View style={styles.card}><MemoryDetail key={`${session.token}:${session.projectId}:${selected.id}`} memory={selected} request={path => call(session, path)} onOpen={setSelected} onCapture={seedCapture} disabled={busy} />{memoryActions(selected)}</View>}
       </>}
+      {tab === 'Ask' && <Ask key={`${session.token}:${session.projectId}`} projectId={session.projectId} projectName={session.projectName || 'this project'} request={(path, method, body) => call(session, path, method, body)} onOpen={memory => { setSelected(memory); setTab('Memories'); }} onCapture={seedCapture} disabled={busy} />}
       {tab === 'Agent' && <><Text style={styles.section}>Memory agent findings</Text><Text style={styles.hint}>Review source memories before using a suggestion. The agent never changes them automatically.</Text>
         <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { setScanMessage(''); const result = await call<{ total: number }>(session, '/api/v1/agent/scan', 'POST'); await load(session); setScanMessage(result.total ? `Scan complete: ${result.total} new finding${result.total === 1 ? '' : 's'}.` : 'Scan complete: no new findings.'); })}><Text style={styles.link}>Run scan</Text></Pressable>
         {!!scanMessage && <Text style={styles.hint}>{scanMessage}</Text>}

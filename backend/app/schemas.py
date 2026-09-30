@@ -47,6 +47,10 @@ class SearchRequest(BaseModel):
     include_historical: bool = False
 
 
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+
+
 class CrossProjectSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=5000)
     project_ids: list[UUID] = Field(min_length=1, max_length=20)

@@ -16,6 +16,7 @@ from app import oauth
 from app import disaster_recovery as dr
 from app import projects
 from app import memory_agent
+from app import ask
 from app import document_memory_import as doc_mem
 from app.audit import log
 from app.capture import create_capture
@@ -58,6 +59,7 @@ from app.schemas import (
     RejectRequest,
     RelationCreate,
     SearchRequest,
+    AskRequest,
     SafeAcceptRequest,
 )
 from app.security import (
@@ -100,7 +102,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.7.0-beta3",
+    version="2.7.0-beta4",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -221,7 +223,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.7.0-beta3"}
+    return {"status": "ok", "service": "engram", "version": "2.7.0-beta4"}
 
 
 def _check_login(body: LoginRequest):
@@ -518,6 +520,13 @@ def relation_create(memory_id: str, body: RelationCreate, request: Request):
     row = memories.add_relation(memory_id, body.target_memory_id, body.relation_type, p.actor)
     log(p.actor, "relation.created", "memory_relation", str(row["id"]), request, new_data=row)
     return row
+
+
+@app.post("/api/v1/ask")
+def ask_memories(body: AskRequest, request: Request):
+    require(request, "memory:read")
+    check_rate(request, "ask", 6, 60)
+    return ask.answer(body.question)
 
 
 @app.post("/api/v1/search")
