@@ -73,6 +73,8 @@ def test_mobile_login_project_scope_and_revocation():
     finally:
         with project_scope(project_id):
             with connect() as conn:
+                conn.execute('DELETE FROM memory_relations WHERE project_id=%s', (project_id,))
+                conn.execute('DELETE FROM memory_versions WHERE project_id=%s', (project_id,))
                 conn.execute('DELETE FROM memories WHERE project_id=%s', (project_id,))
                 conn.commit()
         with connect() as conn:
