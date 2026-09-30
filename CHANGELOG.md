@@ -2,6 +2,8 @@
 
 ## 2.7.0-beta3 - unreleased
 
+- Add device-secured mobile favourites: keep up to 10 memories per project in the offline library even after they leave the recent list. Refresh newer copies when available.
+- Add memory type filters and the native iOS/Android share menu for a selected memory. Shared offline excerpts are labelled.
 - Add a project-scoped offline memory library on mobile. Save up to 20 recent memories in device secure storage, read excerpts while disconnected, and fall back to local search when the server is unreachable.
 - Show when an offline copy was saved and allow clearing a project's local copies from Settings. Full server search and long memory content still require a connection.
 - Add mobile Agent review actions, recent scan history, and navigation visible above Android system UI.

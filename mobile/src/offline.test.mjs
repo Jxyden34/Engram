@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { clearOfflineLibrary, readOfflineLibrary, saveOfflineLibrary, searchOffline } from './offline.ts';
+import { clearOfflineLibrary, readOfflineLibrary, saveOfflineLibrary, searchOffline, toggleFavorite } from './offline.ts';
 
 function store() {
   const values = new Map();
@@ -45,4 +45,40 @@ test('offline search matches all terms in the saved excerpt', () => {
   const items = [memory('one', 'The blue tablet'), memory('two', 'The red phone')];
   assert.deepEqual(searchOffline(items, 'BLUE tablet').map(item => item.id), ['one']);
   assert.deepEqual(searchOffline(items, 'blue phone'), []);
+});
+
+test('favourites survive recent-list rotation, refresh content and retain excerpt labels', async () => {
+  const device = store();
+  await saveOfflineLibrary(device, session, [memory('keep', 'Original content')]);
+  const timestamp = (await readOfflineLibrary(device, session)).savedAt;
+  await toggleFavorite(device, session, memory('keep', 'Original content'));
+  assert.equal((await readOfflineLibrary(device, session)).savedAt, timestamp);
+  const recent = Array.from({ length: 30 }, (_, i) => memory(`recent-${i}`, 'recent'));
+  let saved = await saveOfflineLibrary(device, session, recent);
+  assert.equal(saved.items.length, 20);
+  assert.equal(saved.items[0].id, 'keep');
+  assert.equal(saved.items[0].favorite, true);
+  assert.deepEqual((await readOfflineLibrary(device, { ...session, projectId: 'work' })).items, []);
+  saved = await saveOfflineLibrary(device, session, [memory('keep', 'Updated content'), ...recent]);
+  assert.equal(saved.items[0].content, 'Updated content');
+  saved = await toggleFavorite(device, session, saved.items[0]);
+  assert.equal(saved.items.some(item => item.favorite), false);
+  saved = await toggleFavorite(device, session, memory('long-favourite', '🔥'.repeat(3000)));
+  assert.equal(saved.items[0].truncated, true);
+  saved = await toggleFavorite(device, session, saved.items[0]);
+  assert.equal(saved.items.find(item => item.id === 'long-favourite').truncated, true);
+  for (const [key, value] of device.values) if (!key.endsWith('_index')) assert.ok(encodeURIComponent(value).length <= 1800);
+});
+
+test('favourites enforce the per-project limit without losing saved copies', async () => {
+  const device = store();
+  for (let i = 0; i < 10; i++) await toggleFavorite(device, session, memory(`saved-${i}`, 'important'));
+  const before = await readOfflineLibrary(device, session);
+  await assert.rejects(() => toggleFavorite(device, session, memory('extra', 'extra')), /10 favourites/);
+  assert.deepEqual(await readOfflineLibrary(device, session), before);
+  await toggleFavorite(device, session, before.items[0]);
+  await toggleFavorite(device, session, memory('extra', 'extra'));
+  assert.equal((await readOfflineLibrary(device, session)).items.filter(item => item.favorite).length, 10);
+  await clearOfflineLibrary(device, session);
+  assert.deepEqual((await readOfflineLibrary(device, session)).items, []);
 });

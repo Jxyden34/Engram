@@ -10,7 +10,13 @@ Drafts are local to that installation. Expo Go and the standalone Android APK do
 
 ## Offline memory library
 
-After the app loads a project online, it saves up to 20 recent memories in device secure storage for that server, account, and project. The Memories tab can show those copies while disconnected. Long content is saved as a clearly marked excerpt to fit secure storage; connect to read the complete memory. Search falls back to those saved excerpts when the server cannot be reached and labels the local results. The saved timestamp shows how old the library is. Refresh from server when back online. Settings can clear the current project's offline copies without changing server memories. Offline copies are separate between Expo Go and installed APKs and may be removed by uninstalling the app.
+After the app loads a project online, it saves up to 20 memories in device secure storage for that server, account, and project. Favourites take priority; the remaining spaces hold recent memories. The Memories tab can show those copies while disconnected. Long content is saved as a clearly marked excerpt to fit secure storage; connect to read the complete memory. Search falls back to those saved excerpts when the server cannot be reached and labels the local results. The timestamp shows the last library refresh; an older favourite may retain its previous copy if absent from the recent server response. Refresh from server when back online. Settings can clear the current project's offline copies and favourites without changing server memories. Offline copies are separate between Expo Go and installed APKs and may be removed by uninstalling the app.
+
+## Favourites, filters and sharing
+
+Open a memory from Memories or Search and tap **Save favourite**. The app keeps up to 10 favourites per project on that device, including memories found through search. They remain saved when newer memories push them out of the recent list. Tap **Favourites** in Memories to browse them and tap **Saved** on an open memory to remove its favourite status. Refresh replaces a saved favourite with newer server content when that memory appears in the server's recent response. Copies of deleted or older memories may remain saved until removed or cleared; favourites do not sync between devices.
+
+The type chips filter the current Recent or Favourites list. **Share** opens the native iOS or Android share menu with the selected title and text. Choose a destination explicitly; the app does not share automatically. An offline excerpt is labelled in the shared text. These features use the existing beta3 native runtime and can arrive through EAS Update.
 
 ## Agent review on mobile
 

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { api, AgentDraft, ApiError, login, Memory, normalizeOrigin, Project, Proposal, ScanRun, Session } from './src/api';
 import { CaptureDraft, draftsFor, newDraft, readDrafts, removeDraft, saveDraft, updateDraft } from './src/drafts';
-import { clearOfflineLibrary, OfflineLibrary, readOfflineLibrary, saveOfflineLibrary, searchOffline } from './src/offline';
+import { clearOfflineLibrary, OfflineLibrary, readOfflineLibrary, saveOfflineLibrary, searchOffline, toggleFavorite } from './src/offline';
 
 const KEY = 'engram_mobile_session';
 type Tab = 'Capture' | 'Memories' | 'Search' | 'Agent' | 'Settings';
@@ -22,6 +22,9 @@ export default function App() {
   const [offlineLibrary, setOfflineLibrary] = useState<OfflineLibrary>({ items: [], savedAt: null });
   const [usingOffline, setUsingOffline] = useState(false);
   const [searchIsOffline, setSearchIsOffline] = useState(false);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [memoryType, setMemoryType] = useState('All');
   const activeScope = useRef('');
   const loadSequence = useRef(0);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -86,6 +89,12 @@ export default function App() {
 
   async function load(current: Session) {
     const sequence = ++loadSequence.current;
+    setLibraryLoading(true);
+    try { await loadLibrary(current, sequence); }
+    finally { if (sequence === loadSequence.current) setLibraryLoading(false); }
+  }
+
+  async function loadLibrary(current: Session, sequence: number) {
     const scope = `${current.origin}\u0000${current.username}\u0000${current.projectId}`;
     const cached = await readOfflineLibrary(SecureStore, current).catch(() => ({ items: [], savedAt: null }));
     if (activeScope.current !== scope || sequence !== loadSequence.current) return;
@@ -125,6 +134,7 @@ export default function App() {
     activeScope.current = `${session.origin}\u0000${session.username}\u0000${session.projectId}`;
     setMemories([]); setOfflineLibrary({ items: [], savedAt: null }); setUsingOffline(false); setSearchIsOffline(false); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null); setDraft(null);
     setScanMessage('');
+    setFavoritesOnly(false); setMemoryType('All');
     load(session).catch(e => setError(String(e.message || e)));
   }, [session?.token, session?.projectId]);
 
@@ -235,8 +245,22 @@ export default function App() {
   }
 
   const review = proposals.find(item => item.id === reviewId);
+  const favorites = offlineLibrary.items.filter(item => item.favorite);
+  const listedMemories = favoritesOnly ? favorites : memories;
+  const memoryTypes = ['All', ...new Set(listedMemories.map(item => item.memory_type))];
+  const visibleMemories = listedMemories.filter(item => memoryType === 'All' || item.memory_type === memoryType);
+  const memoryActions = (item: Memory) => <View style={styles.row}>
+    <Pressable style={styles.secondary} disabled={busy || libraryLoading} accessibilityRole="button" accessibilityLabel={favorites.some(saved => saved.id === item.id) ? 'Remove favourite' : 'Save favourite'} onPress={() => act(async () => {
+      const current = session!;
+      const scope = activeScope.current;
+      const saved = await toggleFavorite(SecureStore, current, item);
+      if (activeScope.current === scope) { setOfflineLibrary(saved); if (usingOffline) setMemories(saved.items); }
+    })}><Text style={styles.link}>{favorites.some(saved => saved.id === item.id) ? '★ Saved' : '☆ Save favourite'}</Text></Pressable>
+    <Pressable style={styles.secondary} disabled={busy} accessibilityRole="button" onPress={() => act(async () => { await Share.share({ title: item.title, message: `${item.title}\n\n${item.content}${item.truncated ? '\n\n[Offline excerpt]' : ''}` }); })}><Text style={styles.link}>Share</Text></Pressable>
+  </View>;
   const card = (item: Memory) => <Pressable key={item.id} style={styles.card} onPress={() => setSelected(item)} accessibilityRole="button">
     <Text style={styles.cardTitle}>{item.title}</Text>
+    {favorites.some(saved => saved.id === item.id) && <Text style={styles.meta}>★ Favourite on this device</Text>}
     <Text style={styles.meta}>{item.memory_type} · {new Date(item.updated_at).toLocaleDateString()}</Text>
     <Text style={styles.preview} numberOfLines={2}>{item.content}</Text>{item.truncated && <Text style={styles.meta}>Offline excerpt</Text>}
   </Pressable>;
@@ -287,17 +311,20 @@ export default function App() {
         {!draftsFor(drafts, session).length && <Text style={styles.empty}>No drafts waiting to send in this project.</Text>}
       </>}
       {tab === 'Memories' && <>
-        {selected ? <><Pressable onPress={() => setSelected(null)}><Text style={styles.link}>← Back to memories</Text></Pressable><Text style={styles.heading}>{selected.title}</Text><Text style={styles.meta}>{selected.memory_type}</Text>{selected.truncated && <Text style={styles.hint}>Saved excerpt. Connect for the complete memory.</Text>}<Text style={styles.content}>{selected.content}</Text></> :
+        {selected ? <><Pressable onPress={() => setSelected(null)}><Text style={styles.link}>← Back to memories</Text></Pressable><Text style={styles.heading}>{selected.title}</Text><Text style={styles.meta}>{selected.memory_type}</Text>{selected.truncated && <Text style={styles.hint}>Saved excerpt. Connect for the complete memory.</Text>}<Text style={styles.content}>{selected.content}</Text>{memoryActions(selected)}</> :
           <><View style={styles.row}><Text style={styles.section}>{memories.length} recent memories</Text><Pressable onPress={() => setTab('Capture')}><Text style={styles.link}>＋ Capture</Text></Pressable></View>
-            {offlineLibrary.savedAt && <Text style={styles.hint}>{usingOffline ? 'Offline library' : 'Saved for offline reading'} · {new Date(offlineLibrary.savedAt).toLocaleString()} · latest {offlineLibrary.items.length} memories</Text>}
-            <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => load(session))} accessibilityRole="button"><Text style={styles.link}>Refresh from server</Text></Pressable>
-            {memories.map(card)}{!memories.length && <Text style={styles.empty}>No memories in this project yet.</Text>}</>}
+            {offlineLibrary.savedAt && <Text style={styles.hint}>{usingOffline ? 'Offline library' : 'Saved for offline reading'} · refreshed {new Date(offlineLibrary.savedAt).toLocaleString()} · {offlineLibrary.items.length} copies</Text>}
+            <Pressable style={styles.secondary} disabled={busy || libraryLoading} onPress={() => act(async () => load(session))} accessibilityRole="button"><Text style={styles.link}>{libraryLoading ? 'Refreshing…' : 'Refresh from server'}</Text></Pressable>
+            <View style={[styles.row, { marginTop: 20 }]}>{[false, true].map(saved => <Pressable key={String(saved)} style={[styles.chip, favoritesOnly === saved && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: favoritesOnly === saved }} onPress={() => { setFavoritesOnly(saved); setMemoryType('All'); }}><Text style={styles.chipText}>{saved ? `★ Favourites (${favorites.length})` : 'Recent'}</Text></Pressable>)}</View>
+            {favoritesOnly && <Text style={styles.hint}>Up to 10 favourites stay in this device’s offline library. Long memories are excerpts; copies may be older than the server.</Text>}
+            <ScrollView horizontal style={styles.filterRow} contentContainerStyle={styles.filterContent} showsHorizontalScrollIndicator={false}>{memoryTypes.map(type => <Pressable key={type} style={[styles.chip, memoryType === type && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: memoryType === type }} accessibilityLabel={`Filter ${type} memories`} onPress={() => setMemoryType(type)}><Text style={styles.chipText}>{type.replaceAll('_', ' ')}</Text></Pressable>)}</ScrollView>
+            {visibleMemories.map(card)}{!visibleMemories.length && <Text style={styles.empty}>{favoritesOnly ? 'Open a memory and tap Save favourite to keep it here.' : 'No memories match this filter.'}</Text>}</>}
       </>}
       {tab === 'Search' && <><Text style={styles.section}>Search this project</Text><TextInput style={styles.input} value={query} onChangeText={value => { setQuery(value); setResults(null); setSelected(null); setSearchIsOffline(false); }} placeholder="What are you looking for?" placeholderTextColor="#718094" returnKeyType="search" onSubmitEditing={runSearch} />
         <Pressable style={styles.primary} disabled={busy || !query.trim()} onPress={runSearch}><Text style={styles.primaryText}>Search</Text></Pressable>
-        {searchIsOffline && <Text style={styles.hint}>Offline results from the {offlineLibrary.items.length} saved recent memories. Connect for full search.</Text>}
+        {searchIsOffline && <Text style={styles.hint}>Offline results from {offlineLibrary.items.length} saved memories, including favourites. Connect for full search.</Text>}
         {results?.map(card)}{results?.length === 0 && <Text style={styles.empty}>No matches found.</Text>}
-        {selected && <View style={styles.card}><Text style={styles.cardTitle}>{selected.title}</Text><Text style={styles.content}>{selected.content}</Text></View>}
+        {selected && <View style={styles.card}><Text style={styles.cardTitle}>{selected.title}</Text>{selected.truncated && <Text style={styles.hint}>Saved excerpt. Connect for the complete memory.</Text>}<Text style={styles.content}>{selected.content}</Text>{memoryActions(selected)}</View>}
       </>}
       {tab === 'Agent' && <><Text style={styles.section}>Memory agent findings</Text><Text style={styles.hint}>Review source memories before using a suggestion. The agent never changes them automatically.</Text>
         <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { setScanMessage(''); const result = await call<{ total: number }>(session, '/api/v1/agent/scan', 'POST'); await load(session); setScanMessage(result.total ? `Scan complete: ${result.total} new finding${result.total === 1 ? '' : 's'}.` : 'Scan complete: no new findings.'); })}><Text style={styles.link}>Run scan</Text></Pressable>
@@ -325,7 +352,7 @@ export default function App() {
         {!runs.length && <Text style={styles.empty}>No scans yet.</Text>}
       </>}
       {tab === 'Settings' && <><Text style={styles.section}>Account</Text><Text style={styles.content}>{session.username}</Text><Text style={styles.meta}>{session.origin}</Text><Text style={styles.hint}>Project: {projects.find(p => p.id === session.projectId)?.name || 'Personal'}</Text>
-        <Pressable style={styles.secondary} disabled={busy || !offlineLibrary.savedAt} onPress={() => Alert.alert('Clear offline library?', 'Remove saved memory copies for this project from this device? Memories on the server are unaffected.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: () => { void act(async () => { await clearOfflineLibrary(SecureStore, session); setOfflineLibrary({ items: [], savedAt: null }); if (usingOffline) setMemories([]); }); } }])} accessibilityRole="button"><Text style={styles.link}>Clear this project’s offline copies</Text></Pressable>
+        <Pressable style={styles.secondary} disabled={busy || libraryLoading || !offlineLibrary.savedAt} onPress={() => Alert.alert('Clear offline library?', 'Remove saved copies and favourites for this project from this device? Memories on the server are unaffected.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: () => { void act(async () => { await clearOfflineLibrary(SecureStore, session); setOfflineLibrary({ items: [], savedAt: null }); setSelected(null); setResults(null); if (usingOffline) setMemories([]); }); } }])} accessibilityRole="button"><Text style={styles.link}>Clear this project’s offline copies</Text></Pressable>
         <Pressable style={styles.secondary} onPress={signOut} disabled={busy}><Text style={styles.link}>Sign out and revoke session</Text></Pressable></>}
     </ScrollView>
     {busy && <ActivityIndicator style={styles.spinner} color="#7ccaff" />}
@@ -333,6 +360,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  filterRow: { flexGrow: 0, marginVertical: 16 }, filterContent: { gap: 8 },
   root: { flex: 1, backgroundColor: '#0c1420' }, fill: { flex: 1 }, center: { flex: 1, backgroundColor: '#0c1420', justifyContent: 'center' },
   login: { flexGrow: 1, padding: 28, justifyContent: 'center' }, brand: { color: '#7ccaff', fontSize: 19, fontWeight: '900', letterSpacing: 5 }, brandSmall: { color: '#7ccaff', fontSize: 12, fontWeight: '900', letterSpacing: 3 }, hero: { color: '#f2f7ff', fontSize: 34, fontWeight: '800', marginTop: 22 }, sub: { color: '#96a9bf', marginTop: 8, marginBottom: 34 },
   label: { color: '#b6c9db', fontWeight: '700', marginBottom: 8, marginTop: 16 }, input: { backgroundColor: '#182637', color: '#f2f7ff', borderWidth: 1, borderColor: '#30465c', borderRadius: 14, padding: 15, fontSize: 16, marginBottom: 6 }, multiline: { minHeight: 180 },

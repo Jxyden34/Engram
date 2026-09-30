@@ -6,7 +6,7 @@ type Store = {
   deleteItemAsync(key: string): Promise<void>;
 };
 
-export type OfflineMemory = Memory & { truncated?: boolean };
+export type OfflineMemory = Memory & { favorite?: boolean };
 export type OfflineLibrary = { items: OfflineMemory[]; savedAt: string | null };
 
 const PREFIX = 'engram_library_v1_';
@@ -31,8 +31,8 @@ function scopeId(session: Session): string {
 function indexKey(session: Session): string { return PREFIX + scopeId(session) + '_index'; }
 function itemKey(session: Session, id: string): string { return PREFIX + scopeId(session) + '_' + id; }
 
-function compact(item: Memory): OfflineMemory {
-  const base = { id: item.id, title: item.title, content: item.content, memory_type: item.memory_type, updated_at: item.updated_at };
+function compact(item: OfflineMemory): OfflineMemory {
+  const base = { id: item.id, title: item.title, content: item.content, memory_type: item.memory_type, updated_at: item.updated_at, ...(item.favorite ? { favorite: true } : {}), ...(item.truncated ? { truncated: true } : {}) };
   if (encodeURIComponent(JSON.stringify(base)).length <= MAX_ENCODED_LENGTH) return base;
   const characters = Array.from(item.content);
   let low = 0; let high = characters.length;
@@ -62,18 +62,34 @@ export async function readOfflineLibrary(store: Store, session: Session): Promis
   return { items, savedAt: index.savedAt };
 }
 
-export async function saveOfflineLibrary(store: Store, session: Session, memories: Memory[]): Promise<OfflineLibrary> {
-  const previous = await readOfflineLibrary(store, session);
-  const items = memories.slice(0, MAX_ITEMS).flatMap(item => {
-    try { return [compact(item)]; } catch { return []; }
-  });
+async function writeLibrary(store: Store, session: Session, previous: OfflineLibrary, items: OfflineMemory[], savedAt: string | null): Promise<OfflineLibrary> {
   for (const item of items) await store.setItemAsync(itemKey(session, item.id), JSON.stringify(item));
-  const savedAt = new Date().toISOString();
   await store.setItemAsync(indexKey(session), JSON.stringify({ scope: scope(session), ids: items.map(item => item.id), savedAt }));
   for (const item of previous.items) {
     if (!items.some(next => next.id === item.id)) await store.deleteItemAsync(itemKey(session, item.id));
   }
   return { items, savedAt };
+}
+
+export async function saveOfflineLibrary(store: Store, session: Session, memories: Memory[]): Promise<OfflineLibrary> {
+  const previous = await readOfflineLibrary(store, session);
+  const favorites = previous.items.filter(item => item.favorite).map(item => {
+    const latest = memories.find(next => next.id === item.id);
+    try { return latest ? compact({ ...latest, favorite: true }) : item; } catch { return item; }
+  });
+  const recent = memories.filter(item => !favorites.some(saved => saved.id === item.id)).flatMap(item => {
+    try { return [compact(item)]; } catch { return []; }
+  });
+  return writeLibrary(store, session, previous, [...favorites, ...recent].slice(0, MAX_ITEMS), new Date().toISOString());
+}
+
+export async function toggleFavorite(store: Store, session: Session, memory: Memory): Promise<OfflineLibrary> {
+  const previous = await readOfflineLibrary(store, session);
+  const favorite = !previous.items.find(item => item.id === memory.id)?.favorite;
+  if (favorite && previous.items.filter(item => item.favorite).length >= 10) throw new Error('You can keep 10 favourites per project. Remove one before adding another.');
+  const item = compact({ ...memory, favorite });
+  const items = [item, ...previous.items.filter(saved => saved.id !== item.id)].sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite)).slice(0, MAX_ITEMS);
+  return writeLibrary(store, session, previous, items, previous.savedAt || new Date().toISOString());
 }
 
 export async function clearOfflineLibrary(store: Store, session: Session): Promise<void> {
