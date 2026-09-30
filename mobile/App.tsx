@@ -251,7 +251,8 @@ export default function App() {
   const visibleMemories = listedMemories.filter(item => memoryType === 'All' || item.memory_type === memoryType);
   const memoryActions = (item: Memory) => <View style={styles.row}>
     <Pressable style={styles.secondary} disabled={busy || libraryLoading} accessibilityRole="button" accessibilityLabel={favorites.some(saved => saved.id === item.id) ? 'Remove favourite' : 'Save favourite'} onPress={() => act(async () => {
-      const current = session!;
+      if (!session) return;
+      const current = session;
       const scope = activeScope.current;
       const saved = await toggleFavorite(SecureStore, current, item);
       if (activeScope.current === scope) { setOfflineLibrary(saved); if (usingOffline) setMemories(saved.items); }
@@ -312,13 +313,13 @@ export default function App() {
       </>}
       {tab === 'Memories' && <>
         {selected ? <><Pressable onPress={() => setSelected(null)}><Text style={styles.link}>← Back to memories</Text></Pressable><Text style={styles.heading}>{selected.title}</Text><Text style={styles.meta}>{selected.memory_type}</Text>{selected.truncated && <Text style={styles.hint}>Saved excerpt. Connect for the complete memory.</Text>}<Text style={styles.content}>{selected.content}</Text>{memoryActions(selected)}</> :
-          <><View style={styles.row}><Text style={styles.section}>{memories.length} recent memories</Text><Pressable onPress={() => setTab('Capture')}><Text style={styles.link}>＋ Capture</Text></Pressable></View>
+          <><View style={styles.row}><Text style={styles.section}>{favoritesOnly ? `${favorites.length} favourites` : `${memories.length} recent memories`}</Text><Pressable onPress={() => setTab('Capture')}><Text style={styles.link}>＋ Capture</Text></Pressable></View>
             {offlineLibrary.savedAt && <Text style={styles.hint}>{usingOffline ? 'Offline library' : 'Saved for offline reading'} · refreshed {new Date(offlineLibrary.savedAt).toLocaleString()} · {offlineLibrary.items.length} copies</Text>}
             <Pressable style={styles.secondary} disabled={busy || libraryLoading} onPress={() => act(async () => load(session))} accessibilityRole="button"><Text style={styles.link}>{libraryLoading ? 'Refreshing…' : 'Refresh from server'}</Text></Pressable>
             <View style={[styles.row, { marginTop: 20 }]}>{[false, true].map(saved => <Pressable key={String(saved)} style={[styles.chip, favoritesOnly === saved && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: favoritesOnly === saved }} onPress={() => { setFavoritesOnly(saved); setMemoryType('All'); }}><Text style={styles.chipText}>{saved ? `★ Favourites (${favorites.length})` : 'Recent'}</Text></Pressable>)}</View>
             {favoritesOnly && <Text style={styles.hint}>Up to 10 favourites stay in this device’s offline library. Long memories are excerpts; copies may be older than the server.</Text>}
             <ScrollView horizontal style={styles.filterRow} contentContainerStyle={styles.filterContent} showsHorizontalScrollIndicator={false}>{memoryTypes.map(type => <Pressable key={type} style={[styles.chip, memoryType === type && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: memoryType === type }} accessibilityLabel={`Filter ${type} memories`} onPress={() => setMemoryType(type)}><Text style={styles.chipText}>{type.replaceAll('_', ' ')}</Text></Pressable>)}</ScrollView>
-            {visibleMemories.map(card)}{!visibleMemories.length && <Text style={styles.empty}>{favoritesOnly ? 'Open a memory and tap Save favourite to keep it here.' : 'No memories match this filter.'}</Text>}</>}
+            {visibleMemories.map(card)}{!visibleMemories.length && <Text style={styles.empty}>{favoritesOnly && !favorites.length ? 'Open a memory and tap Save favourite to keep it here.' : 'No memories match this filter.'}</Text>}</>}
       </>}
       {tab === 'Search' && <><Text style={styles.section}>Search this project</Text><TextInput style={styles.input} value={query} onChangeText={value => { setQuery(value); setResults(null); setSelected(null); setSearchIsOffline(false); }} placeholder="What are you looking for?" placeholderTextColor="#718094" returnKeyType="search" onSubmitEditing={runSearch} />
         <Pressable style={styles.primary} disabled={busy || !query.trim()} onPress={runSearch}><Text style={styles.primaryText}>Search</Text></Pressable>
