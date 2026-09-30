@@ -374,7 +374,7 @@ Potential connectors:
 
 ---
 
-## v2.5 — Memory Intelligence 🟡
+## v2.5 — Memory Intelligence ✅
 
 ### Hybrid Retrieval
 
@@ -415,6 +415,12 @@ Compare:
 - source authority
 
 Nothing should be silently deleted.
+
+Shipped in v2.5.5: the Intelligence page exposes a bounded context preview,
+retrieval explanations, similar-pair review and an explicit resolution action.
+Choosing a current fact retains the other as historical and records its previous
+version. This release does not include Projects, the memory agent, Ask Engram or
+mobile features planned separately for v2.7.
 
 ---
 
