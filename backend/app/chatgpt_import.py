@@ -210,7 +210,7 @@ def _chunks(text: str, max_chars: int):
     return chunks
 
 
-def _ollama_json(system: str, user: str, *, timeout: float = 300.0, max_tokens: int | None = None) -> dict[str, Any]:
+def _ollama_json(system: str, user: str, *, timeout: float = 300.0, max_tokens: int | None = None, format_schema: dict | None = None) -> dict[str, Any]:
     cfg = settings()
     response = httpx.post(
         f"{cfg.ollama_url.rstrip('/')}/api/chat",
@@ -218,7 +218,7 @@ def _ollama_json(system: str, user: str, *, timeout: float = 300.0, max_tokens: 
             "model": cfg.chat_model,
             "stream": False,
             "think": False,
-            "format": "json",
+            "format": format_schema or "json",
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
