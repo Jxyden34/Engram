@@ -155,7 +155,7 @@ Dynamic score based on:
 
 ---
 
-## v2.1 — Ingestion Mesh 🟢
+## v2.1 — Ingestion Mesh ✅
 
 Continuous ingestion from external systems.
 
@@ -314,7 +314,7 @@ Cover:
 
 ---
 
-## v2.4 — Expanded Connectors 🟡
+## v2.4 — Expanded Connectors ✅
 
 Start with the read-only Gmail connector. Keep later sources out of the first
 release until sync, credential storage and source deletion behavior are proven.
