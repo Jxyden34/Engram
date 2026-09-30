@@ -6,7 +6,9 @@
 - Add mobile version history with expandable previous content and an explicit action to review a previous version as a new capture. Current memories remain unchanged.
 - Add navigation between linked memories and fetching full server content from a saved excerpt.
 - Add quick capture templates for ideas, decisions and meeting notes. Preserve unfinished capture text before starting a template or reusing an answer/version.
-- Deliver the mobile features through the existing EAS preview runtime; no new native package or APK is required for beta3 build 5 users.
+- Add voice capture with editable transcript review before adding speech to a capture or Inbox thought. Use native device speech recognition where available, with keyboard dictation guidance in Expo Go and older builds. Audio is not stored by Engram.
+- Add a device-local Inbox for unassigned thoughts. Review and choose an accessible project before saving; retain the reviewed item if delivery fails. Keep Inbox items bound to their server/account and separate from project drafts and Ask retrieval.
+- Move the native runtime to `2.7.0-beta4-native1` for the speech module; Android build 6 and iOS build number 4 require rebuilding. Earlier beta4 Ask/history/template updates used the beta3 runtime.
 
 ## 2.7.0-beta3 - unreleased
 

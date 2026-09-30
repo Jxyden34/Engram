@@ -9,11 +9,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jxyden34.engram.beta",
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "android": {
       "package": "com.jxyden34.engram.beta",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#0C1420",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -29,9 +29,15 @@
       }
     },
     "owner": "jxyden34",
-    "runtimeVersion": "2.7.0-beta3-native1",
+    "runtimeVersion": "2.7.0-beta4-native1",
     "updates": {
       "url": "https://u.expo.dev/4bfa32da-3316-4752-aa52-605ded14d3c2"
-    }
+    },
+    "plugins": [
+      ["expo-speech-recognition", {
+        "speechRecognitionPermission": "Allow Engram to turn your speech into an editable memory draft.",
+        "microphonePermission": "Allow Engram to capture speech for a memory you review before saving."
+      }]
+    ]
   }
 }

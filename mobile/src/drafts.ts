@@ -5,6 +5,7 @@ export type CaptureDraft = {
   origin: string;
   username: string;
   projectId: string;
+  inbox?: boolean;
   title: string;
   content: string;
   createdAt: string;
@@ -46,7 +47,7 @@ export async function readDrafts(store: Store): Promise<CaptureDraft[]> {
 }
 
 function serialized(draft: CaptureDraft): string {
-  if (!draft.content || !draft.title || !draft.projectId) throw new Error('Enter a capture before saving.');
+  if (!draft.content || !draft.title || (!draft.projectId && !draft.inbox)) throw new Error('Enter a capture before saving.');
   const value = JSON.stringify(draft);
   if (encodeURIComponent(value).length > MAX_ENCODED_LENGTH) {
     throw new Error('This capture is too long for secure offline storage. Shorten it before saving.');
@@ -74,5 +75,20 @@ export async function removeDraft(store: Store, id: string): Promise<void> {
 }
 
 export function draftsFor(drafts: CaptureDraft[], session: Session): CaptureDraft[] {
-  return drafts.filter(draft => draft.origin === session.origin && draft.username === session.username && draft.projectId === session.projectId);
+  return drafts.filter(draft => !draft.inbox && draft.origin === session.origin && draft.username === session.username && draft.projectId === session.projectId);
+}
+
+export function newInboxDraft(session: Session, title: string, content: string): CaptureDraft {
+  return { ...newDraft(session, title, content), projectId: '', inbox: true };
+}
+
+export function inboxFor(drafts: CaptureDraft[], session: Session): CaptureDraft[] {
+  return drafts.filter(draft => draft.inbox && draft.origin === session.origin && draft.username === session.username);
+}
+
+export function assignInbox(draft: CaptureDraft, session: Session, projectId: string): CaptureDraft {
+  if (!draft.inbox || draft.origin !== session.origin || draft.username !== session.username || !projectId) {
+    throw new Error('Choose a project for an Inbox item from this account.');
+  }
+  return { ...draft, inbox: false, projectId };
 }

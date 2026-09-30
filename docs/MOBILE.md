@@ -28,7 +28,19 @@ Open **Ask**, enter a question, and tap **Ask Engram**. The server retrieves up 
 
 Open a memory and tap **Fetch full memory**, **Version history**, or **Connections**. Expand a previous version to read its saved text and optionally use it as a new capture. Connected memories open in the same project. Full content, history and connections need a server connection; existing saved excerpts remain readable offline. Version reuse creates a separate memory after explicit review and saving, rather than rolling back the current memory.
 
-Beta4 uses the unchanged `2.7.0-beta3-native1` native runtime. Android beta3 build 5 can receive these features through EAS Update. The beta4 version label describes the JavaScript/API release; the native runtime describes APK compatibility.
+The initial beta4 Ask/history/templates update used `2.7.0-beta3-native1`. Voice capture adds a native module, so the expanded beta4 uses `2.7.0-beta4-native1`, Android build 6 and iOS build number 4. Build 5 cannot receive this new runtime through EAS Update. Install the new APK once, then compatible JavaScript updates can use the new runtime. Preserve important local drafts before changing installations.
+
+### Voice capture
+
+In Capture or Inbox, tap **Start voice capture**, grant microphone/speech permission, dictate and stop. Edit the transcript, then tap **Use reviewed transcript** to append it to your text. Saving is a separate explicit action. Speech never overwrites typed content and oversized combined text is rejected without truncation. Engram does not persist audio. The native module requests on-device recognition when supported; otherwise the device's speech service may need a network connection. Microphone capture stops when leaving the screen, changing project or backgrounding the app.
+
+Expo Go and older native builds show **Voice capture with keyboard**: it focuses the text field so you can use the system keyboard's microphone. The dedicated recognizer requires a rebuilt native app. Keyboard dictation availability and processing depend on device settings. Neither route uses Ollama for speech recognition; Ask continues to use the configured Ollama service.
+
+### Device Inbox
+
+Open **Inbox**, enter or dictate a rough thought and tap **Keep in Inbox**. Inbox items have no project until you choose one, are securely stored on this device, and are visible only for their original server/account. They are separate from existing project drafts and are not searchable by the server or Ask. Inbox and project drafts share the 30-item storage limit and secure-storage size limit.
+
+Tap **Review & choose project**, edit the text and select an available project. **Save to [project]** creates a memory in that project and removes the local item only after success. Reviewed edits remain in the Inbox if delivery fails. If a request times out or the local copy cannot be removed, check the destination's Memories before retrying to avoid duplicates. Unassigned Inbox items are not synced between devices; uninstalling the app can remove them. Unqueued text survives tab/project switching and is saved locally before sign-out; press Keep in Inbox before closing the app.
 
 ## Agent review actions
 
@@ -71,7 +83,7 @@ Open the completed build link on the Android device, download the APK, and allow
 
 ## Preview updates
 
-Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The native runtime is `2.7.0-beta3-native1`; increment this value whenever native dependencies, Expo SDK, or native configuration change. JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
+Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The current native runtime is `2.7.0-beta4-native1`; increment this value whenever native dependencies, Expo SDK, or native configuration change. JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
 
 ```sh
 eas update --channel preview --platform android --environment preview --message "Describe the tested change"

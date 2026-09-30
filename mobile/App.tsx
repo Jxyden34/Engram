@@ -3,15 +3,17 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, Sa
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { api, AgentDraft, ApiError, login, Memory, normalizeOrigin, Project, Proposal, ScanRun, Session } from './src/api';
-import { CaptureDraft, draftsFor, newDraft, readDrafts, removeDraft, saveDraft, updateDraft } from './src/drafts';
+import { assignInbox, CaptureDraft, draftsFor, inboxFor, newDraft, newInboxDraft, readDrafts, removeDraft, saveDraft, updateDraft } from './src/drafts';
 import { clearOfflineLibrary, OfflineLibrary, readOfflineLibrary, saveOfflineLibrary, searchOffline, toggleFavorite } from './src/offline';
 import MemoryDetail from './src/MemoryDetail';
 import Ask from './src/Ask';
+import Inbox from './src/Inbox';
+import VoiceCapture from './src/VoiceCapture';
 import { captureTemplates } from './src/memoryTools';
 
 const KEY = 'engram_mobile_session';
-type Tab = 'Capture' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Settings';
-const tabs: Tab[] = ['Capture', 'Memories', 'Search', 'Ask', 'Agent', 'Settings'];
+type Tab = 'Capture' | 'Inbox' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Settings';
+const tabs: Tab[] = ['Capture', 'Inbox', 'Memories', 'Search', 'Ask', 'Agent', 'Settings'];
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -40,6 +42,10 @@ export default function App() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const composer = useRef({ title: '', content: '' });
+  const captureInput = useRef<TextInput>(null);
+  const [inboxTitle, setInboxTitle] = useState('');
+  const [inboxContent, setInboxContent] = useState('');
+  const inboxComposer = useRef({ title: '', content: '' });
   const editing = useRef<CaptureDraft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const clearing = useRef<Promise<void> | null>(null);
@@ -54,6 +60,13 @@ export default function App() {
   function changeTitle(value: string) { composer.current.title = value; setTitle(value); }
   function changeContent(value: string) { composer.current.content = value; setContent(value); }
   function stopEditing() { editing.current = null; setEditingId(null); }
+  function changeInboxTitle(value: string) { inboxComposer.current.title = value; setInboxTitle(value); }
+  function changeInboxContent(value: string) { inboxComposer.current.content = value; setInboxContent(value); }
+
+  async function queueInbox(current: Session, nextTitle: string, nextContent: string) {
+    await saveDraft(SecureStore, newInboxDraft(current, nextTitle, nextContent));
+    setDrafts(await readDrafts(SecureStore));
+  }
 
   async function storeComposer(current: Session) {
     const created = newDraft(current, composer.current.title, composer.current.content);
@@ -77,6 +90,10 @@ export default function App() {
   async function clearSession(current: Session) {
     if (clearing.current) return clearing.current;
     clearing.current = (async () => {
+      if (inboxComposer.current.title.trim() || inboxComposer.current.content.trim()) {
+        await queueInbox(current, inboxComposer.current.title, inboxComposer.current.content);
+        changeInboxTitle(''); changeInboxContent('');
+      }
       await keepComposer(current);
       await SecureStore.deleteItemAsync(KEY);
       activeScope.current = '';
@@ -191,6 +208,21 @@ export default function App() {
     if (!projects.length) api<Project[]>(current, '/api/v1/projects').then(setProjects).catch(() => {});
   }
 
+  async function sendInbox(item: CaptureDraft, projectId: string) {
+    if (!session || !projects.some(project => project.id === projectId) || !inboxFor(drafts, session).some(draft => draft.id === item.id)) {
+      throw new Error('Choose an available project for an Inbox item from this account.');
+    }
+    const assigned = assignInbox(item, session, projectId);
+    // Keep reviewed edits in the Inbox if the destination cannot be reached.
+    await updateDraft(SecureStore, item);
+    setDrafts(await readDrafts(SecureStore));
+    await call({ ...session, projectId }, '/api/v1/memories', 'POST', { title: assigned.title.trim(), content: assigned.content.trim(), source_type: 'manual' });
+    try { await removeDraft(SecureStore, item.id); }
+    catch { throw new Error('Saved to Engram, but the Inbox copy could not be removed. Check Memories before retrying.'); }
+    setDrafts(await readDrafts(SecureStore));
+    if (session.projectId === projectId) await load(session).catch(() => {});
+  }
+
   async function capture() {
     if (!session) return;
     await act(async () => {
@@ -295,7 +327,7 @@ export default function App() {
   return <SafeAreaView style={styles.root}><StatusBar style="light" />
     <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>BETA 4</Text></View>
     <ScrollView horizontal style={styles.tabBar} contentContainerStyle={styles.tabContent} showsHorizontalScrollIndicator={false}>
-      {tabs.map(item => <Pressable key={item} style={[styles.tab, tab === item && styles.tabActive]} onPress={() => { setTab(item); setSelected(null); setError(''); }} accessibilityRole="button"><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item}</Text></Pressable>)}
+      {tabs.map(item => <Pressable key={item} disabled={busy} style={[styles.tab, tab === item && styles.tabActive]} onPress={() => { setTab(item); setSelected(null); setError(''); }} accessibilityRole="button"><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item === 'Inbox' ? `Inbox (${inboxFor(drafts, session).length})` : item}</Text></Pressable>)}
     </ScrollView>
     {projects.length > 1 && <ScrollView horizontal style={styles.projectRow} contentContainerStyle={styles.projectContent} showsHorizontalScrollIndicator={false}>
       {projects.map(project => <Pressable key={project.id} style={[styles.chip, session.projectId === project.id && styles.chipActive]} onPress={() => switchProject(project.id)} accessibilityRole="button"><Text style={styles.chipText}>{project.name}</Text></Pressable>)}
@@ -307,7 +339,8 @@ export default function App() {
         <Text style={styles.hint}>Project: {projects.find(project => project.id === session.projectId)?.name || session.projectName || 'Selected project'}</Text>
         {!!editingId && <Text style={styles.hint}>Editing a saved draft</Text>}
         <ScrollView horizontal style={styles.filterRow} contentContainerStyle={styles.filterContent} showsHorizontalScrollIndicator={false}>{captureTemplates.map(template => <Pressable key={template.name} style={styles.chip} disabled={busy} accessibilityRole="button" accessibilityLabel={`${template.name} capture template`} onPress={() => seedCapture(template.title, template.content)}><Text style={styles.chipText}>＋ {template.name}</Text></Pressable>)}</ScrollView>
-        <TextInput style={[styles.input, styles.multiline]} value={content} onChangeText={value => { changeContent(value); setCaptureMessage(''); }} placeholder="What should Engram remember?" placeholderTextColor="#718094" multiline textAlignVertical="top" maxLength={1200} accessibilityLabel="Capture text" />
+        <TextInput ref={captureInput} style={[styles.input, styles.multiline]} value={content} onChangeText={value => { changeContent(value); setCaptureMessage(''); }} placeholder="What should Engram remember?" placeholderTextColor="#718094" multiline textAlignVertical="top" maxLength={1200} accessibilityLabel="Capture text" />
+        <VoiceCapture key={`${session.token}:${session.projectId}`} content={content} onContent={changeContent} onKeyboard={() => captureInput.current?.focus()} disabled={busy} />
         <TextInput style={styles.input} value={title} onChangeText={changeTitle} placeholder="Title (optional)" placeholderTextColor="#718094" maxLength={100} accessibilityLabel="Capture title" />
         <Pressable style={styles.primary} disabled={busy || (!content.trim() && !title.trim())} onPress={capture} accessibilityRole="button"><Text style={styles.primaryText}>Save capture</Text></Pressable>
         <Text style={styles.hint}>Saved securely on this device first. Engram sends it now if the server is reachable.</Text>
@@ -324,6 +357,11 @@ export default function App() {
         </View>)}
         {!draftsFor(drafts, session).length && <Text style={styles.empty}>No drafts waiting to send in this project.</Text>}
       </>}
+      {tab === 'Inbox' && <Inbox key={session.token} items={inboxFor(drafts, session)} projects={projects} disabled={busy}
+        title={inboxTitle} content={inboxContent} onTitle={changeInboxTitle} onContent={changeInboxContent}
+        onBusy={value => { busyNow.current = value; setBusy(value); }}
+        onQueue={(nextTitle, nextContent) => queueInbox(session, nextTitle, nextContent)} onSend={sendInbox}
+        onDelete={async id => { if (!inboxFor(drafts, session).some(item => item.id === id)) throw new Error('Inbox item not found for this account.'); await removeDraft(SecureStore, id); setDrafts(await readDrafts(SecureStore)); }} />}
       {tab === 'Memories' && <>
         {selected ? <><Pressable onPress={() => setSelected(null)}><Text style={styles.link}>← Back to memories</Text></Pressable><MemoryDetail key={`${session.token}:${session.projectId}:${selected.id}`} memory={selected} request={path => call(session, path)} onOpen={setSelected} onCapture={seedCapture} disabled={busy} />{memoryActions(selected)}</> :
           <><View style={styles.row}><Text style={styles.section}>{favoritesOnly ? `${favorites.length} favourites` : `${memories.length} recent memories`}</Text><Pressable onPress={() => setTab('Capture')}><Text style={styles.link}>＋ Capture</Text></Pressable></View>

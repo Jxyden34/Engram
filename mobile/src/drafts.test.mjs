@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { draftsFor, newDraft, readDrafts, removeDraft, saveDraft, updateDraft } from './drafts.ts';
+import { assignInbox, draftsFor, inboxFor, newDraft, newInboxDraft, readDrafts, removeDraft, saveDraft, updateDraft } from './drafts.ts';
 
 function store() {
   const values = new Map();
@@ -46,4 +46,24 @@ test('a failed index update rolls back the saved payload', async () => {
   };
   await assert.rejects(saveDraft(device, newDraft(account, '', 'Keep me safe')), /storage full/);
   assert.equal(device.values.size, 0);
+});
+
+test('Inbox remains unassigned and separate from project drafts across restarts', async () => {
+  const device = store();
+  const item = newInboxDraft(account, '', 'Sort this thought later');
+  await saveDraft(device, item);
+  await saveDraft(device, newDraft(account, '', 'A project draft'));
+  const loaded = await readDrafts(device);
+  assert.equal(item.projectId, '');
+  assert.deepEqual(inboxFor(loaded, { ...account, projectId: 'work' }), [item]);
+  assert.equal(draftsFor(loaded, account).length, 1);
+  assert.equal(inboxFor(loaded, { ...account, username: 'other' }).length, 0);
+  assert.equal(inboxFor(loaded, { ...account, origin: 'https://other.example.com' }).length, 0);
+  const assigned = assignInbox(item, account, 'work');
+  assert.equal(assigned.projectId, 'work');
+  assert.equal(assigned.inbox, false);
+  assert.equal(inboxFor(await readDrafts(device), account).length, 1, 'Reviewing a destination does not remove the saved Inbox copy');
+  assert.throws(() => assignInbox(item, { ...account, username: 'other' }, 'work'), /account/);
+  assert.throws(() => assignInbox(item, account, ''), /project/);
+  assert.throws(() => assignInbox(newDraft(account, '', 'Project draft'), account, 'work'), /account/);
 });

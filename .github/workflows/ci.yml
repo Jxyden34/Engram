@@ -156,6 +156,8 @@ jobs:
         run: pnpm test:offline
       - name: Check memory history and connection helpers
         run: pnpm test:memory-tools
+      - name: Check reviewed voice capture
+        run: pnpm test:voice
       - name: Check Expo package versions
         run: pnpm exec expo install --check
       - name: Bundle iOS and Android

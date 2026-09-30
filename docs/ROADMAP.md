@@ -14,6 +14,16 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 - 🔵 Later
 - 🧪 Experimental
 
+## Alpha1 — next mobile feature set 🟡
+
+These features are reserved for Alpha1 and are not enabled in beta4:
+
+- **Ask filters:** choose memory type and a date range before retrieval. Apply filters on the server inside the active project's RLS scope; display the filters used with each answer. Keep Ollama as the answer provider and preserve checked source quotations.
+- **Suggested memory connections:** propose related memories within the active project, show both sources and the reason, and create a link only after explicit approval. Exclude deleted memories and existing links; reject links across projects.
+- **Richer mobile Agent review:** approve or dismiss findings, edit proposed memory text before saving, check for stale sources, and record the human action. Keep source memories unchanged unless a separate explicit action permits an edit.
+
+Before publishing Alpha1, validate populated findings/links, stale-source handling, project isolation, retries and review actions on both physical devices. Choose the release version and a separate preview channel before deployment; keep beta4 available for rollback.
+
 ---
 
 # v1 — Foundation
