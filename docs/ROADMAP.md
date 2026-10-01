@@ -16,6 +16,22 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 
 ---
 
+## Active release tracks
+
+Engram is developed on two deliberately separate tracks. Stable releases do not
+absorb unfinished preview work.
+
+| Track | Current position | Scope |
+| --- | --- | --- |
+| Stable | **v2.5.5 shipped** | Production self-hosted releases. v2.5.5 delivers Memory Intelligence without projects, mobile beta work or the Memory Agent from the preview track. |
+| Preview | **v2.7.0-dev beta4 in development** | Projects, mobile companion and proposal-only Agent work. It remains a pre-release until project isolation, mobile flows and release qualification are complete. |
+
+v2.5.5 is the current GitHub stable release and is deployed on Blackwall. It
+includes explainable retrieval, compact context and reviewed contradiction
+resolution. The v2.4.5 S3-compatible storage change remains part of stable.
+
+---
+
 # v1 — Foundation
 
 ## v1.0 — Core Memory Platform ✅
@@ -139,7 +155,7 @@ Dynamic score based on:
 
 ---
 
-## v2.1 — Ingestion Mesh 🟢
+## v2.1 — Ingestion Mesh ✅
 
 Continuous ingestion from external systems.
 
@@ -298,7 +314,7 @@ Cover:
 
 ---
 
-## v2.4 — Expanded Connectors 🟡
+## v2.4 — Expanded Connectors ✅
 
 Start with the read-only Gmail connector. Keep later sources out of the first
 release until sync, credential storage and source deletion behavior are proven.
@@ -374,7 +390,9 @@ Potential connectors:
 
 ---
 
-## v2.5 — Memory Intelligence 🟡
+## v2.5 — Memory Intelligence ✅
+
+**Stable milestone:** v2.5.5 is separate from the v2.7 preview line.
 
 ### Hybrid Retrieval
 
@@ -388,6 +406,7 @@ Combine:
 - source trust
 - recency
 - retrieval history
+- explain why a result ranked highly
 
 ### Query Planner
 
@@ -404,6 +423,7 @@ Goals:
 - preserve provenance
 - prioritize current facts
 - include useful history when needed
+- provide a bounded context preview before an AI client uses it
 
 ### Contradiction Resolution
 
@@ -415,6 +435,13 @@ Compare:
 - source authority
 
 Nothing should be silently deleted.
+
+Shipped in v2.5.5: the Intelligence page exposes a bounded context preview,
+retrieval explanations, similar-pair review and an explicit resolution action.
+Choosing a current fact retains the other as historical and records its previous
+version, provenance and the resolution decision. This release does not include
+Projects, the memory agent, Ask Engram or mobile features planned separately
+for v2.7.
 
 ---
 
@@ -445,7 +472,11 @@ Search results should explain why they matched.
 
 ---
 
-## v2.7 — Projects & Namespaces 🔵
+## v2.7 — Projects, Mobile & Proposal Agent 🟢
+
+**Preview milestone:** `v2.7.0-dev` is the separate pre-release line. It is
+not part of v2.5.5 or any other stable release until its qualification gates
+are met.
 
 Examples:
 
@@ -459,12 +490,35 @@ Examples:
 
 Features:
 
-- namespace-specific memories
-- per-project connectors
-- project-specific API keys
-- MCP project context
-- project-specific retention
-- explicit cross-project search
+- ✅ namespace-specific memories and project switching
+- ✅ project context propagated through the API and MCP
+- ✅ project-scoped connector and candidate-memory boundaries
+- 🟡 project-specific API keys and retention
+- 🟡 explicit, auditable cross-project search
+- 🟡 isolation testing across memory, document, connector, OAuth callback and
+  import paths
+
+### Mobile companion preview
+
+- ✅ capture templates, memory creation, search, Ask with source links and
+  project switching tested online on iPhone through Expo Go
+- ✅ native sharing, Agent scan completion, and empty history/connection states
+  tested online
+- 🟡 favourites and offline access in a standalone signed build
+- 🟡 populated version-history and connection navigation
+- 🟡 beta4 voice capture with transcript review (requires a rebuilt native app;
+  keyboard dictation remains the Expo Go fallback)
+- 🟡 beta4 device-local Inbox for rough captures before organising them
+
+### Memory Agent preview
+
+The Agent remains proposal-only: it must not silently rewrite memories or cross
+project boundaries.
+
+- ✅ scan and proposal workflow
+- 🟡 alpha1 Ask filters for source, memory type and date range
+- 🟡 alpha1 suggested memory links with explicit approval
+- 🟡 alpha1 mobile review, edit, approve and dismiss flow for Agent proposals
 
 ---
 
@@ -516,6 +570,38 @@ Potential integrations:
 
 ---
 
+## v2.10 — Managed Service Readiness 🔵
+
+Prepare a managed Engram offering without weakening the self-hosted product or
+promising enterprise operations before they are proven.
+
+### Activation and product operations
+
+- guided first-run path to capture or import, then retrieve, a first memory
+- visible usage for memories, documents, storage, connectors and backup status
+- documented managed-hosting boundaries for upgrades, backups, recovery and
+  support
+- privacy-respecting activation measurement: first captured or imported memory
+  successfully retrieved
+
+### Team and deployment foundations
+
+- multi-user membership and project roles
+- advanced RBAC and shared MCP/API governance
+- SSO / SCIM only after team administration is proven
+- managed deployment provisioning, upgrades, backup verification and recovery
+  runbooks
+- quota, retention and support controls before any paid plan is offered
+
+### Validation gate
+
+Before billing or a public managed launch: validate willingness to pay with
+customer interviews, demonstrate a repeatable recovery, and define the actual
+uptime, support and data-handling commitments. This is a readiness milestone,
+not a promise of a hosted service date.
+
+---
+
 # v3 — Personal Knowledge OS 🔵
 
 ## v3.0 — Memory Agent
@@ -557,12 +643,12 @@ Notify on:
 - stale credential documentation
 - unresolved candidate memories
 
-## v3.3 — Mobile Companion
+## v3.3 — Mobile Companion Expansion
 
 Potential capabilities:
 
-- quick capture
-- voice notes
+- standalone signed mobile builds and offline favourites
+- quick capture and voice notes beyond the v2.7 preview
 - photos
 - share-sheet ingestion
 - search
@@ -611,16 +697,22 @@ Features:
 
 # Immediate Priorities
 
-1. ✅ v2.1 GitHub connector
-2. ✅ Browser Capture
-3. 🟡 GitHub webhook-triggered sync
-4. ✅ v2.2 OAuth / MCP authorization
-5. 🟡 v2.3 Disaster Recovery dashboard
-6. 🟡 Email and calendar connectors
-7. 🟡 Improved hybrid retrieval
-8. 🔵 Projects / namespaces
-9. 🔵 Memory consolidation and decay
-10. 🔵 v3 Memory Agent
+1. ✅ Complete and qualify stable v2.5.5 Memory Intelligence.
+2. 🟢 Complete v2.7 beta4 voice capture and device-local Inbox without merging
+   preview work into the stable track.
+3. 🟡 Qualify v2.7 project isolation, mobile flows and proposal-only Agent
+   boundaries; then sequence alpha1 Ask filters, memory links and Agent review.
+4. 🟡 GitHub webhook-triggered sync, commit/release ingestion and connector
+   diagnostics.
+5. 🟡 Disaster Recovery dashboard, automated restore testing and backup
+   replication.
+6. 🟡 Gmail read-only connector qualification, then calendar and cloud-storage
+   connectors.
+7. 🟡 Universal search and the explicit cross-project search/audit model.
+8. 🔵 Memory consolidation, decay and archival.
+9. 🔵 Managed-service readiness: onboarding, usage visibility, team governance
+   and operational commitments.
+10. 🔵 v3 autonomous maintenance and notification capabilities.
 
 ---
 
