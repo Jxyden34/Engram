@@ -6,12 +6,12 @@ Engram gives you one controlled source of truth for personal knowledge. Humans u
 
 The 2.7 development beta also includes a shared iOS and Android app for project-scoped memories, search, memory-agent review, and a secure offline library of recent memories. See [mobile beta setup](docs/MOBILE.md).
 
-**Current stable release:** `v2.4.5`
+**Current stable release:** `v2.5.5`
 **Development alpha:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
-The v2.4.5 release restores pullable object-storage images and makes clean
-storage startup a required CI check. See the [changelog](CHANGELOG.md).
+The v2.5.5 release adds explainable hybrid retrieval, compact source-labelled
+context, and human-reviewed contradiction resolution. See the [changelog](CHANGELOG.md).
 The v2.4.0 release added the read-only Gmail connector preview and restored
 the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 
@@ -19,6 +19,8 @@ the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 
 - PostgreSQL + pgvector memory store
 - Hybrid semantic + full-text retrieval
+- Query planning, graph-aware ranking and source-labelled context previews
+- Human-reviewed contradiction resolution that preserves historical facts
 - Local Ollama embeddings and local Qwen extraction
 - Secure browser sessions and scoped API keys
 - REST API + MCP

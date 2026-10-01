@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 const links = [
   ["/", "Overview", "◈"],
   ["/memories", "Memories", "◎"],
+  ["/intelligence", "Intelligence", "✧"],
   ["/documents", "Documents", "▱"],
   ["/projects", "Projects", "▦"],
   ["/agent", "Memory Agent", "✧"],

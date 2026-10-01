@@ -3,6 +3,7 @@ from contextvars import ContextVar
 from mcp.server import MCPServer
 
 from app import memories
+from app import intelligence
 from app.documents import search_chunks
 from app.security import Principal
 
@@ -33,7 +34,14 @@ def principal(scope: str) -> Principal:
 def memory_search(query: str, limit: int = 10, memory_type: str | None = None) -> list[dict]:
     """Search active memories by semantic meaning and text."""
     principal("memory:read")
-    return memories.search(query, max(1, min(limit, 50)), memory_type)
+    return intelligence.search_memories(query, max(1, min(limit, 50)), memory_type)
+
+
+@mcp.tool()
+def memory_context(query: str, max_chars: int = 6000) -> dict:
+    """Build a compact, source-labelled context preview without generating an answer."""
+    principal("memory:read")
+    return intelligence.build_context(query, max(500, min(max_chars, 16000)))
 
 
 @mcp.tool()
