@@ -4,17 +4,20 @@
 
 Engram gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.4.0`
+**Current release:** `v2.5.5`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
-The v2.4.0 release adds a read-only Gmail connector preview and restores the Memory
-Inbox review page. See [Gmail setup and OAuth notes](docs/GMAIL.md) and the
-[changelog](CHANGELOG.md).
+The v2.5.5 release adds explainable hybrid retrieval, compact source-labelled
+context, and human-reviewed contradiction resolution. See the [changelog](CHANGELOG.md).
+The v2.4.0 release added the read-only Gmail connector preview and restored
+the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 
 ## Highlights
 
 - PostgreSQL + pgvector memory store
 - Hybrid semantic + full-text retrieval
+- Query planning, graph-aware ranking and source-labelled context previews
+- Human-reviewed contradiction resolution that preserves historical facts
 - Local Ollama embeddings and local Qwen extraction
 - Secure browser sessions and scoped API keys
 - REST API + MCP
