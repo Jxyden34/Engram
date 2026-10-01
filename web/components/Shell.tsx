@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 const links = [
   ["/", "Overview", "◈"],
   ["/memories", "Memories", "◎"],
+  ["/intelligence", "Intelligence", "✧"],
   ["/documents", "Documents", "▱"],
   ["/imports", "Memory Inbox", "✦"],
   ["/connectors", "Connectors", "⇄"],
@@ -40,7 +41,7 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandMark">M</div>
+          <div className="brandMark" aria-hidden="true" />
           <div>
             <strong>Engram</strong>
             <span>private cognition layer</span>
