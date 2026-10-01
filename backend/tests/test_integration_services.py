@@ -144,6 +144,14 @@ def test_alpha_review_filters_isolation_stale_sources_and_retry():
                 approve(str(proposal['id']), 'test', {'source_updated_at': wrong})
             assert error.value.status_code == 409
             assert memories.relations(str(a['id'])) == []
+            with connect() as conn:
+                a['updated_at'] = conn.execute("UPDATE memories SET updated_at=updated_at + interval '1 second' WHERE id=%s RETURNING updated_at", (a['id'],)).fetchone()['updated_at']
+                conn.commit()
+            expected[a['id']] = a['updated_at']
+            with pytest.raises(HTTPException) as error:
+                approve(str(proposal['id']), 'test', {'source_updated_at': expected})
+            assert error.value.status_code == 409, 'A current client snapshot cannot approve an obsolete suggestion'
+            assert scan()['created']['related'] == 1
             approved = approve(str(proposal['id']), 'test', {'source_updated_at': expected})
             assert approved['status'] == 'accepted'
             assert approve(str(proposal['id']), 'test', {'source_updated_at': expected})['id'] == approved['id']
