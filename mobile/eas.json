@@ -1,0 +1,24 @@
+{
+  "build": {
+    "alpha1": {
+      "extends": "preview",
+      "channel": "alpha1",
+      "environment": "preview"
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview"
+    }
+  }
+}

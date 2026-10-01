@@ -1,0 +1,5 @@
+minimumReleaseAgeExclude:
+  - expo-constants@57.0.20
+  - expo-modules-core@57.0.20
+  - expo@57.0.26
+  - expo-updates@57.0.24

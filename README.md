@@ -4,7 +4,10 @@
 
 Engram gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.5.5`
+The 2.7 development beta also includes a shared iOS and Android app for project-scoped memories, search, memory-agent review, and a secure offline library of recent memories. See [mobile beta setup](docs/MOBILE.md).
+
+**Current stable release:** `v2.5.5`
+**Development alpha:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
 The v2.5.5 release adds explainable hybrid retrieval, compact source-labelled
@@ -167,6 +170,7 @@ docker-compose.yml    production stack
 - [Backup and restore](docs/BACKUP-RESTORE.md)
 - [Operations](docs/OPERATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Projects and Memory Agent beta](docs/PROJECTS-AGENT.md)
 - [Portfolio & engineering evidence](docs/PORTFOLIO.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)

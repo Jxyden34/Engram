@@ -15,6 +15,9 @@ from app import knowledge
 from app import connectors
 from app import oauth
 from app import disaster_recovery as dr
+from app import projects
+from app import memory_agent
+from app import ask
 from app import document_memory_import as doc_mem
 from app.audit import log
 from app.capture import create_capture
@@ -30,7 +33,7 @@ from app.chatgpt_import import (
     update_candidate,
 )
 from app.config import settings
-from app.database import connect
+from app.database import connect, current_project_id, project_scope
 from app.documents import bulk_upload, get_document, list_documents, minio_client, search_chunks, upload
 from app.mcp_server import mcp, mcp_principal
 from app.rate_limit import check_rate
@@ -41,6 +44,8 @@ from app.schemas import (
     ChatImportCreate,
     ConnectorCreate,
     ConnectorUpdate,
+    AgentScheduleUpdate,
+    CrossProjectSearchRequest,
     GmailOAuthStart,
     DeleteRequest,
     LoginRequest,
@@ -51,9 +56,13 @@ from app.schemas import (
     MemoryUpdate,
     OAuthClientCreate,
     OAuthClientUpdate,
+    ProjectCreate,
     RejectRequest,
     RelationCreate,
     SearchRequest,
+    AskRequest,
+    AgentApprove,
+
     ContextRequest,
     ConflictCompareRequest,
     ConflictResolveRequest,
@@ -99,7 +108,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.5.5",
+    version="2.7.0-alpha1",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -111,7 +120,7 @@ app.add_middleware(
     allow_origin_regex=r"^chrome-extension://[a-z]{32}$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "Mcp-*", "Last-Event-ID"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Engram-Project", "Mcp-*", "Last-Event-ID"],
     expose_headers=["Mcp-Session-Id", "WWW-Authenticate"],
 )
 
@@ -122,10 +131,10 @@ async def security_middleware(request: Request, call_next):
     if path.startswith("/api/v1/"):
         check_rate(request, "api", 240, 60)
 
-    if path.startswith("/api/v1/auth/login"):
+    if path in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
         check_rate(request, "login", 12, 300)
 
-    if path.startswith("/api/v1/") and path != "/api/v1/auth/login":
+    if path.startswith("/api/v1/") and path not in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
         try:
             validate_csrf(request)
         except HTTPException as exc:
@@ -135,6 +144,17 @@ async def security_middleware(request: Request, call_next):
         check_rate(request, "oauth", 120, 60)
 
     token = None
+    selected_project = None
+    if path.startswith("/api/v1/") and path not in {
+        "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/me", "/api/v1/projects",
+        "/api/v1/mobile/login", "/api/v1/mobile/logout",
+    }:
+        try:
+            selected_project = projects.resolve_project(
+                authenticate(request), request.headers.get("x-engram-project") or request.cookies.get("engram_project")
+            )
+        except HTTPException as exc:
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     if path == "/mcp" or path.startswith("/mcp/"):
         resource_metadata = oauth.protected_resource_metadata_url()
         base_scope = "mcp:use memory:read document:read"
@@ -194,10 +214,15 @@ async def security_middleware(request: Request, call_next):
                     )
                 },
             )
+        try:
+            selected_project = projects.resolve_project(p, request.headers.get("x-engram-project"))
+        except HTTPException as exc:
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
         token = mcp_principal.set(p)
 
     try:
-        return await call_next(request)
+        with project_scope(selected_project or current_project_id()):
+            return await call_next(request)
     finally:
         if token is not None:
             mcp_principal.reset(token)
@@ -205,11 +230,10 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.5.5"}
+    return {"status": "ok", "service": "engram", "version": "2.7.0-alpha1"}
 
 
-@app.post("/api/v1/auth/login")
-def login(body: LoginRequest, request: Request, response: Response):
+def _check_login(body: LoginRequest):
     with connect() as conn:
         user = conn.execute(
             """
@@ -221,6 +245,12 @@ def login(body: LoginRequest, request: Request, response: Response):
 
     if not user or not user["is_active"] or not verify_password(user["password_hash"], body.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    return user
+
+
+@app.post("/api/v1/auth/login")
+def login(body: LoginRequest, request: Request, response: Response):
+    user = _check_login(body)
 
     session_token, csrf_token = create_session(str(user["id"]), request)
     response.set_cookie(
@@ -255,6 +285,35 @@ def login(body: LoginRequest, request: Request, response: Response):
     }
 
 
+@app.post("/api/v1/mobile/login")
+def mobile_login(body: LoginRequest, request: Request, response: Response):
+    user = _check_login(body)
+    token, _ = create_session(str(user["id"]), request, mobile=True)
+    response.headers["Cache-Control"] = "no-store"
+    with connect() as conn:
+        conn.execute("UPDATE users SET last_login_at=now() WHERE id=%s", (user["id"],))
+        conn.commit()
+    log(f"user:{user['username']}", "mobile.login", "session", request=request)
+    return {
+        "token": token,
+        "expires_in": cfg.mobile_session_ttl_days * 86400,
+        "username": user["username"],
+        "is_admin": user["is_admin"],
+    }
+
+
+@app.post("/api/v1/mobile/logout")
+def mobile_logout(request: Request):
+    p = authenticate(request)
+    authorization = request.headers.get("authorization", "")
+    token = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
+    if p.auth_type != "mobile" or not token.startswith("mb_mobile_"):
+        raise HTTPException(status_code=403, detail="Mobile session required")
+    revoke_session(token)
+    log(p.actor, "mobile.logout", "session", request=request)
+    return {"ok": True}
+
+
 @app.post("/api/v1/auth/logout")
 def logout(request: Request, response: Response):
     p = authenticate(request)
@@ -274,7 +333,96 @@ def me(request: Request):
         "username": p.username,
         "is_admin": p.is_admin,
         "scopes": sorted(p.scopes),
+        "project_id": current_project_id(),
     }
+
+
+@app.get("/api/v1/projects")
+def project_list(request: Request):
+    return projects.list_projects(require(request, "memory:read"))
+
+
+@app.post("/api/v1/projects", status_code=201)
+def project_create(body: ProjectCreate, request: Request):
+    p = require(request, "memory:write")
+    row = projects.create_project(body.name, body.slug, p)
+    log(p.actor, "project.created", "project", str(row["id"]), request, new_data=row)
+    return row
+
+
+@app.post("/api/v1/projects/search")
+def project_search(body: CrossProjectSearchRequest, request: Request):
+    p = require(request, "memory:read")
+    results = projects.search_across(
+        p, [str(project_id) for project_id in body.project_ids],
+        body.query, body.limit, body.memory_type, body.include_historical,
+    )
+    log(p.actor, "project.cross_search", "project", current_project_id(), request,
+        new_data={"project_ids": [str(value) for value in body.project_ids], "result_count": len(results)})
+    return results
+
+
+@app.get("/api/v1/agent/proposals")
+def agent_proposals(request: Request, status: str = "pending", limit: int = 100):
+    require(request, "memory:read")
+    return memory_agent.list_proposals(status, limit)
+
+
+@app.get("/api/v1/agent/runs")
+def agent_runs(request: Request, limit: int = 20):
+    require(request, "memory:read")
+    return memory_agent.list_runs(limit)
+
+
+@app.get("/api/v1/agent/schedule")
+def agent_schedule(request: Request):
+    require(request, "memory:read")
+    return memory_agent.get_schedule()
+
+
+@app.put("/api/v1/agent/schedule")
+def agent_schedule_update(body: AgentScheduleUpdate, request: Request):
+    p = require(request, "memory:write")
+    if not p.is_admin or p.auth_type != "session":
+        raise HTTPException(status_code=403, detail="Administrator session required")
+    result = memory_agent.set_schedule(body.enabled, body.interval_hours)
+    log(p.actor, "agent.schedule_updated", "project", current_project_id(), request, new_data=result)
+    return result
+
+
+@app.post("/api/v1/agent/scan")
+def agent_scan(request: Request):
+    p = require(request, "memory:write")
+    run = memory_agent.create_run("manual")
+    result = memory_agent.run_scan(str(run["id"]))
+    log(p.actor, "agent.scan", "project", current_project_id(), request,
+        new_data={"run_id": str(run["id"]), **result})
+    return result
+
+
+@app.post("/api/v1/agent/proposals/{proposal_id}/dismiss")
+def agent_dismiss(proposal_id: str, request: Request):
+    p = require(request, "memory:write")
+    row = memory_agent.dismiss(proposal_id, p.actor)
+    log(p.actor, "agent.proposal_dismissed", "agent_proposal", proposal_id, request)
+    return row
+
+
+@app.post("/api/v1/agent/proposals/{proposal_id}/draft")
+def agent_draft(proposal_id: str, request: Request):
+    p = require(request, "memory:write")
+    draft = memory_agent.draft_consolidation(proposal_id)
+    log(p.actor, "agent.draft_created", "agent_proposal", proposal_id, request,
+        new_data={"safe_to_merge": draft["safe_to_merge"]})
+    return draft
+
+
+@app.post("/api/v1/agent/proposals/{proposal_id}/approve")
+def agent_approve(proposal_id: str, body: AgentApprove, request: Request):
+    p = require(request, "memory:write")
+    row = memory_agent.approve(proposal_id, p.actor, body.model_dump())
+    log(p.actor, "agent.proposal_approved", "agent_proposal", proposal_id, request, new_data=row)
+    return row
 
 
 @app.get("/api/v1/stats")
@@ -287,7 +435,7 @@ def stats(request: Request):
             "events": conn.execute("SELECT count(*) AS n FROM events").fetchone()["n"],
             "documents": conn.execute("SELECT count(*) AS n FROM documents WHERE deleted_at IS NULL").fetchone()["n"],
             "pending_deletions": conn.execute("SELECT count(*) AS n FROM deletion_requests WHERE status='pending'").fetchone()["n"],
-            "api_keys": conn.execute("SELECT count(*) AS n FROM api_keys WHERE revoked_at IS NULL").fetchone()["n"],
+            "api_keys": conn.execute("SELECT count(*) AS n FROM api_keys WHERE revoked_at IS NULL AND project_id=%s", (current_project_id(),)).fetchone()["n"],
             "types": [
                 dict(row)
                 for row in conn.execute(
@@ -387,6 +535,13 @@ def relation_create(memory_id: str, body: RelationCreate, request: Request):
     row = memories.add_relation(memory_id, body.target_memory_id, body.relation_type, p.actor)
     log(p.actor, "relation.created", "memory_relation", str(row["id"]), request, new_data=row)
     return row
+
+
+@app.post("/api/v1/ask")
+def ask_memories(body: AskRequest, request: Request):
+    require(request, "memory:read")
+    check_rate(request, "ask", 6, 60)
+    return ask.answer(body.question, body.memory_type, body.since, body.until)
 
 
 @app.post("/api/v1/search")
@@ -991,6 +1146,11 @@ def oauth_authorize_get(request: Request):
         )
 
     csrf = request.cookies.get(CSRF_COOKIE, "")
+    project_id = projects.resolve_project(principal, request.cookies.get("engram_project"))
+    with connect() as conn:
+        project_name = conn.execute("SELECT name FROM projects WHERE id=%s", (project_id,)).fetchone()["name"]
+    authorization["project_id"] = project_id
+    authorization["project_name"] = project_name
     return oauth.render_consent(
         authorization,
         principal.username or principal.actor,
@@ -1015,6 +1175,9 @@ async def oauth_authorize_post(request: Request):
     )
 
     authorization = oauth.validate_authorization_request(data)
+    project_id = projects.resolve_project(principal, request.cookies.get("engram_project"))
+    if data.get("project_id") != project_id:
+        raise HTTPException(status_code=400, detail="Project selection changed; restart authorization")
     if data.get("decision") != "allow":
         return oauth._redirect_with_params(
             authorization["redirect_uri"],
@@ -1025,14 +1188,15 @@ async def oauth_authorize_post(request: Request):
             },
         )
 
-    code = oauth.create_authorization_code(
-        authorization["client_id"],
-        principal.user_id,
-        authorization["redirect_uri"],
-        authorization["scopes"],
-        authorization["resource"],
-        authorization["code_challenge"],
-    )
+    with project_scope(project_id):
+        code = oauth.create_authorization_code(
+            authorization["client_id"],
+            principal.user_id,
+            authorization["redirect_uri"],
+            authorization["scopes"],
+            authorization["resource"],
+            authorization["code_challenge"],
+        )
     log(
         principal.actor,
         "oauth.authorized",
@@ -1042,6 +1206,7 @@ async def oauth_authorize_post(request: Request):
         new_data={
             "scopes": authorization["scopes"],
             "resource": authorization["resource"],
+            "project_id": project_id,
         },
     )
     return oauth._redirect_with_params(
@@ -1243,8 +1408,10 @@ def keys_list(request: Request):
             """
             SELECT id, name, key_prefix, scopes, created_at, last_used_at, revoked_at
             FROM api_keys
+            WHERE project_id=%s
             ORDER BY created_at DESC
-            """
+            """,
+            (current_project_id(),),
         ).fetchall()
     return [dict(row) for row in rows]
 
@@ -1260,11 +1427,11 @@ def key_create(body: ApiKeyCreate, request: Request):
     with connect() as conn:
         row = conn.execute(
             """
-            INSERT INTO api_keys(owner_id, name, key_prefix, key_hash, scopes)
-            VALUES (%s,%s,%s,%s,%s)
+            INSERT INTO api_keys(owner_id, name, key_prefix, key_hash, scopes, project_id)
+            VALUES (%s,%s,%s,%s,%s,%s)
             RETURNING id, name, key_prefix, scopes, created_at
             """,
-            (p.user_id, body.name, prefix, digest, body.scopes),
+            (p.user_id, body.name, prefix, digest, body.scopes, current_project_id()),
         ).fetchone()
         conn.commit()
     result = dict(row)
@@ -1281,10 +1448,10 @@ def key_revoke(key_id: str, request: Request):
         row = conn.execute(
             """
             UPDATE api_keys SET revoked_at=now()
-            WHERE id=%s AND revoked_at IS NULL
+            WHERE id=%s AND project_id=%s AND revoked_at IS NULL
             RETURNING id, name, revoked_at
             """,
-            (key_id,),
+            (key_id, current_project_id()),
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Active key not found")

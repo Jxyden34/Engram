@@ -11,7 +11,7 @@ from redis import Redis
 from rq import Queue
 
 from app.config import settings
-from app.database import connect
+from app.database import connect, current_project_id, project_job
 from app.documents import get_document, minio_client
 from app.embeddings import embed, embed_literal
 from app.memories import create as create_memory
@@ -210,7 +210,7 @@ def _chunks(text: str, max_chars: int):
     return chunks
 
 
-def _ollama_json(system: str, user: str) -> dict[str, Any]:
+def _ollama_json(system: str, user: str, *, timeout: float = 300.0, max_tokens: int | None = None, format_schema: dict | None = None) -> dict[str, Any]:
     cfg = settings()
     response = httpx.post(
         f"{cfg.ollama_url.rstrip('/')}/api/chat",
@@ -218,14 +218,14 @@ def _ollama_json(system: str, user: str) -> dict[str, Any]:
             "model": cfg.chat_model,
             "stream": False,
             "think": False,
-            "format": "json",
+            "format": format_schema or "json",
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            "options": {"temperature": 0.15},
+            "options": {"temperature": 0.15, **({"num_predict": max_tokens} if max_tokens else {})},
         },
-        timeout=300.0,
+        timeout=timeout,
     )
     response.raise_for_status()
     content = response.json()["message"]["content"].strip()
@@ -385,10 +385,12 @@ def create_import_job(source_document_id: str, actor: str, owner_id: str | None)
         "app.chatgpt_import.process_chatgpt_export",
         str(row["id"]),
         job_timeout="12h",
+        meta={"project_id": current_project_id()},
     )
     return dict(row)
 
 
+@project_job
 def process_chatgpt_export(import_job_id: str):
     cfg = settings()
 

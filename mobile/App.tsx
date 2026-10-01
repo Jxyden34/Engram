@@ -1,0 +1,448 @@
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import * as SecureStore from 'expo-secure-store';
+import { api, AgentDraft, ApiError, login, Memory, normalizeOrigin, Project, Proposal, ScanRun, Session } from './src/api';
+import { assignInbox, CaptureDraft, draftsFor, inboxFor, newDraft, newInboxDraft, readDrafts, removeDraft, saveDraft, updateDraft } from './src/drafts';
+import { clearOfflineLibrary, OfflineLibrary, readOfflineLibrary, saveOfflineLibrary, searchOffline, toggleFavorite } from './src/offline';
+import MemoryDetail from './src/MemoryDetail';
+import Ask from './src/Ask';
+import Inbox from './src/Inbox';
+import VoiceCapture from './src/VoiceCapture';
+import { captureTemplates } from './src/memoryTools';
+
+const KEY = 'engram_mobile_session';
+type Tab = 'Capture' | 'Inbox' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Settings';
+const tabs: Tab[] = ['Capture', 'Inbox', 'Memories', 'Search', 'Ask', 'Agent', 'Settings'];
+
+export default function App() {
+  const [ready, setReady] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [server, setServer] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tab, setTab] = useState<Tab>('Capture');
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [offlineLibrary, setOfflineLibrary] = useState<OfflineLibrary>({ items: [], savedAt: null });
+  const [usingOffline, setUsingOffline] = useState(false);
+  const [searchIsOffline, setSearchIsOffline] = useState(false);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [memoryType, setMemoryType] = useState('All');
+  const activeScope = useRef('');
+  const loadSequence = useRef(0);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [reviewed, setReviewed] = useState<Proposal[]>([]);
+  const [agentTitle, setAgentTitle] = useState('');
+  const [agentContent, setAgentContent] = useState('');
+  const [runs, setRuns] = useState<ScanRun[]>([]);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [reviewSources, setReviewSources] = useState<Memory[]>([]);
+  const [selected, setSelected] = useState<Memory | null>(null);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Memory[] | null>(null);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const composer = useRef({ title: '', content: '' });
+  const captureInput = useRef<TextInput>(null);
+  const [inboxTitle, setInboxTitle] = useState('');
+  const [inboxContent, setInboxContent] = useState('');
+  const inboxComposer = useRef({ title: '', content: '' });
+  const editing = useRef<CaptureDraft | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const clearing = useRef<Promise<void> | null>(null);
+  const [drafts, setDrafts] = useState<CaptureDraft[]>([]);
+  const [captureMessage, setCaptureMessage] = useState('');
+  const [draft, setDraft] = useState<AgentDraft | null>(null);
+  const [busy, setBusy] = useState(false);
+  const busyNow = useRef(false);
+  const [error, setError] = useState('');
+  const [scanMessage, setScanMessage] = useState('');
+
+  function changeTitle(value: string) { composer.current.title = value; setTitle(value); }
+  function changeContent(value: string) { composer.current.content = value; setContent(value); }
+  function stopEditing() { editing.current = null; setEditingId(null); }
+  function changeInboxTitle(value: string) { inboxComposer.current.title = value; setInboxTitle(value); }
+  function changeInboxContent(value: string) { inboxComposer.current.content = value; setInboxContent(value); }
+
+  async function queueInbox(current: Session, nextTitle: string, nextContent: string) {
+    await saveDraft(SecureStore, newInboxDraft(current, nextTitle, nextContent));
+    setDrafts(await readDrafts(SecureStore));
+  }
+
+  async function storeComposer(current: Session) {
+    const created = newDraft(current, composer.current.title, composer.current.content);
+    const previous = editing.current;
+    const item = previous ? { ...created, id: previous.id, createdAt: previous.createdAt } : created;
+    if (previous) {
+      await updateDraft(SecureStore, item);
+    } else {
+      await saveDraft(SecureStore, item);
+    }
+    stopEditing(); changeTitle(''); changeContent('');
+    setDrafts(await readDrafts(SecureStore));
+    return item;
+  }
+
+  async function keepComposer(current: Session) {
+    if (composer.current.content.trim() || composer.current.title.trim()) await storeComposer(current);
+    else { stopEditing(); changeTitle(''); changeContent(''); }
+  }
+
+  async function clearSession(current: Session) {
+    if (clearing.current) return clearing.current;
+    clearing.current = (async () => {
+      if (inboxComposer.current.title.trim() || inboxComposer.current.content.trim()) {
+        await queueInbox(current, inboxComposer.current.title, inboxComposer.current.content);
+        changeInboxTitle(''); changeInboxContent('');
+      }
+      await keepComposer(current);
+      await SecureStore.deleteItemAsync(KEY);
+      activeScope.current = '';
+      setSession(null); setProjects([]); setMemories([]); setOfflineLibrary({ items: [], savedAt: null }); setUsingOffline(false); setProposals([]); setReviewed([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null);
+    })();
+    try { await clearing.current; } finally { clearing.current = null; }
+  }
+
+  async function call<T>(current: Session, path: string, method = 'GET', body?: object): Promise<T> {
+    try { return await api<T>(current, path, method, body); }
+    catch (e) { if (e instanceof ApiError && e.status === 401) await clearSession(current); throw e; }
+  }
+
+  async function load(current: Session) {
+    const sequence = ++loadSequence.current;
+    setLibraryLoading(true);
+    try { await loadLibrary(current, sequence); }
+    finally { if (sequence === loadSequence.current) setLibraryLoading(false); }
+  }
+
+  async function loadLibrary(current: Session, sequence: number) {
+    const scope = `${current.origin}\u0000${current.username}\u0000${current.projectId}`;
+    const cached = await readOfflineLibrary(SecureStore, current).catch(() => ({ items: [], savedAt: null }));
+    if (activeScope.current !== scope || sequence !== loadSequence.current) return;
+    setOfflineLibrary(cached);
+    if (cached.savedAt) { setMemories(cached.items); setUsingOffline(true); }
+    try {
+      const nextMemories = await call<Memory[]>(current, '/api/v1/memories?limit=50');
+      if (activeScope.current !== scope || sequence !== loadSequence.current) return;
+      setMemories(nextMemories); setUsingOffline(false);
+      const saved = await saveOfflineLibrary(SecureStore, current, nextMemories).catch(() => null);
+      if (saved && activeScope.current === scope && sequence === loadSequence.current) setOfflineLibrary(saved);
+      const [nextProposals, nextRuns, nextReviewed] = await Promise.all([
+        call<Proposal[]>(current, '/api/v1/agent/proposals?status=pending&limit=50'),
+        call<ScanRun[]>(current, '/api/v1/agent/runs?limit=5'),
+        call<Proposal[]>(current, '/api/v1/agent/proposals?status=accepted&limit=10'),
+      ]);
+      if (activeScope.current === scope && sequence === loadSequence.current) { setProposals(nextProposals); setRuns(nextRuns); setReviewed(nextReviewed); }
+    } catch (error) {
+      if (!cached.savedAt) throw error;
+    }
+  }
+
+  useEffect(() => {
+    (async () => {
+      setDrafts(await readDrafts(SecureStore));
+      const value = await SecureStore.getItemAsync(KEY);
+      if (!value) return;
+      const saved = JSON.parse(value) as Session;
+      setSession(saved); setServer(saved.origin); setUsername(saved.username);
+      api<Project[]>(saved, '/api/v1/projects').then(setProjects).catch(async error => {
+        if (error instanceof ApiError && error.status === 401) await clearSession(saved);
+      });
+    })().catch(error => setError(String(error.message || error))).finally(() => setReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    activeScope.current = `${session.origin}\u0000${session.username}\u0000${session.projectId}`;
+    setMemories([]); setOfflineLibrary({ items: [], savedAt: null }); setUsingOffline(false); setSearchIsOffline(false); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null); setDraft(null);
+    setScanMessage('');
+    setReviewed([]); setAgentTitle(''); setAgentContent('');
+    setFavoritesOnly(false); setMemoryType('All');
+    load(session).catch(e => setError(String(e.message || e)));
+  }, [session?.token, session?.projectId]);
+
+  async function act(task: () => Promise<void>) {
+    if (busyNow.current) return;
+    busyNow.current = true; setError(''); setBusy(true);
+    try { await task(); } catch (e) { setError(String((e as Error).message || e)); }
+    finally { busyNow.current = false; setBusy(false); }
+  }
+
+  async function signIn() {
+    await act(async () => {
+      const origin = normalizeOrigin(server);
+      const auth = await login(origin, username.trim(), password);
+      const provisional: Session = { origin, token: auth.token, username: auth.username, isAdmin: auth.is_admin, projectId: '' };
+      const list = await api<Project[]>(provisional, '/api/v1/projects');
+      const chosen = list.find(project => project.slug === 'personal') || list[0];
+      const next = { ...provisional, projectId: chosen?.id || '', projectName: chosen?.name || 'Personal' };
+      await SecureStore.setItemAsync(KEY, JSON.stringify(next));
+      setProjects(list); setSession(next); setPassword('');
+    });
+  }
+
+  async function switchProject(id: string) {
+    if (!session) return;
+    await act(async () => {
+      await keepComposer(session);
+      const next = { ...session, projectId: id, projectName: projects.find(project => project.id === id)?.name || '' };
+      await SecureStore.setItemAsync(KEY, JSON.stringify(next));
+      setSession(next); setTab('Capture'); setCaptureMessage('');
+    });
+  }
+
+  async function signOut() {
+    if (!session) return;
+    await act(async () => {
+      try { await api(session, '/api/v1/mobile/logout', 'POST'); }
+      finally { await clearSession(session); }
+    });
+  }
+
+  async function deliverDraft(current: Session, item: CaptureDraft) {
+    if (item.origin !== current.origin || item.username !== current.username || item.projectId !== current.projectId) {
+      throw new Error('Switch to the draft’s original project before sending it.');
+    }
+    await call(current, '/api/v1/memories', 'POST', { title: item.title, content: item.content, source_type: 'manual' });
+    try { await removeDraft(SecureStore, item.id); }
+    catch { throw new Error('Sent to Engram, but the local draft could not be removed. Check Memories before sending it again.'); }
+    setDrafts(await readDrafts(SecureStore));
+    await load(current).catch(() => {});
+    if (!projects.length) api<Project[]>(current, '/api/v1/projects').then(setProjects).catch(() => {});
+  }
+
+  async function sendInbox(item: CaptureDraft, projectId: string) {
+    if (!session || !projects.some(project => project.id === projectId) || !inboxFor(drafts, session).some(draft => draft.id === item.id)) {
+      throw new Error('Choose an available project for an Inbox item from this account.');
+    }
+    const assigned = assignInbox(item, session, projectId);
+    // Keep reviewed edits in the Inbox if the destination cannot be reached.
+    await updateDraft(SecureStore, item);
+    setDrafts(await readDrafts(SecureStore));
+    await call({ ...session, projectId }, '/api/v1/memories', 'POST', { title: assigned.title.trim(), content: assigned.content.trim(), source_type: 'manual' });
+    try { await removeDraft(SecureStore, item.id); }
+    catch { throw new Error('Saved to Engram, but the Inbox copy could not be removed. Check Memories before retrying.'); }
+    setDrafts(await readDrafts(SecureStore));
+    if (session.projectId === projectId) await load(session).catch(() => {});
+  }
+
+  async function capture() {
+    if (!session) return;
+    await act(async () => {
+      const item = await storeComposer(session);
+      try { await deliverDraft(session, item); setCaptureMessage('Saved to Engram.'); }
+      catch (error) {
+        setCaptureMessage(String((error as Error).message || error).startsWith('Sent to Engram') ? 'Sent to Engram; check Memories before trying again.' : 'Saved securely on this device. Check Memories before retrying if the request timed out.');
+        setError(String((error as Error).message || error));
+      }
+    });
+  }
+
+  async function runSearch() {
+    if (!session || !query.trim()) return;
+    await act(async () => {
+      try {
+        setResults(await call<Memory[]>(session, '/api/v1/search', 'POST', { query: query.trim(), limit: 20, include_documents: false }));
+        setSearchIsOffline(false);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) throw error;
+        if (!offlineLibrary.savedAt) throw error;
+        setResults(searchOffline(offlineLibrary.items, query));
+        setSearchIsOffline(true);
+      }
+    });
+  }
+
+  async function seedCapture(nextTitle: string, nextContent: string) {
+    if (!session) return;
+    await act(async () => {
+      await keepComposer(session);
+      changeTitle(nextTitle); changeContent(nextContent); setTab('Capture'); setSelected(null);
+      setCaptureMessage('Review and edit before saving as a new memory. Shorten long text if it exceeds secure draft storage.');
+    });
+  }
+
+  async function openReview(proposal: Proposal) {
+    if (!session) return;
+    await act(async () => {
+      const ids = [proposal.memory_id, proposal.related_memory_id].filter((id): id is string => !!id);
+      const sources = await Promise.all(ids.map(id => call<Memory>(session, `/api/v1/memories/${id}`)));
+      setReviewSources(sources); setReviewId(proposal.id); setDraft(proposal.evidence?.draft || null);
+      setAgentTitle(proposal.evidence?.draft?.title || ''); setAgentContent(proposal.evidence?.draft?.content || '');
+    });
+  }
+
+  async function useAgentDraft(proposal: Proposal, suggestion: AgentDraft) {
+    if (!session || !suggestion.safe_to_merge || !suggestion.title || !suggestion.content || proposal.draft_stale) return;
+    await act(async () => {
+      await keepComposer(session);
+      changeTitle(suggestion.title || ''); changeContent(suggestion.content || '');
+      setTab('Capture'); setCaptureMessage('Review this draft before saving it as a new memory. The source memories stay unchanged.');
+    });
+  }
+
+  function confirmDismiss(proposal: Proposal) {
+    if (!session) return;
+    Alert.alert('Dismiss finding?', 'This removes the finding from the pending review list. It does not change either memory.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Dismiss', style: 'destructive', onPress: () => { void act(async () => {
+        await call(session, `/api/v1/agent/proposals/${proposal.id}/dismiss`, 'POST');
+        setReviewId(null); setReviewSources([]); setDraft(null); await load(session);
+      }); } },
+    ]);
+  }
+
+  function confirmApprove(proposal: Proposal) {
+    if (!session) return;
+    const label = proposal.proposal_type === 'duplicate' ? 'Save reviewed memory' : proposal.proposal_type === 'related' ? 'Approve connection' : 'Mark reviewed';
+    const explanation = proposal.proposal_type === 'duplicate' ? 'Create a new memory from the edited draft and record this finding as reviewed? The source memories stay unchanged.' : proposal.proposal_type === 'related' ? 'Create a related link between these two memories and record your approval?' : 'Record that you reviewed this finding? This does not edit the memory or resolve its facts automatically.';
+    Alert.alert(label + '?', explanation, [{ text: 'Cancel', style: 'cancel' }, { text: label, onPress: () => void act(async () => {
+      const source_updated_at = Object.fromEntries(reviewSources.map(source => [source.id, source.updated_at]));
+      await call(session, `/api/v1/agent/proposals/${proposal.id}/approve`, 'POST', { source_updated_at, ...(proposal.proposal_type === 'duplicate' ? { title: agentTitle, content: agentContent } : {}) });
+      setReviewId(null); setReviewSources([]); setDraft(null); await load(session); setScanMessage(`${label} complete.`);
+    }) }]);
+  }
+
+  const review = proposals.find(item => item.id === reviewId);
+  const favorites = offlineLibrary.items.filter(item => item.favorite);
+  const listedMemories = favoritesOnly ? favorites : memories;
+  const memoryTypes = ['All', ...new Set(listedMemories.map(item => item.memory_type))];
+  const visibleMemories = listedMemories.filter(item => memoryType === 'All' || item.memory_type === memoryType);
+  const memoryActions = (item: Memory) => <View style={styles.row}>
+    <Pressable style={styles.secondary} disabled={busy || libraryLoading} accessibilityRole="button" accessibilityLabel={favorites.some(saved => saved.id === item.id) ? 'Remove favourite' : 'Save favourite'} onPress={() => act(async () => {
+      if (!session) return;
+      const current = session;
+      const scope = activeScope.current;
+      const saved = await toggleFavorite(SecureStore, current, item);
+      if (activeScope.current === scope) { setOfflineLibrary(saved); if (usingOffline) setMemories(saved.items); }
+    })}><Text style={styles.link}>{favorites.some(saved => saved.id === item.id) ? '★ Saved' : '☆ Save favourite'}</Text></Pressable>
+    <Pressable style={styles.secondary} disabled={busy} accessibilityRole="button" onPress={() => act(async () => { await Share.share({ title: item.title, message: `${item.title}\n\n${item.content}${item.truncated ? '\n\n[Offline excerpt]' : ''}` }); })}><Text style={styles.link}>Share</Text></Pressable>
+  </View>;
+  const card = (item: Memory) => <Pressable key={item.id} style={styles.card} onPress={() => setSelected(item)} accessibilityRole="button">
+    <Text style={styles.cardTitle}>{item.title}</Text>
+    {favorites.some(saved => saved.id === item.id) && <Text style={styles.meta}>★ Favourite on this device</Text>}
+    <Text style={styles.meta}>{item.memory_type} · {new Date(item.updated_at).toLocaleDateString()}</Text>
+    <Text style={styles.preview} numberOfLines={2}>{item.content}</Text>{item.truncated && <Text style={styles.meta}>Offline excerpt</Text>}
+  </Pressable>;
+
+  if (!ready) return <SafeAreaView style={styles.center}><ActivityIndicator color="#7ccaff" /></SafeAreaView>;
+  if (!session) return <SafeAreaView style={styles.root}><StatusBar style="light" /><KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <ScrollView contentContainerStyle={styles.login} keyboardShouldPersistTaps="handled">
+      <Text style={styles.brand}>ENGRAM</Text><Text style={styles.hero}>Your memory, anywhere.</Text>
+      <Text style={styles.sub}>2.7 alpha 1 · iOS + Android</Text>
+      <Text style={styles.label}>Server URL</Text><TextInput style={styles.input} value={server} onChangeText={setServer} placeholder="https://engram.example.com" placeholderTextColor="#718094" autoCapitalize="none" keyboardType="url" />
+      <Text style={styles.label}>Username</Text><TextInput style={styles.input} value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Username" placeholderTextColor="#718094" />
+      <Text style={styles.label}>Password</Text><TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor="#718094" onSubmitEditing={signIn} />
+      {!!error && <Text style={styles.error}>{error}</Text>}
+      <Pressable style={styles.primary} onPress={signIn} disabled={busy} accessibilityRole="button"><Text style={styles.primaryText}>{busy ? 'Connecting…' : 'Sign in'}</Text></Pressable>
+      <Text style={styles.hint}>Use your Engram account. Your session is stored in your device's secure storage.</Text>
+    </ScrollView>
+  </KeyboardAvoidingView></SafeAreaView>;
+
+  return <SafeAreaView style={styles.root}><StatusBar style="light" />
+    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>ALPHA 1</Text></View>
+    <ScrollView horizontal style={styles.tabBar} contentContainerStyle={styles.tabContent} showsHorizontalScrollIndicator={false}>
+      {tabs.map(item => <Pressable key={item} disabled={busy} style={[styles.tab, tab === item && styles.tabActive]} onPress={() => { setTab(item); setSelected(null); setError(''); }} accessibilityRole="button"><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item === 'Inbox' ? `Inbox (${inboxFor(drafts, session).length})` : item}</Text></Pressable>)}
+    </ScrollView>
+    {projects.length > 1 && <ScrollView horizontal style={styles.projectRow} contentContainerStyle={styles.projectContent} showsHorizontalScrollIndicator={false}>
+      {projects.map(project => <Pressable key={project.id} style={[styles.chip, session.projectId === project.id && styles.chipActive]} onPress={() => switchProject(project.id)} accessibilityRole="button"><Text style={styles.chipText}>{project.name}</Text></Pressable>)}
+    </ScrollView>}
+    {!!error && <Text style={styles.errorBanner}>{error}</Text>}
+    <ScrollView style={styles.fill} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      {tab === 'Capture' && <>
+        <Text style={styles.section}>Quick capture</Text>
+        <Text style={styles.hint}>Project: {projects.find(project => project.id === session.projectId)?.name || session.projectName || 'Selected project'}</Text>
+        {!!editingId && <Text style={styles.hint}>Editing a saved draft</Text>}
+        <ScrollView horizontal style={styles.filterRow} contentContainerStyle={styles.filterContent} showsHorizontalScrollIndicator={false}>{captureTemplates.map(template => <Pressable key={template.name} style={styles.chip} disabled={busy} accessibilityRole="button" accessibilityLabel={`${template.name} capture template`} onPress={() => seedCapture(template.title, template.content)}><Text style={styles.chipText}>＋ {template.name}</Text></Pressable>)}</ScrollView>
+        <TextInput ref={captureInput} style={[styles.input, styles.multiline]} value={content} onChangeText={value => { changeContent(value); setCaptureMessage(''); }} placeholder="What should Engram remember?" placeholderTextColor="#718094" multiline textAlignVertical="top" maxLength={1200} accessibilityLabel="Capture text" />
+        <VoiceCapture key={`${session.token}:${session.projectId}`} content={content} onContent={changeContent} onKeyboard={() => captureInput.current?.focus()} disabled={busy} />
+        <TextInput style={styles.input} value={title} onChangeText={changeTitle} placeholder="Title (optional)" placeholderTextColor="#718094" maxLength={100} accessibilityLabel="Capture title" />
+        <Pressable style={styles.primary} disabled={busy || (!content.trim() && !title.trim())} onPress={capture} accessibilityRole="button"><Text style={styles.primaryText}>Save capture</Text></Pressable>
+        <Text style={styles.hint}>Saved securely on this device first. Engram sends it now if the server is reachable.</Text>
+        {!!captureMessage && <Text style={styles.hint}>{captureMessage}</Text>}
+        <Text style={[styles.section, { marginTop: 28 }]}>Saved drafts ({draftsFor(drafts, session).length})</Text>
+        {draftsFor(drafts, session).map(item => <View key={item.id} style={styles.card}>
+          <Text style={styles.cardTitle}>{item.title}</Text><Text style={styles.preview}>{item.content}</Text>
+          <Text style={styles.meta}>{new Date(item.createdAt).toLocaleString()}</Text>
+          <View style={styles.row}>
+            <Pressable disabled={busy} onPress={() => act(async () => { if (editing.current?.id !== item.id) await keepComposer(session); editing.current = item; setEditingId(item.id); changeTitle(item.title); changeContent(item.content); setCaptureMessage(''); })} accessibilityRole="button"><Text style={styles.link}>Edit</Text></Pressable>
+            <Pressable disabled={busy || editingId === item.id} onPress={() => act(async () => { await deliverDraft(session, item); setCaptureMessage('Draft sent to Engram.'); })} accessibilityRole="button"><Text style={styles.link}>Send</Text></Pressable>
+            <Pressable disabled={busy} onPress={() => Alert.alert('Delete saved draft?', 'This removes the only local copy.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => { void act(async () => { await removeDraft(SecureStore, item.id); if (editing.current?.id === item.id) { stopEditing(); changeTitle(''); changeContent(''); } setDrafts(await readDrafts(SecureStore)); }); } }])} accessibilityRole="button"><Text style={styles.link}>Delete</Text></Pressable>
+          </View>
+        </View>)}
+        {!draftsFor(drafts, session).length && <Text style={styles.empty}>No drafts waiting to send in this project.</Text>}
+      </>}
+      {tab === 'Inbox' && <Inbox key={session.token} items={inboxFor(drafts, session)} projects={projects} disabled={busy}
+        title={inboxTitle} content={inboxContent} onTitle={changeInboxTitle} onContent={changeInboxContent}
+        onBusy={value => { busyNow.current = value; setBusy(value); }}
+        onQueue={(nextTitle, nextContent) => queueInbox(session, nextTitle, nextContent)} onSend={sendInbox}
+        onDelete={async id => { if (!inboxFor(drafts, session).some(item => item.id === id)) throw new Error('Inbox item not found for this account.'); await removeDraft(SecureStore, id); setDrafts(await readDrafts(SecureStore)); }} />}
+      {tab === 'Memories' && <>
+        {selected ? <><Pressable onPress={() => setSelected(null)}><Text style={styles.link}>← Back to memories</Text></Pressable><MemoryDetail key={`${session.token}:${session.projectId}:${selected.id}`} memory={selected} request={path => call(session, path)} onOpen={setSelected} onCapture={seedCapture} disabled={busy} />{memoryActions(selected)}</> :
+          <><View style={styles.row}><Text style={styles.section}>{favoritesOnly ? `${favorites.length} favourites` : `${memories.length} recent memories`}</Text><Pressable onPress={() => setTab('Capture')}><Text style={styles.link}>＋ Capture</Text></Pressable></View>
+            {offlineLibrary.savedAt && <Text style={styles.hint}>{usingOffline ? 'Offline library' : 'Saved for offline reading'} · refreshed {new Date(offlineLibrary.savedAt).toLocaleString()} · {offlineLibrary.items.length} copies</Text>}
+            <Pressable style={styles.secondary} disabled={busy || libraryLoading} onPress={() => act(async () => load(session))} accessibilityRole="button"><Text style={styles.link}>{libraryLoading ? 'Refreshing…' : 'Refresh from server'}</Text></Pressable>
+            <View style={[styles.row, { marginTop: 20 }]}>{[false, true].map(saved => <Pressable key={String(saved)} style={[styles.chip, favoritesOnly === saved && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: favoritesOnly === saved }} onPress={() => { setFavoritesOnly(saved); setMemoryType('All'); }}><Text style={styles.chipText}>{saved ? `★ Favourites (${favorites.length})` : 'Recent'}</Text></Pressable>)}</View>
+            {favoritesOnly && <Text style={styles.hint}>Up to 10 favourites stay in this device’s offline library. Long memories are excerpts; copies may be older than the server.</Text>}
+            <ScrollView horizontal style={styles.filterRow} contentContainerStyle={styles.filterContent} showsHorizontalScrollIndicator={false}>{memoryTypes.map(type => <Pressable key={type} style={[styles.chip, memoryType === type && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: memoryType === type }} accessibilityLabel={`Filter ${type} memories`} onPress={() => setMemoryType(type)}><Text style={styles.chipText}>{type.replaceAll('_', ' ')}</Text></Pressable>)}</ScrollView>
+            {visibleMemories.map(card)}{!visibleMemories.length && <Text style={styles.empty}>{favoritesOnly && !favorites.length ? 'Open a memory and tap Save favourite to keep it here.' : 'No memories match this filter.'}</Text>}</>}
+      </>}
+      {tab === 'Search' && <><Text style={styles.section}>Search this project</Text><TextInput style={styles.input} value={query} onChangeText={value => { setQuery(value); setResults(null); setSelected(null); setSearchIsOffline(false); }} placeholder="What are you looking for?" placeholderTextColor="#718094" returnKeyType="search" onSubmitEditing={runSearch} />
+        <Pressable style={styles.primary} disabled={busy || !query.trim()} onPress={runSearch}><Text style={styles.primaryText}>Search</Text></Pressable>
+        {searchIsOffline && <Text style={styles.hint}>Offline results from {offlineLibrary.items.length} saved memories, including favourites. Connect for full search.</Text>}
+        {results?.map(card)}{results?.length === 0 && <Text style={styles.empty}>No matches found.</Text>}
+        {selected && <View style={styles.card}><MemoryDetail key={`${session.token}:${session.projectId}:${selected.id}`} memory={selected} request={path => call(session, path)} onOpen={setSelected} onCapture={seedCapture} disabled={busy} />{memoryActions(selected)}</View>}
+      </>}
+      {tab === 'Ask' && <Ask key={`${session.token}:${session.projectId}`} projectId={session.projectId} projectName={session.projectName || 'this project'} request={(path, method, body) => call(session, path, method, body)} onOpen={memory => { setSelected(memory); setTab('Memories'); }} onCapture={seedCapture} disabled={busy} />}
+      {tab === 'Agent' && <><Text style={styles.section}>Memory agent findings</Text><Text style={styles.hint}>Review source memories before using a suggestion. The agent never changes them automatically.</Text>
+        <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { setScanMessage(''); const result = await call<{ total: number }>(session, '/api/v1/agent/scan', 'POST'); await load(session); setScanMessage(result.total ? `Scan complete: ${result.total} new finding${result.total === 1 ? '' : 's'}.` : 'Scan complete: no new findings.'); })}><Text style={styles.link}>Run scan</Text></Pressable>
+        {!!scanMessage && <Text style={styles.hint}>{scanMessage}</Text>}
+        {review ? <>
+          <Pressable onPress={() => { setReviewId(null); setReviewSources([]); setDraft(null); }} accessibilityRole="button"><Text style={styles.link}>← Back to findings</Text></Pressable>
+          <Text style={[styles.section, { marginTop: 20 }]}>{review.proposal_type.replaceAll('_', ' ')} review</Text>
+          <Text style={styles.preview}>{review.reason}</Text>
+          {Object.entries(review.evidence || {}).filter(([key]) => key !== 'draft').map(([key, value]) => <Text key={key} style={styles.meta}>{key.replaceAll('_', ' ')}: {String(value)}</Text>)}
+          <Text style={[styles.section, { marginTop: 24 }]}>Source memories</Text>
+          {reviewSources.map(source => <View key={source.id} style={styles.card}><Text style={styles.cardTitle}>{source.title}</Text><Text style={styles.content}>{source.content}</Text><Text style={styles.meta}>Updated {new Date(source.updated_at).toLocaleString()}</Text></View>)}
+          {review.proposal_type === 'duplicate' && <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { const result = await call<AgentDraft>(session, `/api/v1/agent/proposals/${review.id}/draft`, 'POST'); setDraft(result); setAgentTitle(result.title || ''); setAgentContent(result.content || ''); await load(session); })} accessibilityRole="button"><Text style={styles.link}>{draft ? 'Regenerate draft' : 'Generate consolidation draft'}</Text></Pressable>}
+          {draft && <View style={[styles.card, { marginTop: 16 }]}><Text style={styles.cardTitle}>{draft.safe_to_merge ? draft.title : 'Keep these separate'}</Text><Text style={styles.preview}>{draft.reason}</Text>{!!draft.content && <Text style={styles.content}>{draft.content}</Text>}
+            {review.draft_stale && <Text style={styles.error}>A source changed since this draft. Regenerate it before use.</Text>}
+            {draft.safe_to_merge && !review.draft_stale && <><TextInput style={styles.input} value={agentTitle} onChangeText={setAgentTitle} editable={!busy} maxLength={300} accessibilityLabel="Reviewed Agent title" /><TextInput style={[styles.input, styles.multiline]} value={agentContent} onChangeText={setAgentContent} editable={!busy} multiline maxLength={10000} accessibilityLabel="Reviewed Agent content" /><Pressable style={styles.secondary} disabled={busy || !agentTitle.trim() || !agentContent.trim()} onPress={() => confirmApprove(review)} accessibilityRole="button"><Text style={styles.link}>Save reviewed memory</Text></Pressable></>}
+          </View>}
+          {review.proposal_type !== 'duplicate' && <Pressable style={styles.secondary} disabled={busy} accessibilityRole="button" onPress={() => confirmApprove(review)}><Text style={styles.link}>{review.proposal_type === 'related' ? 'Approve connection' : 'Mark reviewed'}</Text></Pressable>}
+          <Pressable style={styles.secondary} disabled={busy} onPress={() => confirmDismiss(review)} accessibilityRole="button"><Text style={styles.link}>Dismiss finding</Text></Pressable>
+        </> : <>
+          <Text style={[styles.section, { marginTop: 24 }]}>{proposals.length} pending</Text>
+          {proposals.map(proposal => <View key={proposal.id} style={styles.card}><Text style={styles.cardTitle}>{proposal.memory_title || proposal.proposal_type.replaceAll('_', ' ')}</Text><Text style={styles.meta}>{proposal.proposal_type.replaceAll('_', ' ')}{proposal.related_title ? ` · ${proposal.related_title}` : ''}</Text><Text style={styles.preview}>{proposal.reason}</Text><Pressable style={styles.secondary} disabled={busy} onPress={() => openReview(proposal)} accessibilityRole="button"><Text style={styles.link}>Review sources and actions</Text></Pressable></View>)}
+        </>}
+        {!proposals.length && <Text style={styles.empty}>No pending findings. Run a scan to check this project.</Text>}
+        <Text style={[styles.section, { marginTop: 28 }]}>Recently reviewed</Text>
+        {reviewed.map(item => <View key={item.id} style={styles.card}><Text style={styles.cardTitle}>{item.memory_title || item.proposal_type}</Text><Text style={styles.meta}>{item.proposal_type} · {item.reviewed_by} · {item.reviewed_at ? new Date(item.reviewed_at).toLocaleString() : ''}</Text>{item.result_memory_id && <Pressable style={styles.secondary} disabled={busy} accessibilityRole="button" onPress={() => act(async () => { setSelected(await call<Memory>(session, `/api/v1/memories/${item.result_memory_id}`)); setTab('Memories'); })}><Text style={styles.link}>Open reviewed memory</Text></Pressable>}</View>)}
+        {!reviewed.length && <Text style={styles.empty}>No approved findings yet.</Text>}
+        <Text style={[styles.section, { marginTop: 28 }]}>Recent scans</Text>
+        {runs.map(run => <View key={run.id} style={styles.card}><Text style={styles.cardTitle}>{run.trigger_type === 'scheduled' ? 'Automatic' : 'Manual'} scan · {run.status}</Text><Text style={styles.meta}>{new Date(run.created_at).toLocaleString()}</Text>{run.result && <Text style={styles.preview}>{run.result.total} new findings</Text>}{!!run.error_message && <Text style={styles.error}>{run.error_message}</Text>}</View>)}
+        {!runs.length && <Text style={styles.empty}>No scans yet.</Text>}
+      </>}
+      {tab === 'Settings' && <><Text style={styles.section}>Account</Text><Text style={styles.content}>{session.username}</Text><Text style={styles.meta}>{session.origin}</Text><Text style={styles.hint}>Project: {projects.find(p => p.id === session.projectId)?.name || 'Personal'}</Text>
+        <Pressable style={styles.secondary} disabled={busy || libraryLoading || !offlineLibrary.savedAt} onPress={() => Alert.alert('Clear offline library?', 'Remove saved copies and favourites for this project from this device? Memories on the server are unaffected.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: () => { void act(async () => { await clearOfflineLibrary(SecureStore, session); setOfflineLibrary({ items: [], savedAt: null }); setSelected(null); setResults(null); if (usingOffline) setMemories([]); }); } }])} accessibilityRole="button"><Text style={styles.link}>Clear this project’s offline copies</Text></Pressable>
+        <Pressable style={styles.secondary} onPress={signOut} disabled={busy}><Text style={styles.link}>Sign out and revoke session</Text></Pressable></>}
+    </ScrollView>
+    {busy && <ActivityIndicator style={styles.spinner} color="#7ccaff" />}
+  </SafeAreaView>;
+}
+
+const styles = StyleSheet.create({
+  filterRow: { flexGrow: 0, marginVertical: 16 }, filterContent: { gap: 8 },
+  root: { flex: 1, backgroundColor: '#0c1420' }, fill: { flex: 1 }, center: { flex: 1, backgroundColor: '#0c1420', justifyContent: 'center' },
+  login: { flexGrow: 1, padding: 28, justifyContent: 'center' }, brand: { color: '#7ccaff', fontSize: 19, fontWeight: '900', letterSpacing: 5 }, brandSmall: { color: '#7ccaff', fontSize: 12, fontWeight: '900', letterSpacing: 3 }, hero: { color: '#f2f7ff', fontSize: 34, fontWeight: '800', marginTop: 22 }, sub: { color: '#96a9bf', marginTop: 8, marginBottom: 34 },
+  label: { color: '#b6c9db', fontWeight: '700', marginBottom: 8, marginTop: 16 }, input: { backgroundColor: '#182637', color: '#f2f7ff', borderWidth: 1, borderColor: '#30465c', borderRadius: 14, padding: 15, fontSize: 16, marginBottom: 6 }, multiline: { minHeight: 180 },
+  primary: { backgroundColor: '#45aef0', padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 20 }, primaryText: { color: '#071521', fontWeight: '800', fontSize: 16 }, secondary: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: '#416887', marginTop: 16, alignItems: 'center' },
+  hint: { color: '#96a9bf', lineHeight: 20, marginTop: 14 }, error: { color: '#ff9b9b', marginTop: 12 }, errorBanner: { color: '#ffb1b1', backgroundColor: '#532c38', padding: 10 },
+  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, heading: { color: '#f2f7ff', fontSize: 26, fontWeight: '800', marginTop: 4, marginBottom: 10 }, beta: { color: '#7ccaff', fontSize: 11, fontWeight: '800' },
+  projectRow: { flexGrow: 0, maxHeight: 55 }, projectContent: { paddingHorizontal: 20, paddingBottom: 12, gap: 8 }, chip: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#182637', borderRadius: 20 }, chipActive: { backgroundColor: '#22618c' }, chipText: { color: '#f2f7ff', fontWeight: '700' },
+  body: { padding: 20, paddingBottom: 40 }, section: { color: '#dbe8f4', fontSize: 18, fontWeight: '800', marginBottom: 14 }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 8 }, link: { color: '#7ccaff', fontWeight: '800' },
+  card: { backgroundColor: '#172536', borderWidth: 1, borderColor: '#2b4157', borderRadius: 16, padding: 17, marginBottom: 12 }, cardTitle: { color: '#f2f7ff', fontSize: 17, fontWeight: '800', marginBottom: 7 }, meta: { color: '#96a9bf', fontSize: 12, marginBottom: 7 }, preview: { color: '#c5d6e6', lineHeight: 21 }, content: { color: '#dce9f5', fontSize: 16, lineHeight: 25, marginVertical: 14 }, empty: { color: '#96a9bf', marginTop: 28, textAlign: 'center' },
+  tabBar: { flexGrow: 0, borderBottomWidth: 1, borderBottomColor: '#2b4157', backgroundColor: '#0d1928' }, tabContent: { paddingHorizontal: 12, gap: 4 }, tab: { minWidth: 76, paddingHorizontal: 12, paddingVertical: 14, alignItems: 'center' }, tabActive: { borderBottomWidth: 2, borderBottomColor: '#7ccaff' }, tabText: { color: '#8ba1b7', fontSize: 12, fontWeight: '700' }, tabTextActive: { color: '#7ccaff' }, spinner: { position: 'absolute', right: 18, bottom: 24 },
+});

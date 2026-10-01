@@ -1,5 +1,7 @@
 from typing import Any
-from pydantic import BaseModel, Field
+from uuid import UUID
+from datetime import date, datetime
+from pydantic import BaseModel, Field, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -46,6 +48,32 @@ class SearchRequest(BaseModel):
     include_historical: bool = False
 
 
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+    memory_type: str | None = Field(default=None, min_length=1, max_length=80)
+    since: date | None = None
+    until: date | None = None
+
+    @model_validator(mode='after')
+    def ordered_dates(self):
+        if self.since and self.until and self.since > self.until:
+            raise ValueError('Start date must be on or before end date')
+        return self
+
+
+class AgentApprove(BaseModel):
+    source_updated_at: dict[UUID, datetime] = Field(min_length=1, max_length=2)
+    title: str | None = Field(default=None, min_length=1, max_length=300)
+    content: str | None = Field(default=None, min_length=1, max_length=10000)
+
+
+class CrossProjectSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=5000)
+    project_ids: list[UUID] = Field(min_length=1, max_length=20)
+    limit: int = Field(default=20, ge=1, le=50)
+    memory_type: str | None = None
+    include_historical: bool = False
+
 class ContextRequest(BaseModel):
     query: str = Field(min_length=1, max_length=5000)
     max_chars: int = Field(default=6000, ge=500, le=16000)
@@ -78,6 +106,11 @@ class RelationCreate(BaseModel):
 class ApiKeyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     scopes: list[str] = Field(min_length=1, max_length=20)
+
+
+class ProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    slug: str = Field(min_length=1, max_length=63)
 
 
 class ChatImportCreate(BaseModel):
@@ -143,6 +176,11 @@ class ConnectorUpdate(BaseModel):
     enabled: bool | None = None
     schedule_minutes: int | None = Field(default=None, ge=5, le=10080)
     config: dict[str, Any] | None = None
+
+
+class AgentScheduleUpdate(BaseModel):
+    enabled: bool
+    interval_hours: int = Field(default=24, ge=24, le=720)
 
 
 class GmailOAuthStart(BaseModel):

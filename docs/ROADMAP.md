@@ -14,6 +14,16 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 - 🔵 Later
 - 🧪 Experimental
 
+## Alpha1 — mobile review and filtered Ask 🧪
+
+These features are implemented in PR #36 on `codex/projects-memory-agent`; device qualification is in progress. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback:
+
+- **Ask filters:** choose memory type and a date range before retrieval. Apply filters on the server inside the active project's RLS scope; display the filters used with each answer. Keep Ollama as the answer provider and preserve checked source quotations.
+- **Suggested memory connections:** propose related memories within the active project, show both sources and the reason, and create a link only after explicit approval. Exclude deleted memories and existing links; reject links across projects.
+- **Richer mobile Agent review:** approve or dismiss findings, edit proposed memory text before saving, check for stale sources, and record the human action. Keep source memories unchanged unless a separate explicit action permits an edit.
+
+Before qualifying Alpha1, validate populated findings/links, stale-source handling, project isolation, retries and review actions on both physical devices. The version is `2.7.0-alpha1` and the separate update channel is `alpha1`; keep beta4 available for rollback.
+
 ---
 
 ## Active release tracks
@@ -24,7 +34,7 @@ absorb unfinished preview work.
 | Track | Current position | Scope |
 | --- | --- | --- |
 | Stable | **v2.5.5 shipped** | Production self-hosted releases. v2.5.5 delivers Memory Intelligence without projects, mobile beta work or the Memory Agent from the preview track. |
-| Preview | **v2.7.0-dev beta4 in development** | Projects, mobile companion and proposal-only Agent work. It remains a pre-release until project isolation, mobile flows and release qualification are complete. |
+| Preview | **v2.7.0-alpha1 in development** | Projects, mobile companion and human-reviewed Agent proposals. It remains a pre-release until project isolation, mobile flows and release qualification are complete. |
 
 v2.5.5 is the current GitHub stable release and is deployed on Blackwall. It
 includes explainable retrieval, compact context and reviewed contradiction

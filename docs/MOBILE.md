@@ -1,0 +1,110 @@
+# Engram mobile beta (iOS and Android)
+
+## Alpha1 feature line
+
+PR #36 on `codex/projects-memory-agent` contains `2.7.0-alpha1` and all preceding beta features. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback. Alpha1 uses the unchanged `2.7.0-beta4-native1` speech runtime, but Android build 7 selects a separate `alpha1` update channel. Build with `eas build --platform android --profile alpha1`. Publish compatible Alpha1 updates with `eas update --channel alpha1 --platform android --environment preview` after checks. Do not publish Alpha1 to beta4's `preview` channel.
+
+- **Ask filters:** select a type and optional YYYY-MM-DD start/end dates. Dates filter `updated_at` using inclusive UTC days, before top-five retrieval. Each answer records its filters. Ollama and verified quotation checks remain unchanged.
+- **Suggested connections:** run an Agent scan to propose same-project pairs with cosine similarity 0.65–0.94. This indicates topic similarity, not a verified factual relationship. Read both full sources and explicitly approve to create a related link. Existing links, deleted memories and historical memories are excluded. A stale pair requires a fresh scan.
+- **Agent approvals:** related findings create a link, duplicate findings require a current safe Ollama draft and editable human-reviewed title/content, and other findings can be marked reviewed without editing any facts. Confirm each action. Approval checks source timestamps under database locks and atomically records the result; retrying an accepted proposal returns its existing result. Original memories are retained. Recently reviewed shows actor/time and links to a created memory.
+
+The API requires migration `012_agent_review.sql` before Alpha1 clients connect. Back up the database, apply 012, rebuild the beta API/workers, verify filters, populated findings, stale sources, retries and cross-project rejection. Roll back application code to beta4 if needed; 012 adds compatible statuses/type/column and can remain applied. Retain the database backup for restoring data if necessary. Device qualification is recorded in the Alpha1 PR; passing bundle export is not proof of physical-device approval behavior.
+
+The `mobile/` app is part of `2.7.0-beta4`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 57, which matched the Expo Go version reported by our physical iPhone test on 2026-09-28. It supports account sign-in, project switching, recent memories, quick capture, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
+
+## Quick capture and offline drafts
+
+Beta4 adds **Idea**, **Decision** and **Meeting** templates above the composer. Starting a template or reusing a version/answer saves unfinished capture text as a local draft first. Edit the template before saving it.
+
+Capture opens first after sign-in. Enter a thought and tap **Save capture**. The app saves it in device secure storage before attempting to send it. If the server cannot be reached, the draft stays under the account and project where it was written. You can edit, send, or delete saved drafts in Capture. Retrying a saved draft is manual; the app does not silently retry or create memories in another project. If a send times out, check Memories before retrying because the server may have accepted it. Switching projects or signing out saves an unfinished capture first. Short captures only: the app rejects a draft that is too large for secure storage and leaves its text on screen to shorten.
+
+Drafts are local to that installation. Expo Go and the standalone Android APK do not share drafts; uninstalling the Android app may remove them. Send important drafts before uninstalling or switching apps. The iPhone home-screen web app remains online-only and does not use the native app's draft storage.
+
+## Offline memory library
+
+After the app loads a project online, it saves up to 20 memories in device secure storage for that server, account, and project. Favourites take priority; the remaining spaces hold recent memories. The Memories tab can show those copies while disconnected. Long content is saved as a clearly marked excerpt to fit secure storage; connect to read the complete memory. Search falls back to those saved excerpts when the server cannot be reached and labels the local results. The timestamp shows the last library refresh; an older favourite may retain its previous copy if absent from the recent server response. Refresh from server when back online. Settings can clear the current project's offline copies and favourites without changing server memories. Offline copies are separate between Expo Go and installed APKs and may be removed by uninstalling the app.
+
+## Favourites, filters and sharing
+
+Open a memory from Memories or Search and tap **Save favourite**. The app keeps up to 10 favourites per project on that device, including memories found through search. They remain saved when newer memories push them out of the recent list. Tap **Favourites** in Memories to browse them and tap **Saved** on an open memory to remove its favourite status. Refresh replaces a saved favourite with newer server content when that memory appears in the server's recent response. Copies of deleted or older memories may remain saved until removed or cleared; favourites do not sync between devices.
+
+The type chips filter the current Recent or Favourites list. **Share** opens the native iOS or Android share menu with the selected title and text. Choose a destination explicitly; the app does not share automatically. An offline excerpt is labelled in the shared text. These features use the existing beta3 native runtime and can arrive through EAS Update.
+
+## Ask Engram and memory exploration (beta4)
+
+Open **Ask**, enter a question, and tap **Ask Engram**. The server retrieves up to five current memories from the selected project and asks the configured Ollama chat model for a short answer. Each answer point includes an exact supporting excerpt and a link to its memory. The server rejects unknown source numbers and quotations absent from the retrieved text. This checks citation identity, not whether an AI interpretation is correct; read the sources. Empty or insufficient evidence is shown explicitly, and an unavailable model produces an actionable error. Ask requires the beta4 API and working embedding/chat models. It does not search other projects or documents. Questions are independent; the current screen shows up to five answers, and switching away clears them.
+
+**Review answer as new capture** starts an editable capture without changing a source memory. Nothing is saved to the server until you tap Save capture. Long answer text may need shortening to fit secure draft storage.
+
+Open a memory and tap **Fetch full memory**, **Version history**, or **Connections**. Expand a previous version to read its saved text and optionally use it as a new capture. Connected memories open in the same project. Full content, history and connections need a server connection; existing saved excerpts remain readable offline. Version reuse creates a separate memory after explicit review and saving, rather than rolling back the current memory.
+
+The initial beta4 Ask/history/templates update used `2.7.0-beta3-native1`. Voice capture adds a native module, so the expanded beta4 uses `2.7.0-beta4-native1`, Android build 6 and iOS build number 4. Build 5 cannot receive this new runtime through EAS Update. Install the new APK once, then compatible JavaScript updates can use the new runtime. Preserve important local drafts before changing installations.
+
+### Voice capture
+
+In Capture or Inbox, tap **Start voice capture**, grant microphone/speech permission, dictate and stop. Edit the transcript, then tap **Use reviewed transcript** to append it to your text. Saving is a separate explicit action. Speech never overwrites typed content and oversized combined text is rejected without truncation. Engram does not persist audio. The native module requests on-device recognition when supported; otherwise the device's speech service may need a network connection. Microphone capture stops when leaving the screen, changing project or backgrounding the app.
+
+Expo Go and older native builds show **Voice capture with keyboard**: it focuses the text field so you can use the system keyboard's microphone. The dedicated recognizer requires a rebuilt native app. Keyboard dictation availability and processing depend on device settings. Neither route uses Ollama for speech recognition; Ask continues to use the configured Ollama service.
+
+### Device Inbox
+
+Open **Inbox**, enter or dictate a rough thought and tap **Keep in Inbox**. Inbox items have no project until you choose one, are securely stored on this device, and are visible only for their original server/account. They are separate from existing project drafts and are not searchable by the server or Ask. Inbox and project drafts share the 30-item storage limit and secure-storage size limit.
+
+Tap **Review & choose project**, edit the text and select an available project. **Save to [project]** creates a memory in that project and removes the local item only after success. Reviewed edits remain in the Inbox if delivery fails. If a request times out or the local copy cannot be removed, check the destination's Memories before retrying to avoid duplicates. Unassigned Inbox items are not synced between devices; uninstalling the app can remove them. Unqueued text survives tab/project switching and is saved locally before sign-out; press Keep in Inbox before closing the app.
+
+## Agent review actions
+
+Open a finding to read its evidence and source memories. For possible duplicates, generate a consolidation draft; the app flags a stale draft when a source has changed. If the draft is safe and current, **Use as new capture** puts it in the Capture composer for human editing and an explicit save. Saving creates a new memory and leaves both source memories in place. **Dismiss finding** requires confirmation and only clears the pending suggestion. The Agent screen also shows recent scan results.
+
+## iPhone home-screen app without Apple Developer membership
+
+Open the Engram web server in Safari over HTTPS. Tap Share, choose **Add to Home Screen**, and open the new Engram icon. This installs the web interface as a standalone home-screen app without Expo Go or an Apple Developer membership. It uses the server you opened in Safari and needs a connection to that server; offline memory access is not provided. This is a web app, not an App Store or TestFlight build, and its screens differ from the Expo mobile app.
+
+## First phone test with Expo Go
+
+1. Install Expo Go from the App Store or Google Play on the test device. Create a free Expo account and sign in to Expo Go.
+2. On the development computer, install Node.js 24 and pnpm 11.19.0. Run `cd mobile`, `pnpm install --frozen-lockfile`, and `pnpm exec expo login` with the **same Expo account** if prompted on the device.
+3. Run `pnpm start` and scan the terminal QR code with the iPhone Camera or Android Expo Go. Keep the development server running while testing. The device and computer should be on the same Wi-Fi; use Expo's tunnel mode if the LAN connection fails. If Expo Go reports an SDK mismatch, check the installed Expo Go version against `mobile/package.json` before changing dependencies.
+4. The sign-in screen can be checked immediately. To test authentication and data, start an isolated Engram 2.7 beta server with migrations 009, 010, and 011 applied and a test account. Enter its publicly trusted HTTPS origin in the app, for example `https://preprod.engram.example.com`. The production host was on 2.4.0 on 2026-09-28 and did not have the mobile login endpoint.
+
+For a local simulator, `pnpm ios` requires macOS and an iOS simulator; `pnpm android` requires an Android emulator or connected device.
+
+## Android development build for rapid testing
+
+The `development` EAS profile includes `expo-dev-client`. Build and install it once on the USB-connected tablet, then run `pnpm start -- --dev-client` from `mobile/`. Open Engram on the tablet and connect to the development server. JavaScript and layout edits appear after a refresh without rebuilding the APK. Rebuild when native packages, Expo SDK, or app configuration change. This development build uses the same Android package ID as the standalone preview, so installing either one replaces the other; keep Metro running while using the development build.
+
+```sh
+eas build --platform android --profile development
+pnpm start -- --dev-client
+```
+
+## Installable preview builds
+
+The `preview` profile in `mobile/eas.json` is set up for an Android APK and an internally distributed iOS app. This route produces an Engram app icon on the home screen and does not need the development server. From `mobile/`, install EAS CLI and sign in to the `jxyden34` Expo account. The app is linked to the `engram-mobile` Expo project:
+
+```sh
+npm install -g eas-cli
+eas login
+eas build --platform android --profile preview
+eas build --platform ios --profile preview
+```
+
+Open the completed build link on the Android device, download the APK, and allow the browser or Files app to install it when Android prompts. The iOS build requires an Apple Developer Program account and registered test devices for ad hoc provisioning. Keep these builds with testers; they are not App Store or Play Store submissions.
+
+## Preview updates
+
+Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The current native runtime is `2.7.0-beta4-native1`; increment this value whenever native dependencies, Expo SDK, or native configuration change. JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
+
+```sh
+eas update --channel preview --platform android --environment preview --message "Describe the tested change"
+```
+
+Force close and reopen the preview app twice to download and apply an update. A native dependency, Expo SDK, or app configuration change may require a new runtime and APK. Older APKs, including the first beta2 builds, were created before EAS Update was configured and cannot receive these updates. Development builds use Metro for live edits; the `development` channel stays separate from `preview`.
+
+## Session behavior
+
+`POST /api/v1/mobile/login` accepts the same user credentials as browser login and returns a mobile bearer token. The app stores the token in Expo SecureStore, never saves the password, and sends `X-Engram-Project` with API requests. The default token lifetime is 30 days (`MOBILE_SESSION_TTL_DAYS`); sign-out revokes it immediately. Keep the server behind HTTPS. Mobile bearer tokens do not grant MCP access.
+
+## Checks
+
+Run `pnpm check` and `pnpm export` in `mobile/`. CI builds both JavaScript bundles and runs the backend integration test for mobile login, project access, and token revocation. The JavaScript export does not validate native signing or device behavior.

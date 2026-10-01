@@ -6,7 +6,7 @@ from redis import Redis
 from rq import Queue
 
 from app.config import settings
-from app.database import connect
+from app.database import connect, current_project_id, project_job
 from app.embeddings import embed
 from app.memories import create as create_memory
 from app.util import vector_literal
@@ -117,6 +117,7 @@ def create_job(document_id: str, actor: str, owner_id: str | None):
         "app.document_memory_import.process_document_job",
         str(row["id"]),
         job_timeout="6h",
+        meta={"project_id": current_project_id()},
     )
     return dict(row)
 
@@ -181,6 +182,7 @@ def _prompt(filename: str, rows: list[dict[str, Any]]) -> str:
     )
 
 
+@project_job
 def process_document_job(job_id: str):
     with connect() as conn:
         job = conn.execute(
