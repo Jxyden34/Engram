@@ -1,6 +1,6 @@
-# MemoryBank Deployment
+# Engram Deployment
 
-This guide covers deployment of MemoryBank v2.1 on a Linux host using Docker Compose.
+This guide covers deployment of Engram v2.5.5 on a Linux host using Docker Compose.
 
 ---
 
@@ -32,8 +32,8 @@ Additional storage requirements depend on:
 Clone the repository:
 
 ```bash
-git clone https://github.com/Jxyden34/Memory-Bank.git
-cd Memory-Bank
+git clone https://github.com/Jxyden34/Engram.git
+cd Engram
 ```
 
 ---
@@ -117,13 +117,13 @@ Follow the prompts.
 curl http://127.0.0.1:8080/health
 ```
 
-Expected result should indicate that MemoryBank is healthy.
+Expected result should indicate that Engram is healthy.
 
 ---
 
 ## Cloudflare Tunnel
 
-MemoryBank expects `cloudflared` to run on the host.
+Engram expects `cloudflared` to run on the host.
 
 The Compose stack does not manage the Cloudflare Tunnel container.
 
@@ -149,7 +149,7 @@ sudo systemctl restart cloudflared
 
 ## GitHub connector configuration
 
-MemoryBank v2.1 supports a GitHub App.
+Engram v2.3.1 supports a GitHub App.
 
 Recommended read-only repository permissions:
 
@@ -209,7 +209,7 @@ and configure the installation ID and repositories.
 The extension source is located at:
 
 ```text
-extensions/memorybank-capture
+extensions/engram-capture
 ```
 
 In Chrome:
@@ -232,7 +232,7 @@ Load unpacked
 
 Select the extension directory.
 
-In MemoryBank, generate a dedicated Browser Capture key.
+In Engram, generate a dedicated Browser Capture key.
 
 The key should use only:
 
@@ -243,7 +243,7 @@ capture:write
 Configure the extension with:
 
 ```text
-https://YOUR-MEMORYBANK-HOST
+https://YOUR-ENGRAM-HOST
 ```
 
 and the generated capture key.
@@ -322,3 +322,41 @@ Verify discovery after deployment:
 curl -s https://YOUR-HOST/.well-known/oauth-protected-resource/mcp
 curl -s https://YOUR-HOST/.well-known/oauth-authorization-server
 ```
+
+## Validated clean deployment
+
+Engram v2.3.1 was validated from a clean repository clone on a separate Linux host.
+
+The clean deployment verified:
+
+- Docker Compose configuration
+- PostgreSQL initialization from the tracked bootstrap schema
+- pgvector availability
+- Redis connectivity
+- MinIO initialization
+- FastAPI health checks
+- Next.js web startup
+- background worker startup
+- encrypted PostgreSQL backups
+- encrypted object backups
+- successful handling of an empty MinIO bucket
+- HTTP 200 health response through the Caddy gateway
+
+The validation also identified and fixed:
+
+1. unavailable legacy Docker Hub MinIO references
+2. object-backup failure when the MinIO bucket contained zero objects
+
+Fresh deployments should use the immutable image references committed in
+`docker-compose.yml`.
+
+The object store uses PGSTY's maintained Silo server, a MinIO-compatible
+replacement. The Compose service and data volume keep their existing names.
+The `minio-init` and object-backup helper images bundle PGSTY's maintained `mc`
+client in Alpine so the shell-based workflows continue to work. Silo preserves
+MinIO's S3 endpoints, configuration variables and on-disk data format. CI
+verifies both pinned image pulls and the bucket initialization path.
+
+If port 8080 is already occupied on a recovery or test host, use a local Docker
+Compose override to publish the gateway on another loopback port rather than
+modifying the production Compose definition.

@@ -10,9 +10,13 @@
 # Runtime data
 backups/
 imports/
+!web/app/imports/
+!web/app/imports/**
 data/
 *.dump
 *.sql
+!db/init.sql
+!db/migrations/*.sql
 *.sqlite
 *.sqlite3
 

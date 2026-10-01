@@ -1,5 +1,121 @@
 # Changelog
 
+## 2.5.5 - 2026-09-30
+
+### Added
+
+- Hybrid retrieval now combines semantic and full-text candidates with linked
+  entity context, temporal relevance, memory importance, source trust and
+  retrieval history. Search results explain the principal reasons for ranking.
+- A rule-based query planner recognises current, historical, relationship and
+  comparison questions. A bounded context builder returns source-labelled
+  excerpts and an estimated token count through REST, MCP and the web UI.
+- The Intelligence page suggests similar current memories for review. Users
+  can compare confidence, dates and provenance, then explicitly choose which
+  fact stays current. The other remains historical with a saved version,
+  relation and audit entry; nothing is silently deleted.
+
+### Upgrade
+
+- No database migration or new environment variables are required. Rebuild the
+  API, web and DR-monitor images and restart those services after taking the
+  usual encrypted database and object backups.
+- The v2.7 draft's Projects, memory agent, Ask Engram and mobile app are not
+  included in this stable release.
+
+## 2.4.5 - 2026-09-28
+
+### Fixed
+
+- Replaced unavailable Quay MinIO images with pinned, maintained Silo and `mc`
+  compatible images; made image pulls and helper-image builds required CI gates.
+- Added a Docker smoke test for S3 startup, bucket creation and versioning.
+
+## Engram rename - 2026-09-23
+
+- Renamed the public product, API metadata, browser extension, docs, and new-install defaults to Engram.
+- Existing deployments can keep their database, object bucket, backup artifacts, and credentials while adopting the branding.
+
+## 2.4.0 - 2026-09-23
+
+### Added
+
+- Gmail read-only connector preview using the existing scheduled connector flow.
+- OAuth state bound to the active administrator session, with one-use expiry.
+- Public About, Privacy and Terms pages for OAuth app verification.
+- Encrypted Google refresh tokens, explicit disconnect/revocation, selectable
+  Gmail query/label, bounded message polling and provenance-preserving source
+  documents routed through the Memory Inbox review workflow.
+- Restored the Memory Inbox page used to review imported content.
+- Google setup, restricted-scope and migration notes in `docs/GMAIL.md`.
+
+### Scope
+
+- Gmail API `gmail.readonly` only: no sending, modifying, deleting or attachments.
+- Gmail setup requires Google OAuth project configuration and migration 008 on
+  existing installations.
+- Each Gmail run is capped to the newest 500 matching messages; historical
+  backfill beyond that cap is not supported in this preview.
+
+## 2.3.1 DR polish - 2026-09-18
+
+This source update retains version 2.3.1 and all existing v2.3 APIs and database
+tables. The published v2.3.1 tag is unchanged.
+
+- Process manual DR requests before background scans and again after scans.
+- Cache successful archive verification for at most 24 hours using device, inode,
+  size, nanosecond mtime and ctime, and confirm the database still holds the verified
+  digest. Manual scans always force full SHA-256, decrypt and archive checks.
+- Verify only selected backups for manual restore/replicate requests. On a cold
+  inventory, discover the newest candidate of each type without scanning history.
+- Replicate selected backups manually and all inventoried verified backups on
+  automatic runs, preserving encrypted-only Blackwall-to-DarkMatter copy behavior.
+- Record actual rclone transfer counters and UTC operational logs, including
+  cache hits, verification failures, queue outcomes and operation durations.
+- Publish encrypted backups through an atomic `.partial` rename.
+- Add isolated PostgreSQL/rclone regression checks to CI and enforce LF for shell
+  scripts. No migration or new deployment environment variables are required.
+
+See [upgrade notes](UPGRADE-v2.3.1-DR-POLISH.md) for deployment and verification.
+
+## 2.3.1 - 2026-09-14
+
+### Added
+
+- Backend schema unit tests.
+- PostgreSQL + pgvector integration testing in GitHub Actions.
+- Redis connectivity and round-trip integration testing.
+- Deterministic frontend dependency installation using `package-lock.json` and `npm ci`.
+- CI validation that externally hosted production images remain pullable.
+
+### Changed
+
+- Production container images are pinned to immutable digests.
+- MinIO Community images use working Quay registry references.
+- CI uses the Python 3.14 production runtime.
+- Dependabot patch and minor updates can auto-merge after required CI checks.
+- Docker and Docker Compose dependency changes remain manual.
+- Main branch requires backend, web and Docker CI checks.
+
+### Fixed
+
+- Fresh deployments no longer depend on previously cached MinIO images.
+- Empty MinIO buckets now produce valid encrypted object backups.
+- PostgreSQL bootstrap schema is tracked for repeatable deployments.
+
+### Validation
+
+- Clean deployment successfully tested on a separate Linux host.
+- Engram health endpoint returned HTTP 200 through Caddy.
+- Real off-site encrypted backups successfully restored on a separate recovery host.
+- 672 memories restored.
+- 422 documents restored.
+- 422 object files restored.
+- Zero missing object references.
+- pgvector successfully validated after restore.
+- Full isolated recovery completed in 17 seconds.
+
+
 ## 2.3.0 - 2026-09-12
 
 ### Added
@@ -79,4 +195,4 @@
 
 ## 1.0.0
 
-- Initial MemoryBank full-stack platform.
+- Initial Engram full-stack platform.

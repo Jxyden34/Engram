@@ -1,4 +1,4 @@
-# MemoryBank v2.2 — Identity & MCP
+# Engram v2.2 — Identity & MCP
 
 v2.2 replaces "paste a permanent API key into every AI client" with a proper OAuth authorization layer.
 

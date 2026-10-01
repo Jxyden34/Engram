@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 const links = [
   ["/", "Overview", "◈"],
   ["/memories", "Memories", "◎"],
+  ["/intelligence", "Intelligence", "✧"],
   ["/documents", "Documents", "▱"],
   ["/imports", "Memory Inbox", "✦"],
   ["/connectors", "Connectors", "⇄"],
@@ -24,7 +25,9 @@ export default function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname === "/login") return <>{children}</>;
+  if (["/login", "/about", "/privacy", "/terms"].includes(pathname)) {
+    return <>{children}</>;
+  }
 
   async function logout() {
     try {
@@ -38,9 +41,9 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandMark">M</div>
+          <div className="brandMark" aria-hidden="true" />
           <div>
-            <strong>MemoryBank</strong>
+            <strong>Engram</strong>
             <span>private cognition layer</span>
           </div>
         </div>
