@@ -1,16 +1,23 @@
-# MemoryBank
+# Engram
 
 > Self-hosted personal memory, source-ingestion and AI context platform.
 
-MemoryBank gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
+Engram gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.3.1`  
+**Current release:** `v2.5.5`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
+
+The v2.5.5 release adds explainable hybrid retrieval, compact source-labelled
+context, and human-reviewed contradiction resolution. See the [changelog](CHANGELOG.md).
+The v2.4.0 release added the read-only Gmail connector preview and restored
+the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 
 ## Highlights
 
 - PostgreSQL + pgvector memory store
 - Hybrid semantic + full-text retrieval
+- Query planning, graph-aware ranking and source-labelled context previews
+- Human-reviewed contradiction resolution that preserves historical facts
 - Local Ollama embeddings and local Qwen extraction
 - Secure browser sessions and scoped API keys
 - REST API + MCP
@@ -66,8 +73,8 @@ network so models can be pulled without exposing Ollama publicly.
 ## Quick start
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
-cd memorybank
+git clone https://github.com/Jxyden34/Engram.git
+cd Engram
 
 cp .env.example .env
 nano .env
@@ -112,7 +119,7 @@ curl http://127.0.0.1:8080/health
 
 ## Cloudflare Tunnel
 
-MemoryBank intentionally does **not** include a `cloudflared` container.
+Engram intentionally does **not** include a `cloudflared` container.
 
 Run your existing host-level `cloudflared` service and configure a published
 hostname to:

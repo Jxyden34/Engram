@@ -1,6 +1,6 @@
-# MemoryBank v1.3 — Document Memory Inbox
+# Engram v1.3 — Document Memory Inbox
 
-This adds memory extraction for every document already uploaded to MemoryBank.
+This adds memory extraction for every document already uploaded to Engram.
 
 ## Install on Blackwall
 

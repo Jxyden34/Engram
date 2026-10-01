@@ -46,6 +46,22 @@ class SearchRequest(BaseModel):
     include_historical: bool = False
 
 
+class ContextRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=5000)
+    max_chars: int = Field(default=6000, ge=500, le=16000)
+    include_documents: bool = False
+
+
+class ConflictCompareRequest(BaseModel):
+    first_id: str
+    second_id: str
+
+
+class ConflictResolveRequest(ConflictCompareRequest):
+    current_id: str
+    reason: str = Field(min_length=10, max_length=1000)
+
+
 class DeleteRequest(BaseModel):
     reason: str = Field(min_length=3, max_length=1000)
 
@@ -127,6 +143,13 @@ class ConnectorUpdate(BaseModel):
     enabled: bool | None = None
     schedule_minutes: int | None = Field(default=None, ge=5, le=10080)
     config: dict[str, Any] | None = None
+
+
+class GmailOAuthStart(BaseModel):
+    name: str = Field(default="Gmail", min_length=1, max_length=200)
+    query: str = Field(default="newer_than:30d", max_length=1000)
+    label_ids: list[str] = Field(default_factory=lambda: ["INBOX"], max_length=20)
+    max_messages_per_sync: int = Field(default=100, ge=1, le=500)
 
 
 class CaptureCreate(BaseModel):

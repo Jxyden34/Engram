@@ -5,10 +5,11 @@ from io import BytesIO
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from mcp.server.transport_security import TransportSecuritySettings
 
 from app import memories
+from app import intelligence
 from app import health
 from app import knowledge
 from app import connectors
@@ -40,6 +41,7 @@ from app.schemas import (
     ChatImportCreate,
     ConnectorCreate,
     ConnectorUpdate,
+    GmailOAuthStart,
     DeleteRequest,
     LoginRequest,
     MemoryCreate,
@@ -52,6 +54,9 @@ from app.schemas import (
     RejectRequest,
     RelationCreate,
     SearchRequest,
+    ContextRequest,
+    ConflictCompareRequest,
+    ConflictResolveRequest,
     SafeAcceptRequest,
 )
 from app.security import (
@@ -64,6 +69,7 @@ from app.security import (
     create_session,
     generate_api_key,
     require,
+    sha256,
     revoke_session,
     session_principal,
     validate_csrf,
@@ -92,8 +98,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="MemoryBank API",
-    version="2.3.1",
+    title="Engram API",
+    version="2.5.5",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -163,6 +169,7 @@ async def security_middleware(request: Request, call_next):
         if request.headers.get("Mcp-Method", "").lower() == "tools/call":
             tool_scope = {
                 "memory_search": "memory:read",
+                "memory_context": "memory:read",
                 "memory_get": "memory:read",
                 "memory_relations": "memory:read",
                 "document_search": "document:read",
@@ -198,7 +205,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "memorybank", "version": "2.3.1"}
+    return {"status": "ok", "service": "engram", "version": "2.5.5"}
 
 
 @app.post("/api/v1/auth/login")
@@ -385,14 +392,45 @@ def relation_create(memory_id: str, body: RelationCreate, request: Request):
 @app.post("/api/v1/search")
 def search(body: SearchRequest, request: Request):
     require(request, "memory:read")
-    results = memories.search(body.query, body.limit, body.memory_type, body.include_historical)
+    results = intelligence.search_memories(body.query, body.limit, body.memory_type, body.include_historical)
     if body.include_documents:
         p = authenticate(request)
         if "document:read" in p.scopes:
             results.extend(search_chunks(body.query, max(3, body.limit // 2)))
-            results.sort(key=lambda item: item.get("semantic_score", 0), reverse=True)
+            for item in results:
+                if item.get("result_type") == "document_chunk":
+                    item["retrieval_score"] = round(0.8 * max(0, float(item.get("semantic_score") or 0)) + 0.2 * min(1, float(item.get("lexical_score") or 0)), 4)
+                    item["match_reasons"] = ["document excerpt"]
+            results.sort(key=lambda item: item.get("retrieval_score", 0), reverse=True)
             results = results[: body.limit]
     return results
+
+
+@app.post("/api/v1/intelligence/context")
+def memory_context(body: ContextRequest, request: Request):
+    p = require(request, "memory:read")
+    return intelligence.build_context(body.query, body.max_chars,
+                                      body.include_documents and "document:read" in p.scopes)
+
+
+@app.get("/api/v1/intelligence/conflict-candidates")
+def conflict_candidates(request: Request, limit: int = 20):
+    require(request, "memory:read")
+    return intelligence.candidate_conflicts(max(1, min(limit, 30)))
+
+
+@app.post("/api/v1/intelligence/compare")
+def conflict_compare(body: ConflictCompareRequest, request: Request):
+    require(request, "memory:read")
+    return intelligence.compare_memories(body.first_id, body.second_id)
+
+
+@app.post("/api/v1/intelligence/resolve")
+def conflict_resolve(body: ConflictResolveRequest, request: Request):
+    p = require(request, "memory:write")
+    result = intelligence.resolve_conflict(body.first_id, body.second_id, body.current_id, p.actor, body.reason)
+    log(p.actor, "memory.conflict_resolved", "memory", body.current_id, request, body.reason, new_data=result)
+    return result
 
 
 @app.post("/api/v1/memories/{memory_id}/request-delete", status_code=202)
@@ -774,6 +812,39 @@ def memory_health(request: Request):
 def connector_capabilities(request: Request):
     require(request, "connector:admin")
     return connectors.capabilities()
+
+
+@app.post("/api/v1/connectors/gmail/authorize")
+def gmail_authorize(body: GmailOAuthStart, request: Request):
+    principal = require(request, "connector:admin")
+    session = request.cookies.get(SESSION_COOKIE)
+    if principal.auth_type != "session" or not principal.user_id or not session:
+        raise HTTPException(status_code=403, detail="Gmail authorization requires an administrator browser session")
+    return {"authorization_url": connectors.start_gmail_oauth(
+        body.model_dump(), principal.actor, principal.user_id, sha256(session)
+    )}
+
+
+@app.get("/api/v1/connectors/gmail/callback", include_in_schema=False)
+def gmail_callback(request: Request):
+    principal = require(request, "connector:admin")
+    session = request.cookies.get(SESSION_COOKIE)
+    if principal.auth_type != "session" or not principal.user_id or not session:
+        raise HTTPException(status_code=403, detail="Return to Engram in the browser where Gmail setup started")
+    state = request.query_params.get("state", "")
+    session_hash = sha256(session)
+    if request.query_params.get("error"):
+        if state:
+            connectors.cancel_gmail_oauth(state, session_hash)
+        return RedirectResponse("/connectors?gmail=cancelled", status_code=303,
+                                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+    connector_id, email_address = connectors.finish_gmail_oauth(
+        state, request.query_params.get("code", ""), session_hash
+    )
+    log(principal.actor, "connector.created", "connector", connector_id, request,
+        new_data={"connector_type": "gmail", "email_address": email_address})
+    return RedirectResponse("/connectors?gmail=connected", status_code=303,
+                            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
 
 @app.get("/api/v1/connectors")

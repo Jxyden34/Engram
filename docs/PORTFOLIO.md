@@ -1,8 +1,8 @@
-# MemoryBank Engineering Portfolio
+# Engram Engineering Portfolio
 
 > A self-hosted personal knowledge and AI context platform built as a production-style platform engineering project.
 
-MemoryBank began as a personal memory API and evolved into a full-stack platform with
+Engram began as a personal memory API and evolved into a full-stack platform with
 document ingestion, semantic retrieval, AI integrations, disaster recovery, automated
 testing, controlled deployments and operational tooling.
 
@@ -12,7 +12,7 @@ The project is designed around one principle:
 
 ## Project snapshot
 
-MemoryBank includes:
+Engram includes:
 
 - FastAPI backend
 - Next.js web interface
@@ -100,7 +100,7 @@ CI validates:
 
 ## Disaster recovery
 
-MemoryBank does not treat the existence of a backup file as proof that recovery works.
+Engram does not treat the existence of a backup file as proof that recovery works.
 
 The disaster-recovery system verifies encrypted backup artifacts and performs isolated
 restore tests.
@@ -125,7 +125,7 @@ Production data is not overwritten during the test.
 A full off-site recovery exercise was completed on 14 September 2026.
 
 The test used real encrypted production backup artifacts replicated from the primary
-MemoryBank server to a separate recovery host.
+Engram server to a separate recovery host.
 
 ```text
 PostgreSQL restore:         PASS
@@ -186,6 +186,12 @@ references were no longer available.
 The deployment was changed to use working MinIO Community images from Quay and pinned
 to immutable digests.
 
+Quay later began returning `401 UNAUTHORIZED` for those public image digests. The
+current stack uses pinned PGSTY Silo and `mc`-compatible images instead. Required CI
+checks pull both images, build the object-storage helpers, and start Silo through
+bucket creation and versioning so cached production images cannot mask a fresh-host
+failure.
+
 This demonstrated why testing only an existing host is not sufficient proof of
 repeatable deployment.
 
@@ -235,7 +241,7 @@ deployment exercise.
 ### Recovery had to be proven, not assumed
 
 Encrypted backups and off-site copies existed, but that alone did not prove that they
-could reconstruct MemoryBank.
+could reconstruct Engram.
 
 A recovery drill restored the real off-site backup pair onto a separate host.
 
@@ -244,7 +250,7 @@ references.
 
 ## Engineering practices demonstrated
 
-MemoryBank demonstrates practical experience with:
+Engram demonstrates practical experience with:
 
 - Linux server administration
 - Docker and Docker Compose
@@ -301,7 +307,7 @@ documents or secret configuration.
 
 ## What this project demonstrates
 
-MemoryBank is not only an application implementation.
+Engram is not only an application implementation.
 
 It demonstrates the lifecycle around operating software:
 

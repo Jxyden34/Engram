@@ -4,15 +4,15 @@ const status = document.getElementById("status");
 const note = document.getElementById("note");
 
 async function load() {
-  const cfg = await chrome.storage.local.get(["memorybankUrl", "memorybankKey"]);
-  url.value = cfg.memorybankUrl || "";
-  key.value = cfg.memorybankKey || "";
+  const cfg = await chrome.storage.local.get(["engramUrl", "engramKey", "memorybankUrl", "memorybankKey"]);
+  url.value = cfg.engramUrl || cfg.memorybankUrl || "";
+  key.value = cfg.engramKey || cfg.memorybankKey || "";
 }
 
 async function save() {
   await chrome.storage.local.set({
-    memorybankUrl: url.value.trim().replace(/\/+$/, ""),
-    memorybankKey: key.value.trim(),
+    engramUrl: url.value.trim().replace(/\/+$/, ""),
+    engramKey: key.value.trim(),
   });
   status.textContent = "Connection saved.";
 }
@@ -24,7 +24,7 @@ function send(message) {
       status.textContent = chrome.runtime.lastError.message;
       return;
     }
-    status.textContent = response?.ok ? "Saved to MemoryBank ✓" : (response?.error || "Capture failed");
+    status.textContent = response?.ok ? "Saved to Engram ✓" : (response?.error || "Capture failed");
   });
 }
 
