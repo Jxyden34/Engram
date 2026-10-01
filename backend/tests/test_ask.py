@@ -35,3 +35,15 @@ def test_unavailable_model_returns_an_actionable_error():
         with pytest.raises(HTTPException) as error:
             ask.answer("When is launch?")
     assert error.value.status_code == 503
+
+
+def test_filters_are_applied_before_retrieval_and_reported_with_the_answer():
+    from datetime import date
+    from app.schemas import AskRequest
+    from pydantic import ValidationError
+    with patch.object(ask.memories, 'search', return_value=[]) as search:
+        result = ask.answer('Launch?', 'decision', date(2026, 9, 1), date(2026, 9, 30))
+    search.assert_called_once_with('Launch?', 5, 'decision', since=date(2026, 9, 1), until=date(2026, 9, 30))
+    assert result['filters'] == {'memory_type': 'decision', 'since': '2026-09-01', 'until': '2026-09-30'}
+    with pytest.raises(ValidationError):
+        AskRequest(question='Launch?', since='2026-10-02', until='2026-10-01')

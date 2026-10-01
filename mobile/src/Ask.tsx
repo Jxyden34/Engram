@@ -13,6 +13,9 @@ type Props = {
 
 export default function Ask({ projectId, projectName, request, onOpen, onCapture, disabled }: Props) {
   const [question, setQuestion] = useState('');
+  const [memoryType, setMemoryType] = useState('');
+  const [since, setSince] = useState('');
+  const [until, setUntil] = useState('');
   const [answers, setAnswers] = useState<AskAnswer[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +33,9 @@ export default function Ask({ projectId, projectName, request, onOpen, onCapture
 
   const ask = () => act(async () => {
     if (!question.trim()) return;
-    const answer = await request<AskAnswer>('/api/v1/ask', 'POST', { question: question.trim() });
+    if ([since, until].some(value => value && !/^\d{4}-\d{2}-\d{2}$/.test(value))) throw new Error('Use YYYY-MM-DD for dates.');
+    if (since && until && since > until) throw new Error('Start date must be on or before end date.');
+    const answer = await request<AskAnswer>('/api/v1/ask', 'POST', { question: question.trim(), memory_type: memoryType || null, since: since || null, until: until || null });
     if (answer.project_id !== projectId) throw new Error('The answer belongs to another project. Please try again.');
     if (mounted.current) { setAnswers(previous => [answer, ...previous].slice(0, 5)); setQuestion(''); }
   });
@@ -39,12 +44,17 @@ export default function Ask({ projectId, projectName, request, onOpen, onCapture
     <Text style={styles.heading}>Ask your memories</Text>
     <Text style={styles.hint}>Ask about {projectName}. Answers use this project’s memories and show the supporting excerpts. Check the sources before relying on an answer.</Text>
     <TextInput style={styles.input} value={question} onChangeText={setQuestion} maxLength={1000} multiline placeholder="What did we decide about the launch?" placeholderTextColor="#718094" accessibilityLabel="Ask Engram question" />
+    <Text style={styles.hint}>Filter by memory type and last updated date (inclusive UTC days).</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>{['', 'decision', 'meeting', 'idea', 'general'].map(type => <Pressable key={type} style={[styles.button, { marginTop: 0, padding: 10 }]} disabled={busy || disabled} accessibilityRole="button" accessibilityState={{ selected: memoryType === type }} onPress={() => setMemoryType(type)}><Text style={styles.link}>{memoryType === type ? '✓ ' : ''}{type || 'All types'}</Text></Pressable>)}</View>
+    <TextInput style={[styles.input, { minHeight: 0 }]} value={since} onChangeText={setSince} editable={!busy && !disabled} maxLength={10} placeholder="From YYYY-MM-DD (optional)" placeholderTextColor="#718094" accessibilityLabel="Ask start date" />
+    <TextInput style={[styles.input, { minHeight: 0, marginTop: 8 }]} value={until} onChangeText={setUntil} editable={!busy && !disabled} maxLength={10} placeholder="Through YYYY-MM-DD (optional)" placeholderTextColor="#718094" accessibilityLabel="Ask end date" />
     <View style={styles.suggestions}>{['What decisions have we made?', 'What are the next actions?'].map(example => <Pressable key={example} disabled={busy || disabled} accessibilityRole="button" onPress={() => setQuestion(example)}><Text style={styles.link}>{example}</Text></Pressable>)}</View>
     <Pressable style={styles.button} disabled={busy || disabled || !question.trim()} accessibilityRole="button" onPress={ask}><Text style={styles.link}>{busy ? 'Checking project memories…' : 'Ask Engram'}</Text></Pressable>
     {busy && <ActivityIndicator style={{ marginTop: 16 }} color="#7ccaff" />}
     {!!error && <Text style={styles.error}>{error}</Text>}
     {answers.map((answer, index) => <View key={index} style={styles.card}>
       <Text style={styles.heading}>{answer.question}</Text>
+      <Text style={styles.hint}>Sources: {answer.filters?.memory_type || 'all types'} · {answer.filters?.since || 'any start date'} → {answer.filters?.until || 'any end date'} · updated dates, UTC</Text>
       {answer.insufficient && <Text style={styles.content}>I couldn’t find enough information in this project’s memories to answer that.</Text>}
       {answer.claims.map((claim, i) => {
         const source = answer.sources.find(item => item.number === claim.source);

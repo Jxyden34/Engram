@@ -60,6 +60,7 @@ from app.schemas import (
     RelationCreate,
     SearchRequest,
     AskRequest,
+    AgentApprove,
     SafeAcceptRequest,
 )
 from app.security import (
@@ -102,7 +103,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.7.0-beta4",
+    version="2.7.0-alpha1",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -223,7 +224,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.7.0-beta4"}
+    return {"status": "ok", "service": "engram", "version": "2.7.0-alpha1"}
 
 
 def _check_login(body: LoginRequest):
@@ -410,6 +411,14 @@ def agent_draft(proposal_id: str, request: Request):
     return draft
 
 
+@app.post("/api/v1/agent/proposals/{proposal_id}/approve")
+def agent_approve(proposal_id: str, body: AgentApprove, request: Request):
+    p = require(request, "memory:write")
+    row = memory_agent.approve(proposal_id, p.actor, body.model_dump())
+    log(p.actor, "agent.proposal_approved", "agent_proposal", proposal_id, request, new_data=row)
+    return row
+
+
 @app.get("/api/v1/stats")
 def stats(request: Request):
     require(request, "memory:read")
@@ -526,7 +535,7 @@ def relation_create(memory_id: str, body: RelationCreate, request: Request):
 def ask_memories(body: AskRequest, request: Request):
     require(request, "memory:read")
     check_rate(request, "ask", 6, 60)
-    return ask.answer(body.question)
+    return ask.answer(body.question, body.memory_type, body.since, body.until)
 
 
 @app.post("/api/v1/search")

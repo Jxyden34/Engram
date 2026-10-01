@@ -114,6 +114,69 @@ def test_postgres_connectivity_and_schema():
         assert "documents" in tables
 
 
+def test_alpha_review_filters_isolation_stale_sources_and_retry():
+    from app.memory_agent import approve
+    from app import memories
+    slug = f'alpha-{uuid4().hex[:12]}'
+    with connect() as conn:
+        project = str(conn.execute("INSERT INTO projects(slug,name) VALUES (%s,'Alpha test') RETURNING id", (slug,)).fetchone()['id'])
+        conn.commit()
+    vector = '[' + ','.join(['1'] + ['0'] * 383) + ']'
+    other_vector = '[' + ','.join(['0.8','0.6'] + ['0'] * 382) + ']'
+    try:
+        with project_scope(project):
+            with connect() as conn:
+                a = conn.execute("INSERT INTO memories(title,content,memory_type,embedding,updated_at) VALUES ('Decision','Launch after human review','decision',%s::vector,'2026-09-30T23:59:59Z') RETURNING id,updated_at", (vector,)).fetchone()
+                b = conn.execute("INSERT INTO memories(title,content,embedding,updated_at) VALUES ('Context','Launch context',%s::vector,'2026-10-01T00:00:00Z') RETURNING id,updated_at", (other_vector,)).fetchone()
+                conn.commit()
+            with patch.object(memories, 'embed_literal', return_value=vector):
+                assert [str(row['id']) for row in memories.search('Launch', 5, 'decision', since='2026-09-30', until='2026-09-30')] == [str(a['id'])]
+                assert memories.search('Launch', 5, None, since='2026-10-02') == []
+            assert scan()['created']['related'] == 1
+            proposal = next(item for item in list_proposals() if item['proposal_type'] == 'related')
+            expected = {a['id']: a['updated_at'], b['id']: b['updated_at']}
+        with pytest.raises(HTTPException) as error:
+            approve(str(proposal['id']), 'test', {'source_updated_at': expected})
+        assert error.value.status_code == 404
+        with project_scope(project):
+            wrong = {a['id']: b['updated_at'], b['id']: b['updated_at']}
+            with pytest.raises(HTTPException) as error:
+                approve(str(proposal['id']), 'test', {'source_updated_at': wrong})
+            assert error.value.status_code == 409
+            assert memories.relations(str(a['id'])) == []
+            approved = approve(str(proposal['id']), 'test', {'source_updated_at': expected})
+            assert approved['status'] == 'accepted'
+            assert approve(str(proposal['id']), 'test', {'source_updated_at': expected})['id'] == approved['id']
+            assert len(memories.relations(str(a['id']))) == 1
+            assert scan()['created']['related'] == 0
+            with connect() as conn:
+                ids = [str(proposal['memory_id']), str(proposal['related_memory_id'])]
+                stamps = {str(a['id']): a['updated_at'], str(b['id']): b['updated_at']}
+                evidence = {'draft': {'safe_to_merge': True, 'title':'Draft','content':'Draft content', 'source_updated_at':[stamps[id].isoformat() for id in ids]}}
+                duplicate = str(conn.execute("INSERT INTO agent_proposals(proposal_type,memory_id,related_memory_id,reason,evidence) VALUES ('duplicate',%s,%s,'Review',%s::jsonb) RETURNING id", (*ids, json.dumps(evidence))).fetchone()['id'])
+                conn.commit()
+            with patch.object(memories, 'embed_literal', return_value=vector), patch.object(memories, '_queue_enrichment'):
+                payload = {'source_updated_at': expected, 'title':'Human edited title', 'content':'Human reviewed combined content'}
+                result = approve(duplicate, 'human-reviewer', payload)
+                assert approve(duplicate, 'human-reviewer', payload)['result_memory_id'] == result['result_memory_id']
+            saved = memories.get(str(result['result_memory_id']))
+            assert saved['title'] == payload['title']
+            assert saved['content'] == payload['content']
+            assert memories.get(str(a['id']))['content'] == 'Launch after human review'
+            assert memories.get(str(b['id']))['content'] == 'Launch context'
+            assert len(list_proposals('accepted')) == 2
+    finally:
+        with project_scope(project):
+            with connect() as conn:
+                conn.execute('DELETE FROM agent_proposals WHERE project_id=%s', (project,))
+                conn.execute('DELETE FROM memory_relations WHERE project_id=%s', (project,))
+                conn.execute('DELETE FROM memories WHERE project_id=%s', (project,))
+                conn.commit()
+        with connect() as conn:
+            conn.execute('DELETE FROM projects WHERE id=%s', (project,))
+            conn.commit()
+
+
 def test_redis_round_trip():
     client = Redis.from_url(
         settings().redis_url,

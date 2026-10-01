@@ -9,11 +9,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jxyden34.engram.beta",
-      "buildNumber": "4"
+      "buildNumber": "5"
     },
     "android": {
       "package": "com.jxyden34.engram.beta",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#0C1420",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -23,7 +23,7 @@
       "predictiveBackGestureEnabled": false
     },
     "extra": {
-      "release": "2.7.0-beta4",
+      "release": "2.7.0-alpha1",
       "eas": {
         "projectId": "4bfa32da-3316-4752-aa52-605ded14d3c2"
       }

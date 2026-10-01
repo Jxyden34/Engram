@@ -21,15 +21,16 @@ ANSWER_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["
             "quote": {"type": "string", "minLength": 12, "maxLength": 400}}}}}}
 
 
-def answer(question: str) -> dict:
+def answer(question: str, memory_type: str | None = None, since=None, until=None) -> dict:
     question = question.strip()
     if not question:
         raise HTTPException(status_code=422, detail="Enter a question first")
-    rows = memories.search(question, 5, None)
+    rows = memories.search(question, 5, memory_type, **({'since': since, 'until': until} if since or until else {}))
     sources = [{"number": i + 1, "id": str(row["id"]), "title": row["title"],
                 "content": row["content"][:1600], "updated_at": row["updated_at"]}
                for i, row in enumerate(rows)]
-    result = {"project_id": current_project_id(), "question": question, "sources": sources}
+    result = {"project_id": current_project_id(), "question": question, "sources": sources,
+              "filters": {"memory_type": memory_type, "since": str(since) if since else None, "until": str(until) if until else None}}
     if not sources:
         return {**result, "claims": [], "insufficient": True}
     try:

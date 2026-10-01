@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.0-alpha1 - unreleased
+
+- Add Ask filters for memory type and inclusive last-updated date ranges in UTC. Apply them before retrieval inside the active project and display the filters with each answer. Ollama remains the answer provider.
+- Add project-scoped related-memory suggestions to Agent scans. Read both sources and explicitly approve a link; existing links and deleted/historical memories are excluded.
+- Add reviewed Agent approval, edited consolidation captures, source freshness checks, accepted review history and audit events. Approvals are atomic and repeat requests reuse the existing result. Original memories remain unchanged.
+- Add migration 012 and a separate alpha1 mobile build/update channel. Preserve beta4 on its original branch and Android build 6 for rollback. Alpha1 uses the same native speech runtime with Android build 7.
+
 ## 2.7.0-beta4 - unreleased
 
 - Add Ask Engram: ask questions about the active project's memories, read AI answer points alongside verified source excerpts, and open the supporting memories. Reject invented citations and show explicit insufficient-information or service-unavailable states.

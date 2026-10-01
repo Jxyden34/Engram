@@ -89,6 +89,11 @@ jobs:
             psql -v ON_ERROR_STOP=1 -U engram -d engram \
             < db/migrations/011_agent_schedules.sql
 
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/012_agent_review.sql
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"

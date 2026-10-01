@@ -4,12 +4,40 @@ from fastapi import HTTPException
 
 from app.chatgpt_import import _ollama_json
 from app.database import connect, current_project_id, project_job, project_scope
+from app import memories
 
 
 def scan() -> dict:
     """Create suggestions inside the active project; never change memories."""
     counts = {}
     with connect() as conn:
+        counts['related'] = conn.execute("""
+            WITH pairs AS (
+              SELECT m.id AS first_id, n.id AS second_id, m.updated_at AS first_updated,
+                     n.updated_at AS second_updated, 1-(m.embedding <=> n.embedding) AS similarity
+              FROM memories m CROSS JOIN LATERAL (
+                SELECT id, embedding, updated_at FROM memories n
+                WHERE n.id > m.id AND n.deleted_at IS NULL AND n.embedding IS NOT NULL
+                  AND (n.valid_to IS NULL OR n.valid_to > now())
+                  AND NOT EXISTS (SELECT 1 FROM memory_relations r WHERE
+                    (r.from_memory_id=m.id AND r.to_memory_id=n.id) OR (r.from_memory_id=n.id AND r.to_memory_id=m.id))
+                ORDER BY n.embedding <=> m.embedding LIMIT 1
+              ) n
+              WHERE m.deleted_at IS NULL AND m.embedding IS NOT NULL
+                AND (m.valid_to IS NULL OR m.valid_to > now())
+              ORDER BY m.updated_at DESC LIMIT 500
+            )
+            INSERT INTO agent_proposals(proposal_type,memory_id,related_memory_id,reason,evidence)
+            SELECT 'related', first_id, second_id,
+              'These memories cover similar topics. Read both before approving a connection.',
+              jsonb_build_object('similarity',similarity,'source_updated_at',
+                jsonb_build_object(first_id::text,first_updated,second_id::text,second_updated))
+            FROM pairs WHERE similarity >= 0.65 AND similarity < 0.94
+            ON CONFLICT (project_id,proposal_type,memory_id,related_memory_id) DO UPDATE
+              SET evidence=EXCLUDED.evidence,reason=EXCLUDED.reason
+              WHERE agent_proposals.status='pending' AND agent_proposals.evidence IS DISTINCT FROM EXCLUDED.evidence
+            RETURNING id
+        """).rowcount
         counts["missing_provenance"] = conn.execute("""
             INSERT INTO agent_proposals(proposal_type, memory_id, reason, evidence)
             SELECT 'missing_provenance', id,
@@ -89,7 +117,7 @@ def scan() -> dict:
 
 
 def list_proposals(status: str = "pending", limit: int = 100) -> list[dict]:
-    if status not in {"pending", "dismissed"}:
+    if status not in {"pending", "dismissed", "accepted"}:
         raise HTTPException(status_code=422, detail="Invalid proposal status")
     with connect() as conn:
         rows = conn.execute("""
@@ -97,7 +125,7 @@ def list_proposals(status: str = "pending", limit: int = 100) -> list[dict]:
                    m.updated_at AS memory_updated_at,
                    p.related_memory_id, r.title AS related_title,
                    r.updated_at AS related_updated_at,
-                   p.reason, p.evidence, p.status, p.created_at, p.reviewed_at
+                   p.reason, p.evidence, p.status, p.created_at, p.reviewed_at, p.reviewed_by, p.result_memory_id
             FROM agent_proposals p
             JOIN memories m ON m.id=p.memory_id
             LEFT JOIN memories r ON r.id=p.related_memory_id
@@ -123,6 +151,55 @@ def dismiss(proposal_id: str, actor: str) -> dict:
         if not row:
             raise HTTPException(status_code=404, detail="Pending proposal not found")
         conn.commit()
+    return dict(row)
+
+
+def approve(proposal_id: str, actor: str, payload: dict) -> dict:
+    """Atomically record human review and any explicitly requested new memory/link."""
+    from datetime import datetime
+    expected = {str(key): value for key, value in payload['source_updated_at'].items()}
+    with connect() as conn:
+        proposal = conn.execute('SELECT * FROM agent_proposals WHERE id=%s FOR UPDATE', (proposal_id,)).fetchone()
+        if not proposal:
+            raise HTTPException(status_code=404, detail='Finding not found in this project')
+        if proposal['status'] == 'accepted':
+            return dict(proposal)
+        if proposal['status'] != 'pending':
+            raise HTTPException(status_code=409, detail='Finding was already dismissed')
+        ids = [str(proposal['memory_id'])] + ([str(proposal['related_memory_id'])] if proposal['related_memory_id'] else [])
+        rows = conn.execute('SELECT id,updated_at FROM memories WHERE id=ANY(%s::uuid[]) AND deleted_at IS NULL ORDER BY id FOR UPDATE', (ids,)).fetchall()
+        current = {str(row['id']): row['updated_at'] for row in rows}
+        if set(current) != set(ids) or expected != current:
+            raise HTTPException(status_code=409, detail='Source memories changed. Reload the finding before approving.')
+        evidence = proposal['evidence']
+        if proposal['proposal_type'] != 'duplicate' and (payload.get('title') or payload.get('content')):
+            raise HTTPException(status_code=422, detail='Only a consolidation draft can create a reviewed memory')
+        if proposal['proposal_type'] == 'related':
+            recorded = {key: datetime.fromisoformat(value) for key, value in evidence.get('source_updated_at', {}).items()}
+            if recorded != current:
+                raise HTTPException(status_code=409, detail='Suggested connection is stale. Run a fresh scan.')
+            conn.execute("""INSERT INTO memory_relations(from_memory_id,to_memory_id,relation_type,created_by)
+                VALUES (%s,%s,'related',%s) ON CONFLICT DO NOTHING""", (ids[0], ids[1], actor))
+        elif proposal['proposal_type'] == 'duplicate':
+            draft = evidence.get('draft', {})
+            recorded = [datetime.fromisoformat(value) for value in draft.get('source_updated_at', [])]
+            if not draft.get('safe_to_merge') or recorded != [current[id] for id in ids]:
+                raise HTTPException(status_code=409, detail='Generate a current safe draft before approving a new capture.')
+            title, content = (payload.get('title') or '').strip(), (payload.get('content') or '').strip()
+            if not title or not content:
+                raise HTTPException(status_code=422, detail='Review the title and content before saving')
+            vector = memories.embed_literal(f'{title}\n{content}')
+            result = conn.execute("""INSERT INTO memories(title,content,source_type,source_ref,metadata,created_by,updated_by,embedding,source_trust,confidence)
+                VALUES (%s,%s,'agent_review',%s,%s::jsonb,%s,%s,%s::vector,1.0,1.0) RETURNING id""",
+                (title,content,proposal_id,json.dumps({'source_memory_ids':ids}),actor,actor,vector)).fetchone()
+            conn.execute('UPDATE agent_proposals SET result_memory_id=%s WHERE id=%s', (result['id'], proposal_id))
+        elif payload.get('title') or payload.get('content'):
+            raise HTTPException(status_code=422, detail='This finding supports acknowledgement only')
+        row = conn.execute("""UPDATE agent_proposals SET status='accepted',reviewed_at=now(),reviewed_by=%s
+            WHERE id=%s RETURNING *""", (actor, proposal_id)).fetchone()
+        conn.commit()
+    if row['result_memory_id']:
+        memories._queue_enrichment(str(row['result_memory_id']), actor)
     return dict(row)
 
 

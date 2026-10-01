@@ -1,5 +1,15 @@
 # Engram mobile beta (iOS and Android)
 
+## Alpha1 feature line
+
+`codex/alpha1-mobile` is `2.7.0-alpha1`, based on beta4. Beta4 remains available on `codex/projects-memory-agent` and Android build 6. Alpha1 uses the unchanged `2.7.0-beta4-native1` speech runtime, but Android build 7 selects a separate `alpha1` update channel. Build with `eas build --platform android --profile alpha1`. Publish compatible Alpha1 updates with `eas update --channel alpha1 --platform android --environment preview` after checks. Do not publish Alpha1 to beta4's `preview` channel.
+
+- **Ask filters:** select a type and optional YYYY-MM-DD start/end dates. Dates filter `updated_at` using inclusive UTC days, before top-five retrieval. Each answer records its filters. Ollama and verified quotation checks remain unchanged.
+- **Suggested connections:** run an Agent scan to propose same-project pairs with cosine similarity 0.65–0.94. This indicates topic similarity, not a verified factual relationship. Read both full sources and explicitly approve to create a related link. Existing links, deleted memories and historical memories are excluded. A stale pair requires a fresh scan.
+- **Agent approvals:** related findings create a link, duplicate findings require a current safe Ollama draft and editable human-reviewed title/content, and other findings can be marked reviewed without editing any facts. Confirm each action. Approval checks source timestamps under database locks and atomically records the result; retrying an accepted proposal returns its existing result. Original memories are retained. Recently reviewed shows actor/time and links to a created memory.
+
+The API requires migration `012_agent_review.sql` before Alpha1 clients connect. Back up the database, apply 012, rebuild the beta API/workers, verify filters, populated findings, stale sources, retries and cross-project rejection. Roll back application code to beta4 if needed; 012 adds compatible statuses/type/column and can remain applied. Retain the database backup for restoring data if necessary. Device qualification is recorded in the Alpha1 PR; passing bundle export is not proof of physical-device approval behavior.
+
 The `mobile/` app is part of `2.7.0-beta4`. It uses one Expo/React Native codebase for iOS and Android. The beta currently targets Expo SDK 57, which matched the Expo Go version reported by our physical iPhone test on 2026-09-28. It supports account sign-in, project switching, recent memories, quick capture, project search, and review-only memory-agent findings. Agent consolidation drafts are previews; apply any change in the web app.
 
 ## Quick capture and offline drafts

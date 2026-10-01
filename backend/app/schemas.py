@@ -1,6 +1,7 @@
 from typing import Any
 from uuid import UUID
-from pydantic import BaseModel, Field
+from datetime import date, datetime
+from pydantic import BaseModel, Field, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -49,6 +50,21 @@ class SearchRequest(BaseModel):
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
+    memory_type: str | None = Field(default=None, min_length=1, max_length=80)
+    since: date | None = None
+    until: date | None = None
+
+    @model_validator(mode='after')
+    def ordered_dates(self):
+        if self.since and self.until and self.since > self.until:
+            raise ValueError('Start date must be on or before end date')
+        return self
+
+
+class AgentApprove(BaseModel):
+    source_updated_at: dict[UUID, datetime] = Field(min_length=1, max_length=2)
+    title: str | None = Field(default=None, min_length=1, max_length=300)
+    content: str | None = Field(default=None, min_length=1, max_length=10000)
 
 
 class CrossProjectSearchRequest(BaseModel):

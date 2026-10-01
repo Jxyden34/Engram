@@ -33,6 +33,9 @@ export default function App() {
   const activeScope = useRef('');
   const loadSequence = useRef(0);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [reviewed, setReviewed] = useState<Proposal[]>([]);
+  const [agentTitle, setAgentTitle] = useState('');
+  const [agentContent, setAgentContent] = useState('');
   const [runs, setRuns] = useState<ScanRun[]>([]);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [reviewSources, setReviewSources] = useState<Memory[]>([]);
@@ -126,11 +129,12 @@ export default function App() {
       setMemories(nextMemories); setUsingOffline(false);
       const saved = await saveOfflineLibrary(SecureStore, current, nextMemories).catch(() => null);
       if (saved && activeScope.current === scope && sequence === loadSequence.current) setOfflineLibrary(saved);
-      const [nextProposals, nextRuns] = await Promise.all([
+      const [nextProposals, nextRuns, nextReviewed] = await Promise.all([
         call<Proposal[]>(current, '/api/v1/agent/proposals?status=pending&limit=50'),
         call<ScanRun[]>(current, '/api/v1/agent/runs?limit=5'),
+        call<Proposal[]>(current, '/api/v1/agent/proposals?status=accepted&limit=10'),
       ]);
-      if (activeScope.current === scope && sequence === loadSequence.current) { setProposals(nextProposals); setRuns(nextRuns); }
+      if (activeScope.current === scope && sequence === loadSequence.current) { setProposals(nextProposals); setRuns(nextRuns); setReviewed(nextReviewed); }
     } catch (error) {
       if (!cached.savedAt) throw error;
     }
@@ -154,6 +158,7 @@ export default function App() {
     activeScope.current = `${session.origin}\u0000${session.username}\u0000${session.projectId}`;
     setMemories([]); setOfflineLibrary({ items: [], savedAt: null }); setUsingOffline(false); setSearchIsOffline(false); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null); setDraft(null);
     setScanMessage('');
+    setReviewed([]); setAgentTitle(''); setAgentContent('');
     setFavoritesOnly(false); setMemoryType('All');
     load(session).catch(e => setError(String(e.message || e)));
   }, [session?.token, session?.projectId]);
@@ -265,6 +270,7 @@ export default function App() {
       const ids = [proposal.memory_id, proposal.related_memory_id].filter((id): id is string => !!id);
       const sources = await Promise.all(ids.map(id => call<Memory>(session, `/api/v1/memories/${id}`)));
       setReviewSources(sources); setReviewId(proposal.id); setDraft(proposal.evidence?.draft || null);
+      setAgentTitle(proposal.evidence?.draft?.title || ''); setAgentContent(proposal.evidence?.draft?.content || '');
     });
   }
 
@@ -286,6 +292,17 @@ export default function App() {
         setReviewId(null); setReviewSources([]); setDraft(null); await load(session);
       }); } },
     ]);
+  }
+
+  function confirmApprove(proposal: Proposal) {
+    if (!session) return;
+    const label = proposal.proposal_type === 'duplicate' ? 'Save reviewed memory' : proposal.proposal_type === 'related' ? 'Approve connection' : 'Mark reviewed';
+    const explanation = proposal.proposal_type === 'duplicate' ? 'Create a new memory from the edited draft and record this finding as reviewed? The source memories stay unchanged.' : proposal.proposal_type === 'related' ? 'Create a related link between these two memories and record your approval?' : 'Record that you reviewed this finding? This does not edit the memory or resolve its facts automatically.';
+    Alert.alert(label + '?', explanation, [{ text: 'Cancel', style: 'cancel' }, { text: label, onPress: () => void act(async () => {
+      const source_updated_at = Object.fromEntries(reviewSources.map(source => [source.id, source.updated_at]));
+      await call(session, `/api/v1/agent/proposals/${proposal.id}/approve`, 'POST', { source_updated_at, ...(proposal.proposal_type === 'duplicate' ? { title: agentTitle, content: agentContent } : {}) });
+      setReviewId(null); setReviewSources([]); setDraft(null); await load(session); setScanMessage(`${label} complete.`);
+    }) }]);
   }
 
   const review = proposals.find(item => item.id === reviewId);
@@ -314,7 +331,7 @@ export default function App() {
   if (!session) return <SafeAreaView style={styles.root}><StatusBar style="light" /><KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView contentContainerStyle={styles.login} keyboardShouldPersistTaps="handled">
       <Text style={styles.brand}>ENGRAM</Text><Text style={styles.hero}>Your memory, anywhere.</Text>
-      <Text style={styles.sub}>2.7 beta 4 · iOS + Android</Text>
+      <Text style={styles.sub}>2.7 alpha 1 · iOS + Android</Text>
       <Text style={styles.label}>Server URL</Text><TextInput style={styles.input} value={server} onChangeText={setServer} placeholder="https://engram.example.com" placeholderTextColor="#718094" autoCapitalize="none" keyboardType="url" />
       <Text style={styles.label}>Username</Text><TextInput style={styles.input} value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Username" placeholderTextColor="#718094" />
       <Text style={styles.label}>Password</Text><TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor="#718094" onSubmitEditing={signIn} />
@@ -325,7 +342,7 @@ export default function App() {
   </KeyboardAvoidingView></SafeAreaView>;
 
   return <SafeAreaView style={styles.root}><StatusBar style="light" />
-    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>BETA 4</Text></View>
+    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>ALPHA 1</Text></View>
     <ScrollView horizontal style={styles.tabBar} contentContainerStyle={styles.tabContent} showsHorizontalScrollIndicator={false}>
       {tabs.map(item => <Pressable key={item} disabled={busy} style={[styles.tab, tab === item && styles.tabActive]} onPress={() => { setTab(item); setSelected(null); setError(''); }} accessibilityRole="button"><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item === 'Inbox' ? `Inbox (${inboxFor(drafts, session).length})` : item}</Text></Pressable>)}
     </ScrollView>
@@ -389,17 +406,21 @@ export default function App() {
           {Object.entries(review.evidence || {}).filter(([key]) => key !== 'draft').map(([key, value]) => <Text key={key} style={styles.meta}>{key.replaceAll('_', ' ')}: {String(value)}</Text>)}
           <Text style={[styles.section, { marginTop: 24 }]}>Source memories</Text>
           {reviewSources.map(source => <View key={source.id} style={styles.card}><Text style={styles.cardTitle}>{source.title}</Text><Text style={styles.content}>{source.content}</Text><Text style={styles.meta}>Updated {new Date(source.updated_at).toLocaleString()}</Text></View>)}
-          {review.proposal_type === 'duplicate' && <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { const result = await call<AgentDraft>(session, `/api/v1/agent/proposals/${review.id}/draft`, 'POST'); setDraft(result); await load(session); })} accessibilityRole="button"><Text style={styles.link}>{draft ? 'Regenerate draft' : 'Generate consolidation draft'}</Text></Pressable>}
+          {review.proposal_type === 'duplicate' && <Pressable style={styles.secondary} disabled={busy} onPress={() => act(async () => { const result = await call<AgentDraft>(session, `/api/v1/agent/proposals/${review.id}/draft`, 'POST'); setDraft(result); setAgentTitle(result.title || ''); setAgentContent(result.content || ''); await load(session); })} accessibilityRole="button"><Text style={styles.link}>{draft ? 'Regenerate draft' : 'Generate consolidation draft'}</Text></Pressable>}
           {draft && <View style={[styles.card, { marginTop: 16 }]}><Text style={styles.cardTitle}>{draft.safe_to_merge ? draft.title : 'Keep these separate'}</Text><Text style={styles.preview}>{draft.reason}</Text>{!!draft.content && <Text style={styles.content}>{draft.content}</Text>}
             {review.draft_stale && <Text style={styles.error}>A source changed since this draft. Regenerate it before use.</Text>}
-            {draft.safe_to_merge && !review.draft_stale && !!draft.title && !!draft.content && <Pressable style={styles.secondary} disabled={busy} onPress={() => useAgentDraft(review, draft)} accessibilityRole="button"><Text style={styles.link}>Use as new capture</Text></Pressable>}
+            {draft.safe_to_merge && !review.draft_stale && <><TextInput style={styles.input} value={agentTitle} onChangeText={setAgentTitle} editable={!busy} maxLength={300} accessibilityLabel="Reviewed Agent title" /><TextInput style={[styles.input, styles.multiline]} value={agentContent} onChangeText={setAgentContent} editable={!busy} multiline maxLength={10000} accessibilityLabel="Reviewed Agent content" /><Pressable style={styles.secondary} disabled={busy || !agentTitle.trim() || !agentContent.trim()} onPress={() => confirmApprove(review)} accessibilityRole="button"><Text style={styles.link}>Save reviewed memory</Text></Pressable></>}
           </View>}
+          {review.proposal_type !== 'duplicate' && <Pressable style={styles.secondary} disabled={busy} accessibilityRole="button" onPress={() => confirmApprove(review)}><Text style={styles.link}>{review.proposal_type === 'related' ? 'Approve connection' : 'Mark reviewed'}</Text></Pressable>}
           <Pressable style={styles.secondary} disabled={busy} onPress={() => confirmDismiss(review)} accessibilityRole="button"><Text style={styles.link}>Dismiss finding</Text></Pressable>
         </> : <>
           <Text style={[styles.section, { marginTop: 24 }]}>{proposals.length} pending</Text>
           {proposals.map(proposal => <View key={proposal.id} style={styles.card}><Text style={styles.cardTitle}>{proposal.memory_title || proposal.proposal_type.replaceAll('_', ' ')}</Text><Text style={styles.meta}>{proposal.proposal_type.replaceAll('_', ' ')}{proposal.related_title ? ` · ${proposal.related_title}` : ''}</Text><Text style={styles.preview}>{proposal.reason}</Text><Pressable style={styles.secondary} disabled={busy} onPress={() => openReview(proposal)} accessibilityRole="button"><Text style={styles.link}>Review sources and actions</Text></Pressable></View>)}
         </>}
         {!proposals.length && <Text style={styles.empty}>No pending findings. Run a scan to check this project.</Text>}
+        <Text style={[styles.section, { marginTop: 28 }]}>Recently reviewed</Text>
+        {reviewed.map(item => <View key={item.id} style={styles.card}><Text style={styles.cardTitle}>{item.memory_title || item.proposal_type}</Text><Text style={styles.meta}>{item.proposal_type} · {item.reviewed_by} · {item.reviewed_at ? new Date(item.reviewed_at).toLocaleString() : ''}</Text>{item.result_memory_id && <Pressable style={styles.secondary} disabled={busy} accessibilityRole="button" onPress={() => act(async () => { setSelected(await call<Memory>(session, `/api/v1/memories/${item.result_memory_id}`)); setTab('Memories'); })}><Text style={styles.link}>Open reviewed memory</Text></Pressable>}</View>)}
+        {!reviewed.length && <Text style={styles.empty}>No approved findings yet.</Text>}
         <Text style={[styles.section, { marginTop: 28 }]}>Recent scans</Text>
         {runs.map(run => <View key={run.id} style={styles.card}><Text style={styles.cardTitle}>{run.trigger_type === 'scheduled' ? 'Automatic' : 'Manual'} scan · {run.status}</Text><Text style={styles.meta}>{new Date(run.created_at).toLocaleString()}</Text>{run.result && <Text style={styles.preview}>{run.result.total} new findings</Text>}{!!run.error_message && <Text style={styles.error}>{run.error_message}</Text>}</View>)}
         {!runs.length && <Text style={styles.empty}>No scans yet.</Text>}

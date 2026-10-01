@@ -2,11 +2,11 @@ export type Session = { origin: string; token: string; username: string; isAdmin
 export type Project = { id: string; name: string; slug: string };
 export type Memory = { id: string; title: string; content: string; memory_type: string; updated_at: string; tags?: string[]; truncated?: boolean };
 export type AgentDraft = { safe_to_merge: boolean; title?: string; content?: string; reason: string };
-export type Proposal = { id: string; proposal_type: string; memory_id: string; memory_title?: string; related_memory_id?: string; related_title?: string; reason: string; evidence?: { draft?: AgentDraft; [key: string]: unknown }; draft_stale?: boolean };
+export type Proposal = { id: string; proposal_type: string; memory_id: string; memory_title?: string; related_memory_id?: string; related_title?: string; reason: string; evidence?: { draft?: AgentDraft; [key: string]: unknown }; draft_stale?: boolean; status?: string; reviewed_at?: string; reviewed_by?: string; result_memory_id?: string };
 export type ScanRun = { id: string; trigger_type: string; status: string; result?: { total: number }; error_message?: string; created_at: string };
 export type MemoryVersion = { version_no: number; actor: string; reason?: string; created_at: string; snapshot: { title?: string; content?: string; memory_type?: string } };
 export type MemoryRelation = { id: string; relation_type: string; from_memory_id: string; to_memory_id: string; from_title: string; to_title: string };
-export type AskAnswer = { project_id: string; question: string; insufficient: boolean; claims: { text: string; source: number; quote: string }[]; sources: { number: number; id: string; title: string; content: string; updated_at: string }[] };
+export type AskAnswer = { project_id: string; question: string; filters?: { memory_type: string | null; since: string | null; until: string | null }; insufficient: boolean; claims: { text: string; source: number; quote: string }[]; sources: { number: number; id: string; title: string; content: string; updated_at: string }[] };
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
