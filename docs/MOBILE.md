@@ -2,7 +2,7 @@
 
 ## Alpha1 feature line
 
-`codex/alpha1-mobile` is `2.7.0-alpha1`, based on beta4. Beta4 remains available on `codex/projects-memory-agent` and Android build 6. Alpha1 uses the unchanged `2.7.0-beta4-native1` speech runtime, but Android build 7 selects a separate `alpha1` update channel. Build with `eas build --platform android --profile alpha1`. Publish compatible Alpha1 updates with `eas update --channel alpha1 --platform android --environment preview` after checks. Do not publish Alpha1 to beta4's `preview` channel.
+PR #36 on `codex/projects-memory-agent` contains `2.7.0-alpha1` and all preceding beta features. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback. Alpha1 uses the unchanged `2.7.0-beta4-native1` speech runtime, but Android build 7 selects a separate `alpha1` update channel. Build with `eas build --platform android --profile alpha1`. Publish compatible Alpha1 updates with `eas update --channel alpha1 --platform android --environment preview` after checks. Do not publish Alpha1 to beta4's `preview` channel.
 
 - **Ask filters:** select a type and optional YYYY-MM-DD start/end dates. Dates filter `updated_at` using inclusive UTC days, before top-five retrieval. Each answer records its filters. Ollama and verified quotation checks remain unchanged.
 - **Suggested connections:** run an Agent scan to propose same-project pairs with cosine similarity 0.65–0.94. This indicates topic similarity, not a verified factual relationship. Read both full sources and explicitly approve to create a related link. Existing links, deleted memories and historical memories are excluded. A stale pair requires a fresh scan.

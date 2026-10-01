@@ -16,7 +16,7 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 
 ## Alpha1 — mobile review and filtered Ask 🧪
 
-These features are implemented on `codex/alpha1-mobile`; device qualification is in progress. Beta4 stays on `codex/projects-memory-agent`:
+These features are implemented in PR #36 on `codex/projects-memory-agent`; device qualification is in progress. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback:
 
 - **Ask filters:** choose memory type and a date range before retrieval. Apply filters on the server inside the active project's RLS scope; display the filters used with each answer. Keep Ollama as the answer provider and preserve checked source quotations.
 - **Suggested memory connections:** propose related memories within the active project, show both sources and the reason, and create a link only after explicit approval. Exclude deleted memories and existing links; reject links across projects.
