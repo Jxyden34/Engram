@@ -19,6 +19,8 @@ def scan() -> dict:
                 SELECT id, embedding, updated_at FROM memories n
                 WHERE n.id > m.id AND n.deleted_at IS NULL AND n.embedding IS NOT NULL
                   AND (n.valid_to IS NULL OR n.valid_to > now())
+                  AND 1-(m.embedding <=> n.embedding) >= 0.65
+                  AND 1-(m.embedding <=> n.embedding) < 0.94
                   AND NOT EXISTS (SELECT 1 FROM memory_relations r WHERE
                     (r.from_memory_id=m.id AND r.to_memory_id=n.id) OR (r.from_memory_id=n.id AND r.to_memory_id=m.id))
                 ORDER BY n.embedding <=> m.embedding LIMIT 1

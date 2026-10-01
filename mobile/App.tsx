@@ -100,7 +100,7 @@ export default function App() {
       await keepComposer(current);
       await SecureStore.deleteItemAsync(KEY);
       activeScope.current = '';
-      setSession(null); setProjects([]); setMemories([]); setOfflineLibrary({ items: [], savedAt: null }); setUsingOffline(false); setProposals([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null);
+      setSession(null); setProjects([]); setMemories([]); setOfflineLibrary({ items: [], savedAt: null }); setUsingOffline(false); setProposals([]); setReviewed([]); setRuns([]); setReviewId(null); setReviewSources([]); setSelected(null); setResults(null);
     })();
     try { await clearing.current; } finally { clearing.current = null; }
   }
