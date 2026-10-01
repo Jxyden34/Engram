@@ -10,7 +10,7 @@ export default function AboutPage() {
   return (
     <main className="publicPage">
       <header className="publicHeader">
-        <Link className="publicBrand" href="/about"><span>E</span> Engram</Link>
+        <Link className="publicBrand" href="/about"><span aria-hidden="true" /> Engram</Link>
         <nav aria-label="Information">
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>

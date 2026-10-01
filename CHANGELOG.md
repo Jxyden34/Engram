@@ -1,6 +1,29 @@
 # Changelog
 
-## Unreleased
+## 2.5.5 - 2026-09-30
+
+### Added
+
+- Hybrid retrieval now combines semantic and full-text candidates with linked
+  entity context, temporal relevance, memory importance, source trust and
+  retrieval history. Search results explain the principal reasons for ranking.
+- A rule-based query planner recognises current, historical, relationship and
+  comparison questions. A bounded context builder returns source-labelled
+  excerpts and an estimated token count through REST, MCP and the web UI.
+- The Intelligence page suggests similar current memories for review. Users
+  can compare confidence, dates and provenance, then explicitly choose which
+  fact stays current. The other remains historical with a saved version,
+  relation and audit entry; nothing is silently deleted.
+
+### Upgrade
+
+- No database migration or new environment variables are required. Rebuild the
+  API, web and DR-monitor images and restart those services after taking the
+  usual encrypted database and object backups.
+- The v2.7 draft's Projects, memory agent, Ask Engram and mobile app are not
+  included in this stable release.
+
+## 2.4.5 - 2026-09-28
 
 ### Fixed
 
