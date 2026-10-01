@@ -1,6 +1,6 @@
-# MemoryBank Backup and Restore
+# Engram Backup and Restore
 
-MemoryBank contains sensitive personal knowledge and source documents.
+Engram contains sensitive personal knowledge and source documents.
 
 A successful backup strategy must cover both:
 
@@ -9,7 +9,7 @@ PostgreSQL
 MinIO
 ```
 
-A database-only backup is not a complete MemoryBank backup.
+A database-only backup is not a complete Engram backup.
 
 ---
 
@@ -74,7 +74,7 @@ When restoring inside Docker, use the database container and matching credential
 
 # MinIO backup
 
-MemoryBank source documents live in MinIO.
+Engram source documents live in MinIO.
 
 These include:
 
@@ -118,7 +118,7 @@ Do not place production secrets inside the Git repository.
 
 # Off-site copies
 
-At least one backup copy should exist outside the MemoryBank host.
+At least one backup copy should exist outside the Engram host.
 
 Possible targets:
 
@@ -150,7 +150,7 @@ Recommended restore test:
 6. verify important tables
 7. restore or mount a copy of MinIO objects
 8. verify document references
-9. start isolated MemoryBank stack
+9. start isolated Engram stack
 10. confirm search and document retrieval work
 
 ---
@@ -185,7 +185,7 @@ SELECT count(*) FROM documents;
 
 # Retention
 
-MemoryBank's existing backup design uses encrypted local backups and may retain approximately 14 days depending on configuration.
+Engram's existing backup design uses encrypted local backups and may retain approximately 14 days depending on configuration.
 
 Retention should eventually include:
 
@@ -233,6 +233,6 @@ Never:
 
 ## Automated restore evidence
 
-MemoryBank v2.3 automatically verifies encrypted backup artifacts and records recovery evidence.
+Engram v2.3 automatically verifies encrypted backup artifacts and records recovery evidence.
 
 The `dr-monitor` service performs isolated restore tests. See [Disaster Recovery](DISASTER-RECOVERY.md).

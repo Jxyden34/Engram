@@ -1,6 +1,6 @@
-# MemoryBank Architecture
+# Engram Architecture
 
-MemoryBank is a self-hosted personal memory, knowledge and AI context platform.
+Engram is a self-hosted personal memory, knowledge and AI context platform.
 
 The architecture is designed around four principles:
 
@@ -173,7 +173,7 @@ Ollama joins the internal backend network and a separate egress network so model
 
 ## MinIO
 
-MinIO stores source files uploaded or created by MemoryBank.
+MinIO stores source files uploaded or created by Engram.
 
 Examples:
 
@@ -358,7 +358,7 @@ The browser extension uses a dedicated write-only API scope.
 
 ## Knowledge Core
 
-MemoryBank v2 adds a richer knowledge layer.
+Engram v2 adds a richer knowledge layer.
 
 ### Entity Graph
 
@@ -424,7 +424,7 @@ Planned major additions include:
 
 ## OAuth / MCP identity
 
-MemoryBank v2.2 acts as both the OAuth authorization server and the MCP protected resource server.
+Engram v2.2 acts as both the OAuth authorization server and the MCP protected resource server.
 
 ```text
 MCP client

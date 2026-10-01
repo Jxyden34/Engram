@@ -1,29 +1,30 @@
-const MENU_PAGE = "memorybank-page";
-const MENU_SELECTION = "memorybank-selection";
-const MENU_LINK = "memorybank-link";
+const MENU_PAGE = "engram-page";
+const MENU_SELECTION = "engram-selection";
+const MENU_LINK = "engram-link";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU_PAGE,
-      title: "Save page to MemoryBank",
+      title: "Save page to Engram",
       contexts: ["page"],
     });
     chrome.contextMenus.create({
       id: MENU_SELECTION,
-      title: "Save selection to MemoryBank",
+      title: "Save selection to Engram",
       contexts: ["selection"],
     });
     chrome.contextMenus.create({
       id: MENU_LINK,
-      title: "Save link to MemoryBank",
+      title: "Save link to Engram",
       contexts: ["link"],
     });
   });
 });
 
 async function settings() {
-  return chrome.storage.local.get(["memorybankUrl", "memorybankKey"]);
+  const cfg = await chrome.storage.local.get(["engramUrl", "engramKey", "memorybankUrl", "memorybankKey"]);
+  return { url: cfg.engramUrl || cfg.memorybankUrl, key: cfg.engramKey || cfg.memorybankKey };
 }
 
 async function captureFromTab(tabId, mode) {
@@ -45,11 +46,11 @@ async function captureFromTab(tabId, mode) {
 
 async function sendCapture(payload) {
   const cfg = await settings();
-  const base = String(cfg.memorybankUrl || "").replace(/\/+$/, "");
-  const key = String(cfg.memorybankKey || "").trim();
+  const base = String(cfg.url || "").replace(/\/+$/, "");
+  const key = String(cfg.key || "").trim();
 
   if (!base || !key) {
-    throw new Error("Configure the MemoryBank URL and capture key in the extension popup.");
+    throw new Error("Configure the Engram URL and capture key in the extension popup.");
   }
 
   const response = await fetch(`${base}/api/v1/capture`, {
@@ -63,7 +64,7 @@ async function sendCapture(payload) {
 
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(body.detail || `MemoryBank returned ${response.status}`);
+    throw new Error(body.detail || `Engram returned ${response.status}`);
   }
   return body;
 }
@@ -95,7 +96,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       metadata: {},
     });
   } catch (error) {
-    console.error("MemoryBank capture failed:", error);
+    console.error("Engram capture failed:", error);
   }
 });
 

@@ -1,4 +1,4 @@
-# MemoryBank v1.1 — Bulk Folder + ZIP Import
+# Engram v1.1 — Bulk Folder + ZIP Import
 
 This upgrade adds:
 
