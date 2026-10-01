@@ -126,8 +126,8 @@ def test_alpha_review_filters_isolation_stale_sources_and_retry():
     try:
         with project_scope(project):
             with connect() as conn:
-                a = conn.execute("INSERT INTO memories(title,content,memory_type,embedding,updated_at) VALUES ('Decision','Launch after human review','decision',%s::vector,'2026-09-30T23:59:59Z') RETURNING id,updated_at", (vector,)).fetchone()
-                b = conn.execute("INSERT INTO memories(title,content,embedding,updated_at) VALUES ('Context','Launch context',%s::vector,'2026-10-01T00:00:00Z') RETURNING id,updated_at", (other_vector,)).fetchone()
+                a = conn.execute("INSERT INTO memories(title,content,memory_type,embedding,updated_at,created_by,updated_by) VALUES ('Decision','Launch after human review','decision',%s::vector,'2026-09-30T23:59:59Z','test','test') RETURNING id,updated_at", (vector,)).fetchone()
+                b = conn.execute("INSERT INTO memories(title,content,embedding,updated_at,created_by,updated_by) VALUES ('Context','Launch context',%s::vector,'2026-10-01T00:00:00Z','test','test') RETURNING id,updated_at", (other_vector,)).fetchone()
                 conn.commit()
             with patch.object(memories, 'embed_literal', return_value=vector):
                 assert [str(row['id']) for row in memories.search('Launch', 5, 'decision', since='2026-09-30', until='2026-09-30')] == [str(a['id'])]
