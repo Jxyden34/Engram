@@ -488,6 +488,7 @@ def _fetch_cimd(url: str) -> dict[str, Any]:
                 timeout=settings().oauth_cimd_timeout_seconds,
             )
             context = ssl.create_default_context()
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             tls = context.wrap_socket(raw_sock, server_hostname=parts.hostname)
 
             path = parts.path + (("?" + parts.query) if parts.query else "")
