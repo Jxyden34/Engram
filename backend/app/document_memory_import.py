@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Any
 
@@ -17,6 +18,9 @@ from app.chatgpt_import import (
     _normalise_candidate,
     _ollama_json,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def queue():
@@ -140,11 +144,12 @@ def create_jobs_for_all_ready(actor: str, owner_id: str | None):
                 "document_id": str(doc["id"]),
                 "filename": doc["filename"],
             })
-        except Exception as exc:
+        except Exception:
+            logger.exception("Unable to create document import job for %s", doc["id"])
             errors.append({
                 "document_id": str(doc["id"]),
                 "filename": doc["filename"],
-                "error": str(exc),
+                "error": "Unable to create import job",
             })
 
     return {
@@ -570,7 +575,8 @@ def accept_safe(actor: str):
         try:
             memory = accept_candidate(str(row["id"]), actor)
             accepted.append(str(memory["id"]))
-        except Exception as exc:
-            errors.append({"candidate_id": str(row["id"]), "error": str(exc)})
+        except Exception:
+            logger.exception("Unable to accept document import candidate %s", row["id"])
+            errors.append({"candidate_id": str(row["id"]), "error": "Unable to accept candidate"})
 
     return {"accepted": len(accepted), "memory_ids": accepted, "errors": errors}
