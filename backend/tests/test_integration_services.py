@@ -25,6 +25,7 @@ def test_mobile_login_project_scope_and_revocation():
     username = f"mobile-{uuid4().hex[:12]}"
     password = f"beta-{uuid4().hex}"
     slug = f"mobile-{uuid4().hex[:12]}"
+    key_id = None
     with connect() as conn:
         user_id = conn.execute(
             "INSERT INTO users(username,password_hash,is_admin) VALUES (%s,%s,true) RETURNING id",
@@ -68,9 +69,31 @@ def test_mobile_login_project_scope_and_revocation():
         personal_headers = {**headers, 'X-Engram-Project': '00000000-0000-0000-0000-000000000001'}
         for suffix in ['', '/versions', '/relations']:
             assert client.get(f'/api/v1/memories/{first}{suffix}', headers=personal_headers).status_code == 404
+        key_response = client.post('/api/v1/keys', headers=headers, json={
+            'name': slug, 'scopes': ['memory:read', 'document:read', 'mcp:use'],
+        })
+        assert key_response.status_code == 201
+        key_id = key_response.json()['id']
+        key_headers = {'Authorization': f"Bearer {key_response.json()['token']}"}
+        assert client.get(f'/api/v1/memories/{first}', headers=key_headers).status_code == 200
+        wrong_project = {**key_headers, 'X-Engram-Project': personal_headers['X-Engram-Project']}
+        assert client.get('/api/v1/memories', headers=wrong_project).status_code == 403
+        assert client.post('/mcp', headers=wrong_project, json={}).status_code == 403
+        with TestClient(app) as mcp_client:
+            mcp_response = mcp_client.post('/mcp', headers={
+                **key_headers, 'Accept': 'application/json, text/event-stream',
+            }, json={'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
+                     'params': {'name': 'memory_get', 'arguments': {'memory_id': first}}})
+            assert mcp_response.status_code == 200
+            assert not mcp_response.json()['result'].get('isError', False)
+            assert first in json.dumps(mcp_response.json()['result'])
         assert client.post("/api/v1/mobile/logout", headers=headers).status_code == 200
         assert client.get("/api/v1/memories", headers=headers).status_code == 401
     finally:
+        if key_id:
+            with connect() as conn:
+                conn.execute('DELETE FROM api_keys WHERE id=%s', (key_id,))
+                conn.commit()
         with project_scope(project_id):
             with connect() as conn:
                 conn.execute('DELETE FROM memory_relations WHERE project_id=%s', (project_id,))
