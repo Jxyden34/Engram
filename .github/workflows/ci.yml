@@ -12,7 +12,7 @@ jobs:
   dr-monitor:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install DR test tools
         run: sudo apt-get update && sudo apt-get install -y postgresql rclone jq shellcheck
       - name: Check DR scripts
@@ -52,7 +52,7 @@ jobs:
           --health-retries 10
 
       redis:
-        image: "redis:8-alpine@sha256:becdda6c7f4b3fb42e42fd7f120bbf5c54c4caaaf16f26da24e4563d2c1f0576"
+        image: "redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0"
         ports:
           - 6379:6379
         options: >-
@@ -62,7 +62,7 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Initialize PostgreSQL schema
         run: |
@@ -94,7 +94,7 @@ jobs:
             psql -v ON_ERROR_STOP=1 -U engram -d engram \
             < db/migrations/012_agent_review.sql
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
           cache: pip
@@ -122,9 +122,9 @@ jobs:
         working-directory: web
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
@@ -172,7 +172,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Prepare example environment
         run: cp .env.example .env

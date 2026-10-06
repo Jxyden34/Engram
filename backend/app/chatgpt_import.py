@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import math
 import re
 from datetime import datetime, timezone
@@ -16,6 +17,9 @@ from app.documents import get_document, minio_client
 from app.embeddings import embed, embed_literal
 from app.memories import create as create_memory
 from app.util import json_text, vector_literal
+
+
+logger = logging.getLogger(__name__)
 
 
 DURABLE_MEMORY_SYSTEM = """You extract durable personal memories from a conversation.
@@ -919,6 +923,7 @@ def accept_safe_candidates(actor: str, job_id: str | None = None):
         try:
             memory = accept_candidate(str(row["id"]), actor)
             accepted.append(str(memory["id"]))
-        except Exception as exc:
-            errors.append({"candidate_id": str(row["id"]), "error": str(exc)})
+        except Exception:
+            logger.exception("Unable to accept ChatGPT import candidate %s", row["id"])
+            errors.append({"candidate_id": str(row["id"]), "error": "Unable to accept candidate"})
     return {"accepted": len(accepted), "memory_ids": accepted, "errors": errors}
