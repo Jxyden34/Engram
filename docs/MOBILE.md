@@ -2,7 +2,7 @@
 
 ## Alpha1 feature line
 
-PR #36 on `codex/projects-memory-agent` contains `2.7.0-alpha1` and all preceding beta features. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback. Alpha1 uses the unchanged `2.7.0-beta4-native1` speech runtime, but Android build 7 selects a separate `alpha1` update channel. Build with `eas build --platform android --profile alpha1`. Publish compatible Alpha1 updates with `eas update --channel alpha1 --platform android --environment preview` after checks. Do not publish Alpha1 to beta4's `preview` channel.
+PR #36 on `codex/projects-memory-agent` contains `2.7.0-alpha1` and all preceding beta features. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback. Tested Alpha1 Android build 7 uses `2.7.0-beta4-native1` and the separate `alpha1` update channel. The October 6 Expo compatibility patches require a new build: Android build 8 / iOS build 6 with `2.7.0-alpha1-native1`. Build 8 has not yet been qualified; build 7 remains the tested rollback. Updates for the new runtime cannot be delivered to build 7. Build with `eas build --platform android --profile alpha1`. Publish compatible Alpha1 updates with `eas update --channel alpha1 --platform android --environment preview` after checks. Do not publish Alpha1 to beta4's `preview` channel.
 
 - **Ask filters:** select a type and optional YYYY-MM-DD start/end dates. Dates filter `updated_at` using inclusive UTC days, before top-five retrieval. Each answer records its filters. Ollama and verified quotation checks remain unchanged.
 - **Suggested connections:** run an Agent scan to propose same-project pairs with cosine similarity 0.65–0.94. This indicates topic similarity, not a verified factual relationship. Read both full sources and explicitly approve to create a related link. Existing links, deleted memories and historical memories are excluded. A stale pair requires a fresh scan.
@@ -93,7 +93,7 @@ Open the completed build link on the Android device, download the APK, and allow
 
 ## Preview updates
 
-Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The current native runtime is `2.7.0-beta4-native1`; increment this value whenever native dependencies, Expo SDK, or native configuration change. JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
+Preview builds made after EAS Update was configured contain `expo-updates`, the project update URL, and the `preview` channel. The current source native runtime is `2.7.0-alpha1-native1`; increment this value whenever native dependencies, Expo SDK, or native configuration change. JavaScript and asset changes can be published to compatible preview builds without reinstalling an APK. After local checks and device testing, publish deliberately from the intended Git commit:
 
 ```sh
 eas update --channel preview --platform android --environment preview --message "Describe the tested change"
