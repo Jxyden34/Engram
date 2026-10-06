@@ -2,6 +2,7 @@
 
 ## 2.7.0-alpha1 - unreleased
 
+- Align Expo compatibility patches and reserve Android build 8 / iOS build 6 for runtime `2.7.0-alpha1-native1`. Keep tested Android build 7 available for rollback. Record restored-database, object-store and document qualification in [the Alpha1 report](docs/ALPHA1_QUALIFICATION.md); Gmail remains unqualified and PR #36 stays draft.
 - Add Ask filters for memory type and inclusive last-updated date ranges in UTC. Apply them before retrieval inside the active project and display the filters with each answer. Ollama remains the answer provider.
 - Add project-scoped related-memory suggestions to Agent scans. Read both sources and explicitly approve a link; existing links and deleted/historical memories are excluded.
 - Add reviewed Agent approval, edited consolidation captures, source freshness checks, accepted review history and audit events. Approvals are atomic and repeat requests reuse the existing result. Original memories remain unchanged.
