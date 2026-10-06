@@ -1,6 +1,6 @@
 # Engram Deployment
 
-This guide covers deployment of Engram v2.5.5 on a Linux host using Docker Compose.
+This guide covers deployment of Engram v6.5.0 on a Linux host using Docker Compose.
 
 ---
 

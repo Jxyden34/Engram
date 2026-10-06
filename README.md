@@ -4,11 +4,12 @@
 
 Engram gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-**Current release:** `v2.5.5`
+**Current release:** `v6.5.0`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
-The v2.5.5 release adds explainable hybrid retrieval, compact source-labelled
-context, and human-reviewed contradiction resolution. See the [changelog](CHANGELOG.md).
+The v6.5.0 release renumbers the stable line and includes the security and
+dependency maintenance merged since v2.5.5. Memory Intelligence remains part
+of stable. See the [changelog](CHANGELOG.md).
 The v2.4.0 release added the read-only Gmail connector preview and restored
 the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 
