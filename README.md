@@ -6,12 +6,13 @@ Engram gives you one controlled source of truth for personal knowledge. Humans u
 
 The 2.7 development beta also includes a shared iOS and Android app for project-scoped memories, search, memory-agent review, and a secure offline library of recent memories. See [mobile beta setup](docs/MOBILE.md).
 
-**Current stable release:** `v2.5.5`
+**Current stable release:** `v6.5.0`
 **Development alpha:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
-The v2.5.5 release adds explainable hybrid retrieval, compact source-labelled
-context, and human-reviewed contradiction resolution. See the [changelog](CHANGELOG.md).
+The v6.5.0 release renumbers the stable line and includes the security and
+dependency maintenance merged since v2.5.5. Memory Intelligence remains part
+of stable. See the [changelog](CHANGELOG.md).
 The v2.4.0 release added the read-only Gmail connector preview and restored
 the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 

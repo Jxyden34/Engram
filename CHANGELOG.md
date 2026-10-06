@@ -48,6 +48,27 @@
 - Check the beta app against a physical iPhone's Expo Go SDK and keep the Expo dependency aligned with the installed client during early testing.
 - This is a development beta. Apply migrations 009, 010, and 011 before starting the updated API and workers.
 
+## 6.5.0 - 2026-10-06
+
+### Changed
+
+- Renumbered the stable release line from v2.5.5 to v6.5.0. REST and MCP
+  metadata, health reporting and DR-monitor logs use the new version.
+- Included the backend, frontend, container and CI dependency updates already
+  merged into stable since v2.5.5.
+
+### Fixed
+
+- Import batch errors return safe messages while server logs retain diagnostics.
+- OAuth client metadata retrieval explicitly requires TLS 1.2 or newer.
+
+### Upgrade
+
+- No database migration or new environment variables are required. Existing
+  APIs and the v2.5.5 Memory Intelligence workflow remain compatible.
+- Draft PR #36's projects, mobile app, Ask Engram and memory agent remain on
+  their separate preview branch.
+
 ## 2.5.5 - 2026-09-30
 
 ### Added

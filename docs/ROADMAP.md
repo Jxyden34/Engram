@@ -33,12 +33,13 @@ absorb unfinished preview work.
 
 | Track | Current position | Scope |
 | --- | --- | --- |
-| Stable | **v2.5.5 shipped** | Production self-hosted releases. v2.5.5 delivers Memory Intelligence without projects, mobile beta work or the Memory Agent from the preview track. |
+| Stable | **v6.5.0 shipped** | Production self-hosted releases. Includes Memory Intelligence and stable maintenance; projects, mobile beta work and the Memory Agent remain on the preview track. |
 | Preview | **v2.7.0-alpha1 in development** | Projects, mobile companion and human-reviewed Agent proposals. It remains a pre-release until project isolation, mobile flows and release qualification are complete. |
 
-v2.5.5 is the current GitHub stable release and is deployed on Blackwall. It
-includes explainable retrieval, compact context and reviewed contradiction
-resolution. The v2.4.5 S3-compatible storage change remains part of stable.
+v6.5.0 is the current stable release. The version jump renumbers the stable
+line; feature milestones below retain their historical version numbers.
+Memory Intelligence from v2.5.5 and the v2.4.5 S3-compatible storage change
+remain part of stable.
 
 ---
 
