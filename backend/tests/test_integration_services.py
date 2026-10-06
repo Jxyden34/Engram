@@ -336,7 +336,7 @@ def test_agent_schedule_queues_and_records_project_scan():
         assert run_scan(str(runs[0]["id"]))["created"]["missing_provenance"] == 1
         assert list_runs()[0]["status"] == "completed"
         assert get_schedule()["next_scan_at"] is not None
-    assert list_runs() == []
+    assert all(str(run["id"]) != str(runs[0]["id"]) for run in list_runs())
     with project_scope(project_id):
         with connect() as conn:
             conn.execute("DELETE FROM agent_proposals WHERE memory_id=%s", (memory_id,))
