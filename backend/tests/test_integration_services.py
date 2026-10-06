@@ -79,7 +79,7 @@ def test_mobile_login_project_scope_and_revocation():
         wrong_project = {**key_headers, 'X-Engram-Project': personal_headers['X-Engram-Project']}
         assert client.get('/api/v1/memories', headers=wrong_project).status_code == 403
         assert client.post('/mcp', headers=wrong_project, json={}).status_code == 403
-        with TestClient(app) as mcp_client:
+        with TestClient(app, base_url='http://localhost') as mcp_client:
             mcp_response = mcp_client.post('/mcp', headers={
                 **key_headers, 'Accept': 'application/json, text/event-stream',
             }, json={'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
