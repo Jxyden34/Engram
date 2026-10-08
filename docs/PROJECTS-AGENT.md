@@ -1,6 +1,6 @@
-# Engram Projects and Memory Agent development beta
+# Engram Projects and Memory Agent
 
-Version: `2.7.0-beta3`.
+Server version: `2.7.0`. Native companion builds retain their preview channel and runtime; see [mobile qualification](MOBILE.md).
 
 ## Projects
 
@@ -23,11 +23,11 @@ For a duplicate proposal, `Draft consolidation` asks the configured local AI mod
 ## Upgrade and verification
 
 1. Back up PostgreSQL and MinIO, then stop the API, worker and connector scheduler.
-2. Apply `db/migrations/009_projects_agent.sql`, then `db/migrations/010_project_oauth.sql`, then `db/migrations/011_agent_schedules.sql`, using `psql -v ON_ERROR_STOP=1` before starting the updated API. A database already running beta migrations 009 and 010 only needs 011.
+2. Apply `db/migrations/009_projects_agent.sql`, `010_project_oauth.sql`, `011_agent_schedules.sql` and `012_agent_review.sql` in order, using `psql -v ON_ERROR_STOP=1` before starting the updated API. Apply only outstanding migrations to an existing preview database; migration 011 must not be repeated without checking its existing policies. Migrations 009-012 are mounted automatically for a new empty PostgreSQL volume.
 3. Rebuild the API, worker, connector scheduler and web images.
 4. Verify that existing records appear in Personal, create a second project, add a memory there, and check it is absent from Personal search and MCP/API key access. Authorize an OAuth MCP client in the second project, renew its token, and verify both tokens remain there; an old grant should remain in Personal.
 5. Run an agent scan in each project and verify proposals and run history stay in their project. Enable a schedule, force a due scan in preprod, and verify the worker completes it without changing memories.
 6. Search across selected projects as an administrator and verify API keys cannot cross search. Generate a duplicate consolidation draft and verify both source memories remain unchanged.
 7. Resume ingestion and check a connector sync and document import in a non-default project.
 
-Do not deploy this beta to the production host before its migration, isolation tests, restore test and connector callback flow have passed. Keep the pre-upgrade backup for rollback; rolling back code alone after adding project-specific data would hide that data from older code.
+Server promotion was approved on October 8 after migration, isolation and restore qualification. Gmail callback/sync and the patched native build remain open checks, documented in [the qualification report](ALPHA1_QUALIFICATION.md). Keep the pre-upgrade backup for rollback; rolling back code alone after adding project-specific data would hide that data from older code.

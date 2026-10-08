@@ -16,7 +16,7 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 
 ## Alpha1 — mobile review and filtered Ask 🧪
 
-These features are implemented in PR #36 on `codex/projects-memory-agent`; device qualification is in progress. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback:
+These server features are promoted to v2.7.0 on `main` through PR #36. Patched native-device qualification is in progress. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback:
 
 - **Ask filters:** choose memory type and a date range before retrieval. Apply filters on the server inside the active project's RLS scope; display the filters used with each answer. Keep Ollama as the answer provider and preserve checked source quotations.
 - **Suggested memory connections:** propose related memories within the active project, show both sources and the reason, and create a link only after explicit approval. Exclude deleted memories and existing links; reject links across projects.
@@ -28,16 +28,16 @@ Before qualifying Alpha1, validate populated findings/links, stale-source handli
 
 ## Active release tracks
 
-Engram is developed on two deliberately separate tracks. Stable releases do not
-absorb unfinished preview work.
+PR #36's server features were approved for promotion on October 8. Native
+companion distribution keeps its preview channel and recorded device gates.
 
 | Track | Current position | Scope |
 | --- | --- | --- |
-| Stable | **v6.5.0 shipped** | Production self-hosted releases. Includes Memory Intelligence and stable maintenance; projects, mobile beta work and the Memory Agent remain on the preview track. |
-| Preview | **v2.7.0-alpha1 in development** | Projects, mobile companion and human-reviewed Agent proposals. It remains a pre-release until project isolation, mobile flows and release qualification are complete. |
+| Stable server | **v2.7.0** | Projects, filtered Ask, Memory Agent, Memory Intelligence and all stable security/dependency maintenance. |
+| Native companion | **v2.7.0-alpha1 preview** | Companion source is on `main`; build 8 and native iOS speech still need device qualification. Installed-app runtime and update channels are unchanged. |
 
-v6.5.0 is the current stable release. The version jump renumbers the stable
-line; feature milestones below retain their historical version numbers.
+v2.7.0 returns to the 2.x numbering by user approval after v6.5.0. Earlier
+feature milestones and release entries retain their historical version numbers.
 Memory Intelligence from v2.5.5 and the v2.4.5 S3-compatible storage change
 remain part of stable.
 

@@ -1,7 +1,9 @@
 # Alpha1 qualification — 2026-10-06
 
-PR #36 remains the single draft for `2.7.0-alpha1`. Stable `main` was
-renumbered to v6.5.0 separately; this preview retains its existing version.
+This records the October 6 qualification of PR #36 at `2.7.0-alpha1`.
+On October 8 the user approved promotion to `main` as stable `v2.7.0`,
+superseding the previous keep-draft instruction. The native mobile runtime
+and preview update channel retain their existing identifiers.
 
 ## Verified
 
@@ -31,7 +33,8 @@ restored database or used for the integration fixtures.
 ## Remaining gates
 
 - **Gmail callback and sync:** Google OAuth is absent on the beta server.
-  The user explicitly chose to leave Gmail unqualified and keep the PR draft.
+  Gmail was explicitly left unqualified. Promotion approval does not provide
+  evidence of a real Gmail callback or sync test.
 - **Patched native app:** Expo `57.0.27` and expo-updates `57.0.25` pass
   compatibility checks; TypeScript and fresh iOS/Android exports pass.
   Native runtime is now `2.7.0-alpha1-native1`, Android build 8 / iOS build 6.
@@ -43,4 +46,6 @@ restored database or used for the integration fixtures.
 - **Standalone iOS speech:** Expo Go checks cover the keyboard-dictation path;
   standalone native microphone recognition remains untested.
 
-Keep PR #36 draft while the remaining gates are open.
+The user approved server promotion with these qualification limits recorded.
+Do not describe the patched mobile build, native iOS speech or Gmail callback
+as tested until their checks have actually passed.

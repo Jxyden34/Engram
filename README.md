@@ -4,15 +4,16 @@
 
 Engram gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
 
-The 2.7 development beta also includes a shared iOS and Android app for project-scoped memories, search, memory-agent review, and a secure offline library of recent memories. See [mobile beta setup](docs/MOBILE.md).
+Engram 2.7 adds projects, Memory Agent and filtered Ask. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
 
-**Current stable release:** `v6.5.0`
-**Development alpha:** `v2.7.0-alpha1`
+**Current stable release:** `v2.7.0`
+**Mobile preview:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
-The v6.5.0 release renumbers the stable line and includes the security and
-dependency maintenance merged since v2.5.5. Memory Intelligence remains part
-of stable. See the [changelog](CHANGELOG.md).
+The v2.7.0 release promotes the projects and Memory Agent preview to `main`
+and returns to the 2.x release numbering after v6.5.0. It retains the stable
+security updates, dependency maintenance and Memory Intelligence features.
+See the [changelog](CHANGELOG.md).
 The v2.4.0 release added the read-only Gmail connector preview and restored
 the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 

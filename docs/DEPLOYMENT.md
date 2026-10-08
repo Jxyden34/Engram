@@ -1,6 +1,6 @@
 # Engram Deployment
 
-This guide covers deployment of Engram v6.5.0 on a Linux host using Docker Compose.
+This guide covers deployment of Engram v2.7.0 on a Linux host using Docker Compose. Existing installations must apply migrations 009 through 012 before starting the updated API and workers; see [the upgrade instructions](PROJECTS-AGENT.md).
 
 ---
 
