@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     public_origin: str
     cookie_secure: bool = True
     session_ttl_hours: int = 12
+    mobile_session_ttl_days: int = 30
     max_upload_mb: int = 50
     bulk_max_files: int = 1000
     bulk_max_total_mb: int = 500

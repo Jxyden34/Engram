@@ -131,14 +131,16 @@ def supersede(memory_id: str,payload: dict[str,Any],actor: str,owner_id: str|Non
     _queue_enrichment(str(row["id"]),actor); return dict(row),old
 
 
-def search(query: str,limit: int,memory_type: str|None,include_historical: bool=False):
-    qvec=embed_literal(query); history="" if include_historical else "AND (valid_to IS NULL OR valid_to > now())"
+def search(query: str,limit: int,memory_type: str|None,include_historical: bool=False,query_vector: str|None=None, *, since=None, until=None):
+    qvec=query_vector or embed_literal(query); history="" if include_historical else "AND (valid_to IS NULL OR valid_to > now())"
     with connect() as conn:
         rows=conn.execute(f"""
           SELECT {MEMORY_FIELDS},1-(embedding<=>%s::vector) AS semantic_score,ts_rank_cd(search_vector,websearch_to_tsquery('english',%s)) AS lexical_score,{MEMORY_SCORE_SQL} AS memory_score
           FROM memories WHERE deleted_at IS NULL AND embedding IS NOT NULL {history} AND (%s::text IS NULL OR memory_type=%s)
+            AND (%s::date IS NULL OR updated_at >= (%s::date::timestamp AT TIME ZONE 'UTC'))
+            AND (%s::date IS NULL OR updated_at < ((%s::date + 1)::timestamp AT TIME ZONE 'UTC'))
           ORDER BY ((1-(embedding<=>%s::vector))*.72 + LEAST(ts_rank_cd(search_vector,websearch_to_tsquery('english',%s)),1.0)*.13 + ({MEMORY_SCORE_SQL})*.15) DESC LIMIT %s
-        """,(qvec,query,memory_type,memory_type,qvec,query,limit)).fetchall()
+        """,(qvec,query,memory_type,memory_type,since,since,until,until,qvec,query,limit)).fetchall()
         ids=[r["id"] for r in rows]
         if ids: conn.execute("UPDATE memories SET access_count=access_count+1,last_accessed_at=now() WHERE id=ANY(%s::uuid[])",(ids,)); conn.commit()
     out=[]

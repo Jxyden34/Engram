@@ -74,6 +74,26 @@ jobs:
             -d engram \
             < db/init.sql
 
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/009_projects_agent.sql
+
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/010_project_oauth.sql
+
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/011_agent_schedules.sql
+
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/012_agent_review.sql
+
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
@@ -115,6 +135,38 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: "1"
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install pnpm
+        run: npm install --global pnpm@11.19.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check TypeScript
+        run: pnpm check
+      - name: Check offline draft storage
+        run: pnpm test:drafts
+      - name: Check offline memory library
+        run: pnpm test:offline
+      - name: Check memory history and connection helpers
+        run: pnpm test:memory-tools
+      - name: Check reviewed voice capture
+        run: pnpm test:voice
+      - name: Check Expo package versions
+        run: pnpm exec expo install --check
+      - name: Bundle iOS and Android
+        run: pnpm export
 
   docker:
     runs-on: ubuntu-latest

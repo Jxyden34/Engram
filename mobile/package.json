@@ -1,0 +1,32 @@
+{
+  "name": "engram-mobile",
+  "private": true,
+  "version": "2.7.0-alpha1",
+  "packageManager": "pnpm@11.19.0",
+  "main": "index.ts",
+  "dependencies": {
+    "expo": "~57.0.27",
+    "expo-dev-client": "~57.0.19",
+    "expo-secure-store": "~57.0.4",
+    "expo-speech-recognition": "57.1.0",
+    "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.25",
+    "react": "19.2.3",
+    "react-native": "0.86.3"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "check": "tsc --noEmit",
+    "test:drafts": "node --experimental-strip-types --test src/drafts.test.mjs",
+    "test:offline": "node --experimental-strip-types --test src/offline.test.mjs",
+    "test:memory-tools": "node --experimental-strip-types --test src/memoryTools.test.mjs",
+    "export": "expo export --platform all",
+    "test:voice": "node --experimental-strip-types --test src/voice.test.mjs"
+  }
+}

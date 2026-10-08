@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Engram Beta",
+    "slug": "engram-mobile",
+    "version": "2.7.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jxyden34.engram.beta",
+      "buildNumber": "6"
+    },
+    "android": {
+      "package": "com.jxyden34.engram.beta",
+      "versionCode": 8,
+      "adaptiveIcon": {
+        "backgroundColor": "#0C1420",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "extra": {
+      "release": "2.7.0-alpha1",
+      "eas": {
+        "projectId": "4bfa32da-3316-4752-aa52-605ded14d3c2"
+      }
+    },
+    "owner": "jxyden34",
+    "runtimeVersion": "2.7.0-alpha1-native1",
+    "updates": {
+      "url": "https://u.expo.dev/4bfa32da-3316-4752-aa52-605ded14d3c2"
+    },
+    "plugins": [
+      [
+        "expo-speech-recognition",
+        {
+          "speechRecognitionPermission": "Allow Engram to turn your speech into an editable memory draft.",
+          "microphonePermission": "Allow Engram to capture speech for a memory you review before saving."
+        }
+      ]
+    ]
+  }
+}

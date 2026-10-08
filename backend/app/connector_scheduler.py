@@ -2,6 +2,7 @@ import time
 
 from app.config import settings
 from app.connectors import queue_due_connectors
+from app.memory_agent import queue_due_scans
 
 
 def main():
@@ -9,6 +10,7 @@ def main():
     while True:
         try:
             queue_due_connectors()
+            queue_due_scans()
         except Exception as exc:
             print(f"connector scheduler error: {exc}", flush=True)
         time.sleep(interval)

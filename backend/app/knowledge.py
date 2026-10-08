@@ -8,7 +8,7 @@ from rq import Queue
 
 from app.chatgpt_import import _ollama_json
 from app.config import settings
-from app.database import connect
+from app.database import connect, current_project_id, project_job
 from app.embeddings import embed_literal
 from app.util import json_text
 
@@ -65,7 +65,8 @@ def queue_memory_enrichment(memory_id: str, actor: str = "system:knowledge"):
             (memory_id, memory["updated_at"], settings().chat_model),
         ).fetchone()
         conn.commit()
-    queue().enqueue("app.knowledge.enrich_memory_job", memory_id, actor, job_timeout="30m")
+    queue().enqueue("app.knowledge.enrich_memory_job", memory_id, actor, job_timeout="30m",
+                    meta={"project_id": current_project_id()})
     return dict(row)
 
 
@@ -99,7 +100,7 @@ def _upsert_entity(conn, item: dict[str, Any], owner_id: str | None, actor: str)
         """
         INSERT INTO entities(owner_id,name,normalized_name,entity_type,description,aliases,embedding,created_by,updated_by)
         VALUES (%s,%s,%s,%s,%s,%s,%s::vector,%s,%s)
-        ON CONFLICT (normalized_name,entity_type) DO UPDATE SET
+        ON CONFLICT (project_id,normalized_name,entity_type) DO UPDATE SET
           description=COALESCE(EXCLUDED.description,entities.description),
           aliases=(SELECT ARRAY(SELECT DISTINCT x FROM unnest(entities.aliases || EXCLUDED.aliases) x)),
           embedding=EXCLUDED.embedding,updated_by=EXCLUDED.updated_by,updated_at=now()
@@ -110,6 +111,7 @@ def _upsert_entity(conn, item: dict[str, Any], owner_id: str | None, actor: str)
     return dict(row)
 
 
+@project_job
 def enrich_memory_job(memory_id: str, actor: str = "system:knowledge"):
     with connect() as conn:
         memory = conn.execute(

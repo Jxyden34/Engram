@@ -17,7 +17,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from app.config import settings
-from app.database import connect
+from app.database import connect, current_project_id
 from app.security import Principal, sha256
 
 
@@ -367,10 +367,10 @@ def list_consents():
             SELECT o.*, c.client_name, c.registration_type,
                    u.username,
                    (SELECT count(*) FROM oauth_access_tokens t
-                    WHERE t.client_id=o.client_id AND t.user_id=o.user_id
+                    WHERE t.client_id=o.client_id AND t.user_id=o.user_id AND t.project_id=o.project_id
                       AND t.revoked_at IS NULL AND t.expires_at > now()) AS active_access_tokens,
                    (SELECT count(*) FROM oauth_refresh_tokens r
-                    WHERE r.client_id=o.client_id AND r.user_id=o.user_id
+                    WHERE r.client_id=o.client_id AND r.user_id=o.user_id AND r.project_id=o.project_id
                       AND r.revoked_at IS NULL AND r.expires_at > now()) AS active_refresh_tokens
             FROM oauth_consents o
             JOIN oauth_clients c ON c.client_id=o.client_id
@@ -397,17 +397,17 @@ def revoke_consent(consent_id: str):
             """
             UPDATE oauth_access_tokens
             SET revoked_at=coalesce(revoked_at,now())
-            WHERE client_id=%s AND user_id=%s AND resource=%s
+            WHERE client_id=%s AND user_id=%s AND resource=%s AND project_id=%s
             """,
-            (consent["client_id"], consent["user_id"], consent["resource"]),
+            (consent["client_id"], consent["user_id"], consent["resource"], consent["project_id"]),
         )
         conn.execute(
             """
             UPDATE oauth_refresh_tokens
             SET revoked_at=coalesce(revoked_at,now())
-            WHERE client_id=%s AND user_id=%s AND resource=%s
+            WHERE client_id=%s AND user_id=%s AND resource=%s AND project_id=%s
             """,
-            (consent["client_id"], consent["user_id"], consent["resource"]),
+            (consent["client_id"], consent["user_id"], consent["resource"], consent["project_id"]),
         )
         conn.commit()
     return {"id": str(consent["id"]), "client_id": consent["client_id"]}
@@ -699,6 +699,7 @@ def render_consent(request_data: dict[str, Any], username: str, csrf_token: str)
         "code_challenge": request_data["code_challenge"],
         "code_challenge_method": request_data["code_challenge_method"],
         "resource": request_data["resource"],
+        "project_id": request_data["project_id"],
         "csrf_token": csrf_token,
     }
     hidden_inputs = "".join(
@@ -733,6 +734,7 @@ def render_consent(request_data: dict[str, Any], username: str, csrf_token: str)
   <div class="logo">M</div>
   <h1>Allow {html.escape(client['client_name'])}?</h1>
   <p>Signed in as <strong>{html.escape(username)}</strong>. This application is requesting access to your private Engram.</p>
+  <p>Project: <strong>{html.escape(request_data['project_name'])}</strong>. Access stays in this project.</p>
   <div class="box">
     <div class="meta">Client ID</div>
     <div>{html.escape(request_data['client_id'])}</div>
@@ -782,9 +784,9 @@ def create_authorization_code(
             """
             INSERT INTO oauth_authorization_codes(
                 code_hash, client_id, user_id, redirect_uri, scopes,
-                resource, code_challenge, code_challenge_method, expires_at
+                resource, code_challenge, code_challenge_method, expires_at, project_id
             )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,'S256',%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,'S256',%s,%s)
             """,
             (
                 sha256(code),
@@ -795,18 +797,19 @@ def create_authorization_code(
                 resource,
                 code_challenge,
                 expires,
+                current_project_id(),
             ),
         )
         conn.execute(
             """
-            INSERT INTO oauth_consents(client_id,user_id,scopes,resource,authorized_at,revoked_at)
-            VALUES (%s,%s,%s,%s,now(),NULL)
-            ON CONFLICT (client_id,user_id,resource)
+            INSERT INTO oauth_consents(client_id,user_id,scopes,resource,project_id,authorized_at,revoked_at)
+            VALUES (%s,%s,%s,%s,%s,now(),NULL)
+            ON CONFLICT (client_id,user_id,resource,project_id)
             DO UPDATE SET scopes=EXCLUDED.scopes,
                           authorized_at=now(),
                           revoked_at=NULL
             """,
-            (client_id, user_id, scopes, resource),
+            (client_id, user_id, scopes, resource, current_project_id()),
         )
         conn.commit()
     return code
@@ -824,6 +827,7 @@ def _issue_token_pair(
     resource: str,
     family_id=None,
     parent_id=None,
+    project_id=None,
 ):
     cfg = settings()
     access = _access_token()
@@ -832,15 +836,16 @@ def _issue_token_pair(
     access_exp = now + timedelta(minutes=cfg.oauth_access_token_minutes)
     refresh_exp = now + timedelta(days=cfg.oauth_refresh_token_days)
     family_id = family_id or uuid4()
+    project_id = project_id or current_project_id()
 
     with connect() as conn:
         refresh_row = conn.execute(
             """
             INSERT INTO oauth_refresh_tokens(
                 token_hash, token_prefix, family_id, parent_id, client_id,
-                user_id, scopes, resource, expires_at
+                user_id, scopes, resource, expires_at, project_id
             )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
             """,
             (
@@ -853,6 +858,7 @@ def _issue_token_pair(
                 scopes,
                 resource,
                 refresh_exp,
+                project_id,
             ),
         ).fetchone()
 
@@ -860,9 +866,9 @@ def _issue_token_pair(
             """
             INSERT INTO oauth_access_tokens(
                 token_hash, token_prefix, client_id, user_id,
-                refresh_token_id, scopes, resource, expires_at
+                refresh_token_id, scopes, resource, expires_at, project_id
             )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
             (
                 sha256(access),
@@ -873,6 +879,7 @@ def _issue_token_pair(
                 scopes,
                 resource,
                 access_exp,
+                project_id,
             ),
         )
         conn.execute(
@@ -883,9 +890,9 @@ def _issue_token_pair(
             """
             UPDATE oauth_consents
             SET last_used_at=now()
-            WHERE client_id=%s AND user_id=%s AND resource=%s
+            WHERE client_id=%s AND user_id=%s AND resource=%s AND project_id=%s
             """,
-            (client_id, user_id, resource),
+            (client_id, user_id, resource, project_id),
         )
         conn.commit()
 
@@ -959,6 +966,7 @@ def exchange_authorization_code(form: dict[str, str]):
             str(row["user_id"]),
             list(row["scopes"]),
             row["resource"],
+            project_id=row["project_id"],
         )
     )
 
@@ -1050,6 +1058,7 @@ def exchange_refresh_token(form: dict[str, str]):
             row["resource"],
             family_id=row["family_id"],
             parent_id=row["id"],
+            project_id=row["project_id"],
         )
     )
 
@@ -1114,7 +1123,7 @@ def oauth_access_token_principal(token: str, expected_resource: str | None = Non
     with connect() as conn:
         row = conn.execute(
             """
-            SELECT t.id, t.client_id, t.user_id, t.scopes, t.resource,
+            SELECT t.id, t.client_id, t.user_id, t.scopes, t.resource, t.project_id,
                    t.expires_at, c.client_name, c.is_active,
                    u.username, u.is_active AS user_active
             FROM oauth_access_tokens t
@@ -1148,9 +1157,9 @@ def oauth_access_token_principal(token: str, expected_resource: str | None = Non
             """
             UPDATE oauth_consents
             SET last_used_at=now()
-            WHERE client_id=%s AND user_id=%s AND resource=%s
+            WHERE client_id=%s AND user_id=%s AND resource=%s AND project_id=%s
             """,
-            (row["client_id"], row["user_id"], row["resource"]),
+            (row["client_id"], row["user_id"], row["resource"], row["project_id"]),
         )
         conn.commit()
 
@@ -1161,4 +1170,5 @@ def oauth_access_token_principal(token: str, expected_resource: str | None = Non
         is_admin=False,
         scopes=set(row["scopes"]),
         auth_type="oauth",
+        project_id=str(row["project_id"]),
     )

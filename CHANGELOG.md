@@ -1,5 +1,72 @@
 # Changelog
 
+## 2.7.0 - 2026-10-08
+
+### Added
+
+- Promote PR #36 to `main`: projects, project-bound API keys and OAuth MCP grants, PostgreSQL row-level security, and project context in ingestion and background jobs. Existing records and credentials remain in Personal.
+- Add opt-in scheduled Memory Agent scans, review history, related-memory suggestions and human-approved consolidation captures. Source memories remain unchanged; stale approvals are rejected and retries reuse the recorded result.
+- Add Ask Engram with memory type/date filters and checked source quotations, administrator cross-project search, and an installable web app.
+- Include the iOS/Android companion source with offline drafts, favourites, memory history, linked navigation, reviewed speech and a local Inbox. Native distribution remains on the `alpha1` preview channel; patched build 8 and standalone iOS speech still require device qualification.
+
+### Changed
+
+- Return to v2.7.0 numbering by user approval after v6.5.0. Retain all security and dependency fixes already merged into `main`; explicitly select v2.7.0 as the latest GitHub release.
+
+### Upgrade
+
+- Back up PostgreSQL and object storage. Stop API, worker and connector scheduler before applying migrations 009, 010, 011 and 012 in order, then rebuild and start the updated services. See [upgrade and verification](docs/PROJECTS-AGENT.md).
+- Preserve the pre-upgrade database and application images. Reverting code alone after creating project data is insufficient. Existing Gmail configuration is retained; real callback/sync qualification remains open.
+
+## 2.7.0-alpha1 - preview history
+
+- Align Expo compatibility patches and reserve Android build 8 / iOS build 6 for runtime `2.7.0-alpha1-native1`. Keep tested Android build 7 available for rollback. Record restored-database, object-store and document qualification in [the Alpha1 report](docs/ALPHA1_QUALIFICATION.md); Gmail remains unqualified. Promotion was approved on October 8.
+- Add Ask filters for memory type and inclusive last-updated date ranges in UTC. Apply them before retrieval inside the active project and display the filters with each answer. Ollama remains the answer provider.
+- Add project-scoped related-memory suggestions to Agent scans. Read both sources and explicitly approve a link; existing links and deleted/historical memories are excluded.
+- Add reviewed Agent approval, edited consolidation captures, source freshness checks, accepted review history and audit events. Approvals are atomic and repeat requests reuse the existing result. Original memories remain unchanged.
+- Add migration 012 and a separate alpha1 mobile build/update channel within PR #36. Preserve beta4 commit `9f34cd1` and Android build 6 for rollback. Alpha1 uses the same native speech runtime with Android build 7.
+
+## 2.7.0-beta4 - unreleased
+
+- Add Ask Engram: ask questions about the active project's memories, read AI answer points alongside verified source excerpts, and open the supporting memories. Reject invented citations and show explicit insufficient-information or service-unavailable states.
+- Add mobile version history with expandable previous content and an explicit action to review a previous version as a new capture. Current memories remain unchanged.
+- Add navigation between linked memories and fetching full server content from a saved excerpt.
+- Add quick capture templates for ideas, decisions and meeting notes. Preserve unfinished capture text before starting a template or reusing an answer/version.
+- Add voice capture with editable transcript review before adding speech to a capture or Inbox thought. Use native device speech recognition where available, with keyboard dictation guidance in Expo Go and older builds. Audio is not stored by Engram.
+- Add a device-local Inbox for unassigned thoughts. Review and choose an accessible project before saving; retain the reviewed item if delivery fails. Keep Inbox items bound to their server/account and separate from project drafts and Ask retrieval.
+- Move the native runtime to `2.7.0-beta4-native1` for the speech module; Android build 6 and iOS build number 4 require rebuilding. Earlier beta4 Ask/history/template updates used the beta3 runtime.
+
+## 2.7.0-beta3 - unreleased
+
+- Add device-secured mobile favourites: keep up to 10 memories per project in the offline library even after they leave the recent list. Refresh newer copies when available.
+- Add memory type filters and the native iOS/Android share menu for a selected memory. Shared offline excerpts are labelled.
+- Add a project-scoped offline memory library on mobile. Save up to 20 recent memories in device secure storage, read excerpts while disconnected, and fall back to local search when the server is unreachable.
+- Show when an offline copy was saved and allow clearing a project's local copies from Settings. Full server search and long memory content still require a connection.
+- Add mobile Agent review actions, recent scan history, and navigation visible above Android system UI.
+- Add Android development builds and a dedicated EAS Update preview channel for compatible JavaScript and asset updates.
+- Bump the Android preview to build 5 and iOS build number to 3.
+
+## 2.7.0-beta2 - unreleased
+
+- Add one-tap mobile Quick Capture with device-secured offline drafts scoped to the original account and project.
+- Allow saved drafts to be edited, sent manually, or deleted. Keep an unfinished capture when switching projects or signing out.
+- Open the mobile app on Capture, keep a saved session usable while the server is offline, and bump the Android preview build version.
+- Add the installable iPhone home-screen web app; it requires a connection and has separate storage from the Expo app.
+
+## 2.7.0-dev-beta.1 - unreleased
+
+- Add project selection and project-bound API keys. Existing records migrate to Personal.
+- Enforce project boundaries on memory, document, import, graph and connector tables with PostgreSQL row-level security.
+- Carry project context into queued ingestion and enrichment jobs.
+- Add a read-only memory agent that proposes reviews for duplicates, conflicts, stale facts and missing provenance; it never edits memories.
+- Bind new OAuth MCP grants and renewed tokens to the project selected at consent. Existing grants remain in Personal.
+- Propose reviews for low-confidence memories and conflicts from document imports.
+- Add opt-in daily, three-day, or weekly agent scans per project, with a visible run history and failure status.
+- Add administrator-selected cross-project memory search and AI consolidation drafts that preserve both source memories.
+- Add an Expo iOS/Android beta app with secure device session storage, project switching, memory browsing and creation, search, and agent findings. Mobile sessions are revocable and expire after 30 days by default.
+- Check the beta app against a physical iPhone's Expo Go SDK and keep the Expo dependency aligned with the installed client during early testing.
+- This is a development beta. Apply migrations 009, 010, and 011 before starting the updated API and workers.
+
 ## 6.5.0 - 2026-10-06
 
 ### Changed
