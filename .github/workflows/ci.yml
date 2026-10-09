@@ -164,8 +164,12 @@ jobs:
         run: pnpm test:memory-tools
       - name: Check reviewed voice capture
         run: pnpm test:voice
+      - name: Check dependency security regressions
+        run: pnpm test:dependency-security
       - name: Check Expo package versions
         run: pnpm exec expo install --check
+      - name: Check iOS native project generation
+        run: pnpm exec expo prebuild --platform ios --no-install
       - name: Bundle iOS and Android
         run: pnpm export
 
