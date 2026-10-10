@@ -116,8 +116,9 @@ test('brace depth boundary covers internal stringify and cyclic ASTs', () => {
   assert.throws(() => braces.parse('{1..' + '{'.repeat(300) + 'a,b' + '}'.repeat(300) + ',2}'), SyntaxError);
 });
 
-const keys = generateKeyPairSync('rsa', { modulusLength: 1024, publicExponent: 3 });
+const keys = generateKeyPairSync('rsa', { modulusLength: 2048, publicExponent: 3 });
 const publicKey = forge.pki.publicKeyFromPem(keys.publicKey.export({ type: 'spki', format: 'pem' }).toString());
+const keyBytes = Math.ceil(publicKey.n.bitLength() / 8);
 const digest = forge.md.sha256.create().update('Engram dependency regression').digest().getBytes();
 const asn1 = forge.asn1;
 const node = (type, constructed, value) => asn1.create(asn1.Class.UNIVERSAL, type, constructed, value);
@@ -128,10 +129,15 @@ function signatureForDigestInfo({ parameters = true, extraAlgorithm = [], extraO
   algorithm.push(...extraAlgorithm);
   const info = node(asn1.Type.SEQUENCE, true, [node(asn1.Type.SEQUENCE, true, algorithm), node(asn1.Type.OCTETSTRING, false, digest), ...extraOuter]);
   const der = Buffer.from(asn1.toDer(info).getBytes(), 'binary');
-  const padding = Buffer.alloc(128 - der.length - 3, 0xff);
+  const padding = Buffer.alloc(keyBytes - der.length - 3, 0xff);
   const encoded = Buffer.concat([Buffer.from([0, 1]), padding, Buffer.from([0]), der]);
   return privateEncrypt({ key: keys.privateKey, padding: constants.RSA_NO_PADDING }, encoded).toString('binary');
 }
+
+test('RSA regression fixtures use at least 2048-bit keys', () => {
+  assert.ok(keys.publicKey.asymmetricKeyDetails.modulusLength >= 2048);
+  assert.equal(keyBytes, keys.publicKey.asymmetricKeyDetails.modulusLength / 8);
+});
 
 test('RSA verification rejects extra nested and outer DigestInfo elements', () => {
   const garbage = node(asn1.Type.OCTETSTRING, false, 'unconsumed');
