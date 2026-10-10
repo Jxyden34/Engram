@@ -23,6 +23,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "check": "tsc --noEmit",
+    "test:dependency-security": "node --test src/dependency-security.test.mjs",
     "test:drafts": "node --experimental-strip-types --test src/drafts.test.mjs",
     "test:offline": "node --experimental-strip-types --test src/offline.test.mjs",
     "test:memory-tools": "node --experimental-strip-types --test src/memoryTools.test.mjs",

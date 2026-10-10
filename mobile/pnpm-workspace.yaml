@@ -1,3 +1,8 @@
+overrides:
+  'shell-quote@>=1.8.4 <1.11.0': 1.12.0
+  'source-map-js@<1.2.2': 1.2.2
+  'xcode@3.0.1>uuid': 11.1.1
+
 minimumReleaseAgeExclude:
   - expo-constants@57.0.20 || 57.0.21
   - expo-modules-core@57.0.20 || 57.0.21
@@ -16,3 +21,7 @@ minimumReleaseAgeExclude:
   - expo-asset@57.0.19
   - expo-modules-autolinking@57.0.14
   - expo-eas-client@57.0.5
+
+patchedDependencies:
+  braces@3.0.3: patches/braces@3.0.3.patch
+  node-forge@1.4.0: patches/node-forge@1.4.0.patch
