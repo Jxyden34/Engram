@@ -1,8 +1,34 @@
 # Engram
 
-> Self-hosted personal memory, source-ingestion and AI context platform.
+> Your knowledge. Your context. Your server.
 
-Engram gives you one controlled source of truth for personal knowledge. Humans use the web dashboard, software uses the REST API, and AI clients can use the same governed data through MCP.
+Stop rebuilding context from scattered documents, saved pages and old conversations.
+Engram brings them into a personal memory platform you host yourself, with local
+Ollama processing, source-aware search and controlled access for your AI clients.
+
+**[Explore Engram](https://jxyden34.github.io/Engram/)** ·
+**[Set up your server](docs/DEPLOYMENT.md)** ·
+**[Connect an MCP client](docs/OAUTH-MCP.md)** ·
+**[Report feedback](https://github.com/Jxyden34/Engram/issues/new/choose)**
+
+**Free for personal, noncommercial self-hosting.** Commercial, workplace and
+managed-hosting use require separate written permission. Engram is
+source-available; see the [license](LICENSE) and [usage guide](docs/LICENSING.md).
+
+## Why Engram?
+
+| When you need to… | Engram gives you… |
+| --- | --- |
+| Remember the reasoning behind a decision | Source provenance, versioned memories and an event timeline. |
+| Bring documents and conversations together | File ingestion, ChatGPT export import and a browser capture extension. |
+| Keep extracted facts under your control | A Memory Inbox and human-reviewed agent proposals. |
+| Give an AI client useful context | Project-scoped retrieval through MCP and the REST API. |
+| Keep personal AI processing on your infrastructure | Local embeddings and extraction through Ollama. |
+| Recover your knowledge after a server failure | Encrypted backups and documented, isolated restore testing. |
+
+Built for technically comfortable personal users running Linux and Docker Compose.
+The [deployment guide](docs/DEPLOYMENT.md) recommends 4 CPU cores and 8 GB RAM
+(16 GB+ preferred), plus storage for your data, models and backups.
 
 Engram 2.7 adds projects, Memory Agent and filtered Ask. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
 

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://jxyden34.github.io/Engram/sitemap.xml
