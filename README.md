@@ -223,7 +223,9 @@ See [SECURITY.md](SECURITY.md).
 
 ## License
 
-This repository is currently **source-visible but not open source**. See [LICENSE](LICENSE).
+Engram is **source-available and free for personal, noncommercial self-hosting**.
+Commercial, workplace and managed-hosting use require separate written permission.
+See [LICENSE](LICENSE) and the [usage guide](docs/LICENSING.md).
 
 
 ## v2.1 Ingestion Mesh
