@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — v2.8 development
+
+- Add bounded Reflect answers with quick/standard/deep evidence budgets and checked, multi-source quotations.
+- Add explicitly saved project briefs with source fingerprints, project isolation, freshness checks and manual rebuild/review. Source memories remain unchanged.
+- Add migration 013 for saved briefs; see [rollout and limitations](docs/REFLECTION-BRIEFS.md). Runtime version remains 2.7.0 pending an explicitly approved release.
+
 ## 2.7.0 - 2026-10-08
 
 ### Added

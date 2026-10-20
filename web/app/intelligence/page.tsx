@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
+import ReflectionPanel from "@/components/ReflectionPanel";
 import { api, dateText } from "@/lib/api";
 
 type Plan = { intent: string; include_historical: boolean; strategy: string };
@@ -69,6 +70,7 @@ export default function IntelligencePage() {
     <Topbar eyebrow="Memory intelligence" title="Find the right context" />
     {error && <div className="errorBox">{error}</div>}
     {notice && <div className="successBox">{notice}</div>}
+    <ReflectionPanel />
     <section className="panel">
       <div className="panelHead"><h2>Context builder</h2><span className="meta">No generated answer</span></div>
       <p className="meta">Search blends meaning, exact words, entity links, time and source quality. The preview keeps source labels so you can check each fact.</p>

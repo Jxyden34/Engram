@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from io import BytesIO
+from uuid import UUID
 
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from urllib.parse import quote
@@ -18,6 +19,7 @@ from app import disaster_recovery as dr
 from app import projects
 from app import memory_agent
 from app import ask
+from app import reflection
 from app import document_memory_import as doc_mem
 from app.audit import log
 from app.capture import create_capture
@@ -61,6 +63,8 @@ from app.schemas import (
     RelationCreate,
     SearchRequest,
     AskRequest,
+    ReflectRequest,
+    BriefCreate,
     AgentApprove,
 
     ContextRequest,
@@ -566,6 +570,41 @@ def memory_context(body: ContextRequest, request: Request):
     p = require(request, "memory:read")
     return intelligence.build_context(body.query, body.max_chars,
                                       body.include_documents and "document:read" in p.scopes)
+
+
+@app.post('/api/v1/intelligence/reflect')
+def reflect_memories(body: ReflectRequest, request: Request):
+    require(request, 'memory:read')
+    check_rate(request, 'reflect', 3, 60)
+    return reflection.reflect(body.question, body.budget)
+
+
+@app.get('/api/v1/intelligence/briefs')
+def list_project_briefs(request: Request):
+    require(request, 'memory:read')
+    return reflection.list_briefs()
+
+
+@app.post('/api/v1/intelligence/briefs', status_code=201)
+def save_project_brief(body: BriefCreate, request: Request):
+    p = require(request, 'memory:write')
+    result = reflection.save_brief(body, p.actor)
+    log(p.actor, 'brief.created', 'project_brief', str(result['id']), request)
+    return result
+
+
+@app.get('/api/v1/intelligence/briefs/{brief_id}')
+def get_project_brief(brief_id: UUID, request: Request):
+    require(request, 'memory:read')
+    return reflection.get_brief(str(brief_id))
+
+
+@app.delete('/api/v1/intelligence/briefs/{brief_id}')
+def delete_project_brief(brief_id: UUID, request: Request):
+    p = require(request, 'memory:write')
+    result = reflection.delete_brief(str(brief_id))
+    log(p.actor, 'brief.deleted', 'project_brief', str(brief_id), request)
+    return result
 
 
 @app.get("/api/v1/intelligence/conflict-candidates")

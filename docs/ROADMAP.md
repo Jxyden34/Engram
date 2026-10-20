@@ -533,7 +533,25 @@ project boundaries.
 
 ---
 
-## v2.8 — Memory Lifecycle 🔵
+## v2.8 — Memory Lifecycle 🟢
+
+### Hindsight-inspired reflection and project briefs
+
+Implementation for the v2.8 development track; stable remains v2.7.0 until a
+separate release is explicitly approved. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
+
+- Bounded, current-project Reflect answers with quick/standard/deep evidence budgets.
+- Multiple exact source excerpts per claim, checked before displaying an answer.
+- Explicitly saved project briefs inspired by Hindsight mental models.
+- Freshness checks cover supporting edits/deletions and new project memories.
+- Changed supporting evidence hides the previous generated answer; rebuild and
+  review create a new snapshot. Original memories are never rewritten.
+- Existing local Ollama and PostgreSQL/RLS remain the implementation; no Hindsight
+  runtime or new model dependency is required.
+
+This first increment does not implement autonomous reflection loops, automatic
+observations, background brief refresh, decay or archival. Those remain future
+lifecycle work below.
 
 ### Decay
 
