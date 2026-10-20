@@ -1,6 +1,6 @@
 import json
 from fastapi import HTTPException
-from app import memories
+from app import intelligence
 from app.chatgpt_import import _ollama_json
 from app.database import current_project_id
 
@@ -25,7 +25,7 @@ def answer(question: str, memory_type: str | None = None, since=None, until=None
     question = question.strip()
     if not question:
         raise HTTPException(status_code=422, detail="Enter a question first")
-    rows = memories.search(question, 5, memory_type, **({'since': since, 'until': until} if since or until else {}))
+    rows = intelligence.search_memories(question, 5, memory_type, since=since, until=until, infer_history=False)
     sources = [{"number": i + 1, "id": str(row["id"]), "title": row["title"],
                 "content": row["content"][:1600], "updated_at": row["updated_at"]}
                for i, row in enumerate(rows)]

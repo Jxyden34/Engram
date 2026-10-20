@@ -61,7 +61,7 @@ def test_mobile_login_project_scope_and_revocation():
         versions_response = client.get(f'/api/v1/memories/{first}/versions', headers=headers)
         assert versions_response.json()[0]['snapshot']['content'] == 'Earlier decision text'
         assert client.get(f'/api/v1/memories/{first}/relations', headers=headers).json()[0]['to_memory_id'] == second
-        with patch('app.memories.embed_literal', return_value='[' + ','.join(['0'] * 384) + ']'), patch('app.ask._ollama_json', return_value={'claims': [], 'insufficient': True}):
+        with patch('app.intelligence.embed_literal', return_value='[' + ','.join(['0'] * 384) + ']'), patch('app.ask._ollama_json', return_value={'claims': [], 'insufficient': True}):
             answer_response = client.post('/api/v1/ask', headers=headers, json={'question': 'When is launch?'})
         assert answer_response.status_code == 200
         assert answer_response.json()['project_id'] == project_id

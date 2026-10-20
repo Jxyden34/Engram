@@ -61,3 +61,61 @@ def test_hybrid_retrieval_and_reviewed_resolution(monkeypatch):
             conn.execute("DELETE FROM memory_versions WHERE memory_id=ANY(%s::uuid[])", ([first, second, lexical],))
             conn.execute("DELETE FROM memories WHERE id=ANY(%s::uuid[])", ([first, second, lexical],))
             conn.commit()
+
+
+def test_ask_hybrid_filters_candidates_before_limits_and_preserves_project_scope(monkeypatch):
+    from app import ask
+    from app.database import project_scope
+
+    token = "filter" + uuid4().hex
+    vector = "[" + ",".join(["1"] + ["0"] * 383) + "]"
+    monkeypatch.setattr(intelligence, "embed_literal", lambda _: vector)
+    monkeypatch.setattr(ask, "_ollama_json", lambda *_args, **_kwargs: {"claims": [], "insufficient": True})
+    with connect() as conn:
+        projects = [str(conn.execute("INSERT INTO projects(slug,name) VALUES (%s,'Retrieval filters') RETURNING id",
+                    (token + suffix,)).fetchone()["id"]) for suffix in ("a", "b")]
+        conn.commit()
+    try:
+        with project_scope(projects[0]):
+            with connect() as conn:
+                semantic = str(conn.execute("""INSERT INTO memories(title,content,memory_type,embedding,updated_at,created_by,updated_by)
+                    VALUES (%s,'Start boundary','decision',%s::vector,'2026-09-30T00:00:00Z','test','test') RETURNING id""",
+                    (token, vector)).fetchone()["id"])
+                lexical = str(conn.execute("""INSERT INTO memories(title,content,memory_type,updated_at,created_by,updated_by)
+                    VALUES (%s,'End boundary without embedding','decision','2026-09-30T23:59:59.999999Z','test','test') RETURNING id""",
+                    (token,)).fetchone()["id"])
+                # More excluded near-neighbours than the semantic candidate limit.
+                conn.execute("""INSERT INTO memories(title,content,memory_type,embedding,updated_at,created_by,updated_by)
+                    SELECT %s,'Outside date window','decision',%s::vector,'2026-10-01T00:00:00Z','test','test'
+                    FROM generate_series(1,60)""", (token, vector))
+                conn.execute("""INSERT INTO memories(title,content,memory_type,embedding,updated_at,valid_to,deleted_at,created_by,updated_by)
+                    VALUES (%s,'Wrong type','general',%s::vector,'2026-09-30',NULL,NULL,'test','test'),
+                           (%s,'Historical','decision',%s::vector,'2026-09-30','2026-09-29',NULL,'test','test'),
+                           (%s,'Deleted','decision',%s::vector,'2026-09-30',NULL,now(),'test','test'),
+                           (%s,'Before start','decision',%s::vector,'2026-09-29T23:59:59.999999Z',NULL,NULL,'test','test')""",
+                    (token, vector, token, vector, token, vector, token, vector))
+                conn.commit()
+        with project_scope(projects[1]):
+            with connect() as conn:
+                foreign = str(conn.execute("""INSERT INTO memories(title,content,memory_type,embedding,updated_at,created_by,updated_by)
+                    VALUES (%s,'Other project','decision',%s::vector,'2026-09-30','test','test') RETURNING id""",
+                    (token, vector)).fetchone()["id"])
+                conn.commit()
+        with project_scope(projects[0]):
+            # 'When' must not make Ask include historical memories implicitly.
+            result = ask.answer("When " + token, "decision", "2026-09-30", "2026-09-30")
+            assert {str(row["id"]) for row in result["sources"]} == {semantic, lexical}
+            assert result["project_id"] == projects[0]
+            assert result["filters"]["since"] == "2026-09-30"
+        with project_scope(projects[1]):
+            result = ask.answer(token, "decision", "2026-09-30", "2026-09-30")
+            assert [str(row["id"]) for row in result["sources"]] == [foreign]
+    finally:
+        for project in projects:
+            with project_scope(project):
+                with connect() as conn:
+                    conn.execute("DELETE FROM memories WHERE project_id=%s", (project,))
+                    conn.commit()
+        with connect() as conn:
+            conn.execute("DELETE FROM projects WHERE id=ANY(%s::uuid[])", (projects,))
+            conn.commit()
