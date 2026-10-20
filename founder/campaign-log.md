@@ -13,6 +13,16 @@ submission does not imply acceptance, public visibility or adoption.
   `3c0f2ac54a78b58b4b220bf0f2a4a25e805cf5be`. Backend, web, mobile, Docker,
   disaster-recovery checks and CodeQL passed both on the PR and merged main.
 - Repository description, homepage URL and 12 relevant discovery topics updated.
+- [Owner's GitHub profile](https://github.com/Jxyden34) now leads with an Engram
+  feature and direct setup links. [Profile PR #1](https://github.com/Jxyden34/Jxyden34/pull/1)
+  merged as `0efcc64283610b67080ded93e9baad42bf4af42b`; rendered feature verified.
+  Engram is the first pinned repository, with the other pins' relative order preserved.
+- [Practical MCP connection guide](https://jxyden34.github.io/Engram/mcp.html)
+  adds a synthetic first-retrieval exercise, Claude Code HTTP/OAuth setup,
+  project and scope checks, client privacy boundaries and troubleshooting.
+  Desktop and 390 px mobile layouts, anchors and disclosure interaction checked.
+  The instructions were checked against implementation and primary client docs;
+  a complete fresh client/server installation was not run as part of this copy change.
 - [Personal self-hosting license](https://github.com/Jxyden34/Engram/blob/main/LICENSE)
   and [usage guide](https://github.com/Jxyden34/Engram/blob/main/docs/LICENSING.md)
   implement the owner's selection: free personal noncommercial use with commercial
@@ -39,9 +49,10 @@ involvement template. No paid placements, bulk messages or vote requests were us
 ## Remaining work and constraints
 
 - Glama: the owner approved creating a free account with the public project
-  contact and accepting its terms. Signup then showed a CAPTCHA; separate
-  permission to complete that challenge is pending. Account creation and the
-  server listing are not yet confirmed. Do not claim a Glama score or add a
+  contact, accepting its terms and completing the CAPTCHA. The CAPTCHA is verified
+  and signup advanced to email OTP verification for jayden@hindley.tech.
+  The emailed code is pending; authenticated account access and the server
+  listing are not yet confirmed. Do not claim a Glama score or add a
   badge that suggests validation before it exists.
 - If Glama can index the repository, describe the actual authenticated HTTP MCP
   deployment. Do not fabricate a stdio wrapper or a shared public endpoint to
