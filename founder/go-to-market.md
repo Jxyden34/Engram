@@ -23,7 +23,7 @@ exists; audience size and demand for this Engram are not yet measured.
 | --- | --- | --- | --- | --- |
 | 1 | GitHub search and repository | Publish homepage, topics, clearer README and license | Days to weeks | $0 direct; founder time unpriced |
 | 2 | Awesome MCP Servers, Knowledge & Memory | Submit one factual listing with affiliation disclosed | Depends on maintainer review | $0 direct; founder time unpriced |
-| 3 | LinkedIn, Jayden's own profile | Publish a technical introduction and request specific feedback | Days | $0 direct; founder time unpriced |
+| 3 | r/SideProject | Publish a disclosed builder introduction and ask for setup feedback | Days | $0 direct; founder time unpriced |
 | 4 | r/selfhosted New Project Megathread | One disclosed introduction after checking current thread and account eligibility | Days to weeks | $0 direct; founder time unpriced |
 | 5 | Searchable technical documentation | Explain local MCP setup, human review and restore evidence | Weeks to months | $0 direct; founder time unpriced |
 
@@ -33,17 +33,19 @@ users, testimonials or conversion rates. No unsolicited bulk DMs or vote request
 ## Publishing sequence
 
 Publish the owned homepage and license first, verify links, then post the
-LinkedIn introduction and submit the directory PR. Check for existing posts
+community introductions and submit the directory PR. Check for existing posts
 before adding a community introduction. Review real questions before publishing
 a second post; repeat only when there is a useful new demonstration or result.
 
-The three initial surfaces are GitHub, LinkedIn and the r/selfhosted megathread.
+The three initial surfaces are GitHub, r/SideProject and the r/selfhosted megathread.
+LinkedIn is excluded by the owner. Check existing X or other relevant accounts
+for additional distribution without creating accounts or buying promotion.
 [r/selfhosted rules](https://www.reddit.com/r/selfhosted/about/rules.json)
 limit projects under three months to the New Project Megathread; the repository
 was created on 11 September 2026. This campaign uses 11 December as a conservative
 earliest date to reassess a standalone post, not an automatic posting date.
-[LinkedIn policies](https://www.linkedin.com/legal/professional-community-policies)
-require truthful, professional content. [Awesome MCP contribution rules](https://github.com/punkpeye/awesome-mcp-servers/blob/main/CONTRIBUTING.md)
+[r/SideProject rules](https://www.reddit.com/r/SideProject/about/rules.json)
+were checked; use a disclosed introduction with concrete functionality and limitations. [Awesome MCP contribution rules](https://github.com/punkpeye/awesome-mcp-servers/blob/main/CONTRIBUTING.md)
 accept installable repositories and ask for accurate, categorized entries.
 Rules checked on 21 October 2026; recheck before subsequent posts.
 
@@ -61,9 +63,9 @@ not an app screenshot. The social card contains branding, not fabricated UI.
 
 Use this sequence for educational content:
 
-1. LinkedIn: introducing Engram and the context-rebuilding problem.
+1. r/SideProject: introducing Engram and the context-rebuilding problem.
 2. GitHub documentation: connect a personal MCP client to a project.
-3. LinkedIn: explain why extracted memories need human review, linking that guide.
+3. A substantive community follow-up: explain why extracted memories need human review, linking that guide.
 4. GitHub documentation: reproduce an isolated recovery exercise with synthetic data.
 5. r/selfhosted megathread: share installation findings and the deployment guide.
 
@@ -76,7 +78,7 @@ for the available self-hosted version. Commercial enquiries use the contact page
 
 Communities: [r/selfhosted](https://www.reddit.com/r/selfhosted/),
 [Awesome MCP Servers](https://github.com/punkpeye/awesome-mcp-servers),
-and [LinkedIn](https://www.linkedin.com/). These surfaces are currently active;
+and [r/SideProject](https://www.reddit.com/r/SideProject/). These surfaces are currently active;
 each has its own posting rules. Integration opportunities: publish a verified
 OAuth MCP client walkthrough and an Ollama setup recipe. Neither is a claim of
 an endorsed partnership. Engram-specific growth asset: a reproducible recovery
