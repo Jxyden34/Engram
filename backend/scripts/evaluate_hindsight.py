@@ -47,10 +47,11 @@ def seed(corpus):
         with project_scope(row["project_id"]):
             with connect() as conn:
                 conn.execute("""INSERT INTO memories
-                    (id,title,content,memory_type,embedding,updated_at,created_by,updated_by,source_type,source_ref)
-                    VALUES (%s,%s,%s,%s,%s::vector,%s,'evaluation','evaluation',%s,%s)""",
+                    (id,title,content,memory_type,embedding,updated_at,created_by,updated_by,source_type,source_ref,importance,confidence,source_trust)
+                    VALUES (%s,%s,%s,%s,%s::vector,%s,'evaluation','evaluation',%s,%s,%s,%s,%s)""",
                     (row["id"], row["title"], row["content"], row.get("memory_type", "general"),
-                     row.get("embedding"), row["updated_at"], row.get("source_type", "manual"), row.get("source_ref")))
+                     row.get("embedding"), row["updated_at"], row.get("source_type", "manual"), row.get("source_ref"),
+                     row.get("importance", 5), row.get("confidence", 1), row.get("source_trust", 1)))
                 conn.commit()
 
 
@@ -72,6 +73,10 @@ def run(args):
     with httpx.Client(base_url=args.hindsight_url, timeout=600,
                       headers={"Authorization": "Bearer " + key} if key else {}) as client:
         if args.retain:
+            for project in {row["project_id"] for row in corpus}:
+                response = client.put(f"/v1/default/banks/{bank_id(project)}",
+                                      json={"name": "Engram evaluation", "enable_observations": False})
+                response.raise_for_status()
             for index, row in enumerate(corpus, 1):
                 response = client.post(f"/v1/default/banks/{bank_id(row['project_id'])}/memories", json={
                     "items": [{"content": row["title"] + "\n" + row["content"],
@@ -84,6 +89,11 @@ def run(args):
         for case in cases:
             expected = set(case["expected_ids"])
             for engine in ("legacy", "hybrid", "hindsight"):
+                # Remove retrieval feedback as a confound between engines/cases.
+                with project_scope(case["project_id"]):
+                    with connect() as conn:
+                        conn.execute("UPDATE memories SET access_count=0,last_accessed_at=NULL")
+                        conn.commit()
                 start = time.perf_counter()
                 if engine == "hindsight":
                     response = client.post(f"/v1/default/banks/{bank_id(case['project_id'])}/memories/recall",
