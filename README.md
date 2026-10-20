@@ -8,7 +8,7 @@ Ollama processing, source-aware search and controlled access for your AI clients
 
 **[Explore Engram](https://jxyden34.github.io/Engram/)** ·
 **[Set up your server](docs/DEPLOYMENT.md)** ·
-**[Connect an MCP client](docs/OAUTH-MCP.md)** ·
+**[Connect an MCP client](https://jxyden34.github.io/Engram/mcp.html)** ·
 **[Report feedback](https://github.com/Jxyden34/Engram/issues/new/choose)**
 
 **Free for personal, noncommercial self-hosting.** Commercial, workplace and
