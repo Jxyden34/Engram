@@ -1,7 +1,7 @@
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 from datetime import date, datetime
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -78,6 +78,41 @@ class ContextRequest(BaseModel):
     query: str = Field(min_length=1, max_length=5000)
     max_chars: int = Field(default=6000, ge=500, le=16000)
     include_documents: bool = False
+
+
+class ReflectRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+    budget: Literal['quick', 'standard', 'deep'] = 'standard'
+
+
+class ReflectionCitation(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    source: int = Field(strict=True, ge=1, le=20)
+    quote: str = Field(min_length=12, max_length=400)
+
+
+class ReflectionClaim(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    text: str = Field(min_length=1, max_length=800)
+    citations: list[ReflectionCitation] = Field(min_length=1, max_length=3)
+
+
+class ReflectionAnswer(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    claims: list[ReflectionClaim] = Field(max_length=6)
+    insufficient: bool
+
+
+class BriefSource(BaseModel):
+    id: UUID
+    version: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class BriefCreate(ReflectRequest):
+    title: str = Field(min_length=1, max_length=120)
+    project_revision: str = Field(pattern=r'^[a-f0-9]{32}$')
+    sources: list[BriefSource] = Field(min_length=1, max_length=20)
+    claims: list[ReflectionClaim] = Field(min_length=1, max_length=6)
 
 
 class ConflictCompareRequest(BaseModel):
