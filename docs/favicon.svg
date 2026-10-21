@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Engram">
+  <rect x="1" y="1" width="62" height="62" rx="15" fill="#111317" stroke="#39414b" stroke-width="2"/>
+  <path d="M17 14h30v8H25v6h16v8H25v6h22v8H17z" fill="#b6ff4a"/>
+  <circle cx="47" cy="18" r="4" fill="#70e0ff"/>
+</svg>

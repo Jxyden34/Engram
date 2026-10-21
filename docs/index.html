@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Engram — Your knowledge. Your context. Your server.</title>
+  <meta name="description" content="Self-hosted personal memory and AI context. Bring documents, saved pages and conversations together with local Ollama, human review, source-aware search and MCP.">
+  <link rel="canonical" href="https://jxyden34.github.io/Engram/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Engram — Your knowledge. Your context. Your server.">
+  <meta property="og:description" content="Personal memory for you and your AI clients. Self-hosted, source-aware and free for personal, noncommercial use.">
+  <meta property="og:url" content="https://jxyden34.github.io/Engram/">
+  <meta property="og:image" content="https://jxyden34.github.io/Engram/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#101214">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="wrap nav">
+    <a class="brand" href="./" aria-label="Engram home"><img src="favicon.svg" width="36" height="36" alt="">engram<span class="lime">.</span></a>
+    <nav aria-label="Main navigation"><a href="#workflow">How it works</a><a href="#start">Self-host</a><a href="https://github.com/Jxyden34/Engram">GitHub ↗</a></nav>
+  </header>
+  <main id="main">
+    <section class="wrap hero">
+      <div><p class="eyebrow"><span class="status"></span> PERSONAL MEMORY, ON YOUR TERMS</p>
+        <h1>Your knowledge.<br>Your context.<br><span>Your server.</span></h1>
+        <p class="lead">Stop explaining everything from scratch. Bring your documents, saved pages and conversations into one memory layer for you and your AI clients.</p>
+        <div class="actions"><a class="button" href="#start">Start self-hosting ↗</a><a class="text-link" href="https://github.com/Jxyden34/Engram">Explore the source →</a></div>
+        <p class="fine">Free for personal, noncommercial use. Commercial rights reserved.</p>
+      </div>
+      <aside class="memory-map" aria-label="Illustration of the Engram workflow, not an application screenshot">
+        <div class="map-top"><span>THE CONTEXT LAYER</span><span class="lime">● YOUR INFRASTRUCTURE</span></div>
+        <div class="sources"><span>Documents</span><span>Conversations</span><span>Saved pages</span></div>
+        <div class="connector" aria-hidden="true">↓</div>
+        <div class="core"><img src="favicon.svg" alt="" width="50" height="50"><div><strong>One place to remember.</strong><p>Extract locally. Review deliberately.</p></div></div>
+        <div class="connector" aria-hidden="true">↓</div>
+        <div class="context"><span class="label">USEFUL CONTEXT</span><h2>Find the fact.<br>Keep the source.</h2><p>Project-scoped search for your dashboard, scripts and MCP clients.</p><div class="tags"><span>Web dashboard</span><span>REST API</span><span>MCP</span></div></div>
+        <p class="map-caption">Architecture illustration · <a href="https://github.com/Jxyden34/Engram/tree/main/web">web interface source</a></p>
+      </aside>
+    </section>
+    <div class="strip"><div class="wrap"><span>LOCAL OLLAMA</span><span>POSTGRESQL + PGVECTOR</span><span>HUMAN REVIEW</span><span>MCP + REST</span><span>ENCRYPTED BACKUPS</span></div></div>
+    <section id="workflow" class="wrap section">
+      <p class="eyebrow">FROM SCATTERED SOURCES TO SHARED CONTEXT</p><h2 class="section-title">A memory you can<br>actually work with.</h2>
+      <div class="grid">
+        <article><span class="number">01 / CAPTURE</span><h3>Bring your knowledge in.</h3><p>Import documents and ChatGPT exports. Capture a browser page, selection or note. Keep the provenance that makes a fact useful.</p><a href="https://github.com/Jxyden34/Engram/blob/main/docs/BROWSER-CAPTURE.md">Explore capture →</a></article>
+        <article><span class="number">02 / REVIEW</span><h3>You decide what sticks.</h3><p>Review extracted candidates in the Memory Inbox. Inspect proposed updates and conflicts before accepting changes to your knowledge.</p><a href="https://github.com/Jxyden34/Engram/blob/main/docs/PROJECTS-AGENT.md">See projects and review →</a></article>
+        <article><span class="number">03 / RECALL</span><h3>Put context to work.</h3><p>Search with semantic and full-text retrieval. Keep projects separate and connect AI clients through scoped MCP access or the REST API.</p><a href="mcp.html">Connect an MCP client →</a></article>
+      </div>
+    </section>
+    <section class="wrap recovery section">
+      <div><p class="eyebrow">DESIGNED TO BE RECOVERED</p><h2 class="section-title">Your knowledge should<br>outlive your server.</h2><p>Encrypted backups are part of Engram's architecture. Isolated restore tests check the database and the document objects together.</p><a class="text-link" href="https://github.com/Jxyden34/Engram/blob/main/docs/PORTFOLIO.md#proven-recovery-result">Read the recovery evidence →</a></div>
+      <div class="proof"><span class="label">DOCUMENTED RECOVERY EXERCISE · 14 SEP 2026</span><dl><div><dt>Memories restored</dt><dd>672</dd></div><div><dt>Documents restored</dt><dd>422</dd></div><div><dt>Missing object references</dt><dd class="lime">0</dd></div></dl><p class="fine">One recorded off-site exercise, completed in 17 seconds. Recovery time depends on data, hardware and configuration.</p></div>
+    </section>
+    <section id="start" class="wrap section start">
+      <p class="eyebrow">BUILD YOUR OWN CONTEXT LAYER</p><h2 class="section-title">Make room for<br>what you know.</h2><p class="lead">For technically comfortable personal users. Bring a Linux host, Docker Compose and room for your knowledge.</p>
+      <div class="actions"><a class="button" href="https://github.com/Jxyden34/Engram/blob/main/docs/DEPLOYMENT.md">Read the setup guide ↗</a><a class="text-link" href="https://github.com/Jxyden34/Engram/issues/new/choose">Questions or feedback →</a></div>
+      <div class="details"><details><summary>What do I need to run Engram?</summary><p>The deployment guide recommends 4 CPU cores and 8 GB RAM, with 16 GB or more preferred. Allow storage for PostgreSQL, documents, Ollama models and encrypted backups. Configure secrets and an administrator before use.</p></details>
+      <details><summary>Is Engram open source?</summary><p>Engram is source-available and free for personal, noncommercial self-hosting. Workplace use, commercial integrations and managed hosting require separate written permission. Read the <a href="https://github.com/Jxyden34/Engram/blob/main/LICENSE">license</a> and <a href="https://github.com/Jxyden34/Engram/blob/main/docs/LICENSING.md">usage guide</a>.</p></details>
+      <details><summary>Where does AI processing happen?</summary><p>Engram uses Ollama for local embeddings and extraction on your infrastructure. Optional connectors communicate with their external services. You control which sources and clients you connect.</p></details>
+      <details><summary>Can I use the mobile app or buy managed hosting?</summary><p>The stable server release is v2.7.0. Native iOS and Android companions remain preview work with device qualification still open; Gmail is also a preview connector. This page offers self-hosting, not a managed subscription. For commercial enquiries, <a href="https://hindley.tech/contact">contact Jayden</a>.</p></details></div>
+    </section>
+  </main>
+  <footer class="wrap"><a class="brand" href="./"><img src="favicon.svg" width="28" height="28" alt="">engram.</a><p>Built by <a href="https://hindley.tech/">Jayden Hindley</a>.</p><a href="https://github.com/Jxyden34/Engram/blob/main/LICENSE">Personal-use license ↗</a></footer>
+</body>
+</html>
