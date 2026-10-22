@@ -19,6 +19,11 @@
         "buildType": "apk"
       },
       "channel": "preview"
+    },
+    "v3-beta1": {
+      "extends": "preview",
+      "channel": "v3-dev-beta-1",
+      "environment": "preview"
     }
   }
 }

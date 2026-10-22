@@ -21,7 +21,7 @@ signed, installation-bound paid commercial keys, administrator activation and
 licence status. Personal/noncommercial self-hosting stays free. Payment and
 agreement are handled manually before issuing a key; online checkout is deferred.
 See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable remains v2.7.0;
-native companion builds retain their existing preview version and channel.
+existing native releases retain their preview channels; v3 source uses a separate runtime and channel.
 
 ## Alpha1 — mobile review and filtered Ask 🧪
 

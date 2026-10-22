@@ -111,12 +111,12 @@ def test_license_activation_http_persistence_and_expiry(issuer):
         assert client.get('/health').status_code == 200
         assert client.put('/api/v1/license', headers=headers, json={"mode": "commercial", "license_key": key}).status_code == 200
         with connect() as conn:
-            records = conn.execute("SELECT new_data FROM audit_log WHERE actor=%s AND action='license.update'", (username,)).fetchall()
+            records = conn.execute("SELECT new_data FROM audit_log WHERE actor=%s AND action='license.update'", (f"user:{username}",)).fetchall()
             assert records and all("license_key" not in (r["new_data"] or {}) for r in records)
     finally:
         with connect() as conn:
             conn.execute("UPDATE commercial_license SET use_mode=%s, license_key=%s, updated_by=%s, updated_at=%s WHERE singleton",
                          (original["use_mode"], original["license_key"], original["updated_by"], original["updated_at"]))
-            conn.execute("DELETE FROM audit_log WHERE actor=%s", (username,))
+            conn.execute("DELETE FROM audit_log WHERE actor=%s", (f"user:{username}",))
             conn.execute("DELETE FROM sessions WHERE user_id=%s", (user,))
             conn.execute("DELETE FROM users WHERE id=%s", (user,)); conn.commit()

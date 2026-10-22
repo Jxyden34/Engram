@@ -1,11 +1,11 @@
 {
   "name": "engram-mobile",
   "private": true,
-  "version": "2.7.0-alpha1",
+  "version": "3.0.0-dev-beta.1",
   "packageManager": "pnpm@11.19.0",
   "main": "index.ts",
   "dependencies": {
-    "expo": "~57.0.30",
+    "expo": "~57.0.31",
     "expo-dev-client": "~57.0.20",
     "expo-secure-store": "~57.0.4",
     "expo-speech-recognition": "57.1.0",

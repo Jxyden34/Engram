@@ -73,6 +73,8 @@ expiry unless the installation's verifier changes. A server owner can modify
 source/configuration: these checks are not tamper-proof DRM or a substitute for
 the commercial agreement. Operational hardening and billing can be added later.
 
-The mobile companion remains on its existing 2.7 preview version/channel. This
-step changes the server and web Settings; it does not publish a native build,
-OTA update, stable release or deployment.
+Existing mobile releases remain on their 2.7 preview channels. CI required an
+Expo patch alignment to 57.0.31; future v3 builds use Android build 9 / iOS build 7,
+runtime `3.0.0-dev-beta.1-native1` and the `v3-beta1` EAS profile with channel
+`v3-dev-beta-1`. No native build or OTA update is published by this change.
+The web Settings licence form is the activation interface in this first beta.
