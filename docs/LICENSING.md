@@ -1,27 +1,17 @@
-# Using Engram
+# Engram v3 editions
 
-Engram is **free for personal, noncommercial self-hosting** under the
-[Engram Personal Self-Hosting License 1.0](../LICENSE).
+The v3 development branch offers two builds. Existing released versions retain their own licence notices.
 
-| Use | Permission |
-| --- | --- |
-| Run a private knowledge server for your personal projects | Included, no license fee. |
-| Connect your personal MCP clients or use local Ollama | Included. |
-| Modify, back up or migrate your personal instance | Included. |
-| Share a copy or modification for another individual's personal use | Included under the same license; preserve notices, identify changes and do not charge. |
-| Use Engram for work, an employer, a business or a client | Separate written commercial permission required. |
-| Offer managed hosting, paid access or a commercial integration | Separate written commercial permission required. |
+| Build | Terms | Activation |
+| --- | --- | --- |
+| Community | MIT; free for personal and business use | No key |
+| Commercial | Separate commercial agreement | Signed key required for product access |
 
-You pay for your own hardware, rented infrastructure and any services you choose.
-The license does not include managed hosting or a support contract.
+Build with `docker compose -f docker-compose.yml -f docker-compose.community.yml build`
+or replace the final filename with `docker-compose.commercial.yml`.
+Community images omit the proprietary implementation. Neither customer build contains the issuer CLI or private signing key.
+Shared functionality remains available in Community; the edition is set when building the image.
+The frontend reads the edition from the backend rather than deciding access itself.
 
-Engram is **source-available**, not open source. The license retains commercial
-rights for Jayden Hindley and preserves third-party license obligations.
-The license also grants the personal-use permission for Jayden Hindley's code
-in the official v2.7.0 release; its original license file has the earlier notice.
-
-For commercial enquiries, use [Jayden's contact page](https://hindley.tech/contact).
-The v3 development beta adds [commercial key issuance and activation](COMMERCIAL-LICENSING.md)
-for separately agreed paid licences. It does not process payments.
-No managed paid service or published commercial pricing is being offered here.
-The [license text](../LICENSE) governs; this page is a summary.
+See [LICENSE](../LICENSE), [commercial terms](../LICENSE-COMMERCIAL), and
+[owner setup](COMMERCIAL-LICENSING.md). Third-party licences still apply.

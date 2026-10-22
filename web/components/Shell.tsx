@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import LicencePage from "@/app/licence/page";
 
 const links = [
   ["/", "Overview", "◈"],
@@ -21,6 +22,7 @@ const links = [
   ["/approvals", "Approvals", "◇"],
   ["/audit", "Audit trail", "⌁"],
   ["/settings", "AI, API & OAuth", "⌘"],
+  ["/licence", "Licence", "◇"],
 ];
 
 export default function Shell({ children }: { children: ReactNode }) {
@@ -28,18 +30,23 @@ export default function Shell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState("");
+  const [edition, setEdition] = useState<any>(null);
+  const [editionError, setEditionError] = useState("");
+  useEffect(() => { api("/api/v1/edition").then(setEdition).catch(e => setEditionError(e.message)); }, []);
 
   useEffect(() => {
     setSelectedProject(window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001");
     document.cookie = `engram_project=${window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001"}; path=/; SameSite=Lax`;
-    if (pathname !== "/login") {
+    if (edition && !edition.locked && pathname !== "/login") {
       api<{ id: string; name: string }[]>("/api/v1/projects").then(setProjects).catch(() => {});
     }
-  }, [pathname]);
+  }, [pathname, edition]);
 
-  if (["/login", "/about", "/privacy", "/terms"].includes(pathname)) {
+  if (["/login", "/about", "/privacy", "/terms", "/licence"].includes(pathname)) {
     return <>{children}</>;
   }
+  if (!edition) return <main className="licencePage"><p role="status">{editionError || "Checking your workspace…"}</p>{editionError && <button onClick={()=>window.location.reload()}>Try again</button>}</main>;
+  if (edition.locked) return <LicencePage/>;
 
   async function logout() {
     try {

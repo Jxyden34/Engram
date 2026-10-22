@@ -1,80 +1,74 @@
-# Commercial keys — v3.0.0-dev-beta.1
+# Commercial licensing and email delivery (v3 development beta)
 
-Personal, noncommercial self-hosting remains free under [LICENSE](../LICENSE).
-Commercial keys activate a separately agreed paid commercial licence. The owner
-collects payment and agrees terms outside Engram, then issues a key. This beta
-does not offer checkout, payment verification, automatic billing or refunds.
+## Customer builds
 
-## Server setup
-
-1. Back up the database and environment. Existing installations must apply
-   `db/migrations/014_commercial_license.sql` after migrations 009–013, then
-   rebuild the API, workers and web. Fresh Compose databases apply 014 automatically.
-2. Put the issuer's **public** key in `secrets/commercial-license-public.pem`.
-   It must be readable by the container's UID 10001 (a public key can be mode 644).
-   The existing Compose secrets mount exposes it at the default verification path.
-   `COMMERCIAL_LICENSE_PUBLIC_KEY_PATH` can select another mounted public-key file.
-3. Sign in as an administrator. Open **Settings → Licence** and copy the installation ID.
-4. Request a commercial licence with that ID. After payment and agreement,
-   select **Commercial**, paste the issued key and save. The status shows the
-   licensed customer, licence ID and expiry. Leave the key blank when saving an
-   already valid commercial activation; a replacement key renews the entitlement.
-
-Status and activation require an administrator session; API keys cannot manage
-licensing. Responses and audit events never return the full commercial key.
-Activation is installation-wide and persists across project switches/restarts.
-Selecting Personal removes the stored key and is only appropriate for actual
-personal/noncommercial use. It does not grant commercial permission.
-
-## Owner-only issuance
-
-Run these commands from `backend` on the owner's offline workstation with
-backend dependencies installed. Use an existing protected directory **outside
-the repository** for issuer files. The CLI refuses to overwrite existing files.
+Use the Commercial Compose override to build the API, worker and scheduler with a baked edition marker:
 
 ```sh
-python -m scripts.commercial_license keygen \
-  --private-key /secure/offline/engram-issuer-private.pem \
-  --public-key /secure/offline/engram-issuer-public.pem
-
-python -m scripts.commercial_license issue \
-  --private-key /secure/offline/engram-issuer-private.pem \
-  --installation-id INSTALLATION_UUID_FROM_SETTINGS \
-  --customer "Example Ltd" --expires 2027-10-22 \
-  --output /secure/offline/example-ltd.license
+docker compose -f docker-compose.yml -f docker-compose.commercial.yml build
+docker compose -f docker-compose.yml -f docker-compose.commercial.yml up -d
 ```
 
-The private PEM is unencrypted: protect it with filesystem permissions/Windows
-ACLs and encrypted offline storage. Never commit it, mount it in a customer
-installation, or send it to customers. Only distribute the public PEM and the
-customer's `.license` file. Key generation and issuance print no secret material.
-No real issuer key is generated or shipped by this PR.
+Deploy only the issuer's **public** Ed25519 key in `secrets/commercial-license-public.pem`.
+Set `COMMERCIAL_LICENSE_PURCHASE_URL` to the owner's request page, for example
+`https://engram-beta.hindley.tech/licence-store/`.
+Open `/licence`, copy the installation ID, request a key, sign in as an administrator,
+and paste the emailed key. A missing, forged, expired or differently scoped key keeps
+product API and MCP access locked with HTTP 402. Health, login and licence activation
+remain reachable. There is no Personal toggle in Commercial.
 
-Keys use Ed25519 signatures, an explicit issuer/audience, a unique licence ID,
-customer name, installation UUID and expiry. Expiry dates include the stated
-day in UTC. Keep the server clock accurate. Renew by issuing a replacement for
-the same installation. Back up the database: its installation UUID is required
-to reuse the key after recovery. A new installation UUID needs a reissued key.
+Community is MIT licensed and requires no key. Its final image omits commercial
+implementation code. Customer images omit the issuer CLI, owner service and signing secrets.
 
-## Enforcement and first-beta limits
+## Owner service
 
-Personal mode needs no key. Commercial mode can only be activated with a valid
-key signed by the configured issuer and bound to this installation. Invalid
-renewals leave the existing activation intact. If a key later expires or its
-public verifier becomes unavailable, interactive product writes return HTTP 402;
-MCP write tools reject changes too. Existing reads, search/Ask/Reflect previews,
-sign-in/logout, licence renewal and disaster-recovery routes remain available.
-Data is not deleted or encrypted as a licensing action.
+This is separate owner infrastructure, not part of customer installations.
+Payment processing is **not configured**. Arrange payment separately; the owner
+manually confirms receipt in the dashboard. Confirmation creates one signed key
+and queues its email automatically. Unpaid requests never issue or email keys.
 
-Already queued work and automatic schedules continue in this first beta; the
-gate applies to interactive API/MCP mutations. There is no online revocation,
-seat metering or payment provider integration. Signed keys remain valid until
-expiry unless the installation's verifier changes. A server owner can modify
-source/configuration: these checks are not tamper-proof DRM or a substitute for
-the commercial agreement. Operational hardening and billing can be added later.
+Create a private directory outside the checkout containing:
 
-Existing mobile releases remain on their 2.7 preview channels. CI required an
-Expo patch alignment to 57.0.31; future v3 builds use Android build 9 / iOS build 7,
-runtime `3.0.0-dev-beta.1-native1` and the `v3-beta1` EAS profile with channel
-`v3-dev-beta-1`. No native build or OTA update is published by this change.
-The web Settings licence form is the activation interface in this first beta.
+- `issuer-private.pem`: Ed25519 signing key, matching the customer public key.
+- `admin-password`: strong owner dashboard password.
+- `smtp-password`: mailbox SMTP password.
+
+Make the directory accessible only to the owner service UID 10001 (directory 0700,
+files 0600). Mount it read-only using `ENGRAM_OWNER_SECRETS_DIR`. Never include it in
+customer images, source control or customer backup exports. Back up the owner signing
+key and `licence_orders` volume securely; they contain customer licence material.
+
+```sh
+export ENGRAM_OWNER_SECRETS_DIR=/protected/engram-owner
+docker compose -f docker-compose.yml -f docker-compose.commercial.yml \
+  -f docker-compose.licence-owner.yml up -d --build licence-owner
+```
+
+The service listens on 8091 on the internal edge network, with no published host port.
+Add a TLS gateway route `handle_path /licence-store/* { reverse_proxy licence-owner:8091 }`
+before its frontend catch-all. Use a trailing slash on the public request URL.
+The owner dashboard is `/licence-store/admin`; HTTP Basic username is `owner`, password
+is the protected `admin-password` file. Only owner-authenticated requests carrying the
+CSRF header can approve or resend. Do not expose this service over plaintext HTTP.
+
+SMTP defaults: `box.hindley.tech:465`, verified TLS, username/sender `jayden@hindley.tech`.
+Override the owner service SMTP environment for another mailbox. The sender is fixed,
+not taken from public request input. A private deployment can resolve the mail hostname
+to its LAN address while retaining the hostname for certificate verification.
+
+## Operation and delivery guarantees
+
+1. Customer submits name, email and installation ID.
+2. Owner arranges payment separately and opens the dashboard.
+3. Owner selects the last licensed day (UTC) and clicks **Mark paid & email key**.
+4. The background outbox sends the key from Jayden's mailbox. Refresh shows sent/error.
+
+Approval is transactional and idempotent: repeat confirmation never mints another key.
+SMTP failures retain the key and retry with backoff up to hourly. Resend uses the same key.
+Delivery is at least once: a crash after SMTP acceptance may produce a duplicate email,
+with the same key and Message-ID. A `sent` status means SMTP accepted it, not proof of inbox arrival.
+The owner process must run as one instance; SQLite is intended for this small owner deployment.
+No Stripe integration, card collection, automatic payment verification or pricing is included.
+
+For local offline issuance, the owner-only `scripts/commercial_license.py` CLI remains
+available in source. Keep the private key in owner infrastructure; never customer builds.

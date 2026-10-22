@@ -8,7 +8,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import HTTPException
 
-from app import licensing
+from app import licensing as edition_licensing
+from app.commercial import licensing
 from scripts.commercial_license import issue, write_new
 
 
@@ -19,6 +20,7 @@ def issuer(tmp_path, monkeypatch):
     write_new(public_path, private.public_key().public_bytes(
         serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo))
     monkeypatch.setattr(licensing, "settings", lambda: SimpleNamespace(commercial_license_public_key_path=str(public_path)))
+    monkeypatch.setattr(edition_licensing, "get_edition", lambda: "commercial")
     return private
 
 
@@ -60,17 +62,20 @@ def test_untrusted_keys_are_rejected(issuer, change):
         licensing.validate_key(licensing.PREFIX + token, installation)
 
 
-def test_expired_commercial_mode_keeps_read_and_recovery_paths(monkeypatch):
+def test_commercial_gate_and_community(monkeypatch):
+    monkeypatch.setattr(edition_licensing, "get_edition", lambda: "commercial")
     monkeypatch.setattr(licensing, "status", lambda: {"mode": "commercial", "state": "unlicensed"})
     with pytest.raises(HTTPException) as error:
-        licensing.require_commercial_license()
+        edition_licensing.require_commercial_license()
     assert error.value.status_code == 402
-    for method, path in [("GET", "/api/v1/memories"), ("POST", "/api/v1/search"),
-                         ("PUT", "/api/v1/license/"), ("POST", "/api/v1/dr/restore-test")]:
-        assert not licensing.is_product_write(method, path)
-    assert licensing.is_product_write("POST", "/api/v1/memories")
-    monkeypatch.setattr(licensing, "status", lambda: {"mode": "personal", "state": "personal"})
-    licensing.require_commercial_license()
+    assert edition_licensing.is_product_request("/api/v1/memories")
+    assert edition_licensing.is_product_request("/mcp")
+    assert not edition_licensing.is_product_request("/api/v1/license/")
+    assert not edition_licensing.is_product_request("/api/v1/edition")
+    monkeypatch.setattr(edition_licensing, "get_edition", lambda: "community")
+    edition_licensing.require_commercial_license()
+    assert edition_licensing.status()["locked"] is False
+    assert edition_licensing.status()["state"] == "free"
 
 
 def test_license_activation_http_persistence_and_expiry(issuer):
@@ -90,7 +95,7 @@ def test_license_activation_http_persistence_and_expiry(issuer):
         assert client.get('/api/v1/license').status_code == 401
         login = client.post('/api/v1/mobile/login', json={"username": username, "password": password})
         headers = {"Authorization": "Bearer " + login.json()["token"]}
-        assert client.put('/api/v1/license', headers=headers, json={"mode": "personal"}).status_code == 200
+        assert client.put('/api/v1/license', headers=headers, json={"mode": "personal"}).status_code == 400
         installation = client.get('/api/v1/license', headers=headers).json()["installation_id"]
         key = issue(issuer, installation, "Example Ltd", (datetime.now(timezone.utc) + timedelta(days=1)).date())
         result = client.put('/api/v1/license', headers=headers, json={"mode": "commercial", "license_key": key})
@@ -107,7 +112,7 @@ def test_license_activation_http_persistence_and_expiry(issuer):
             conn.execute("UPDATE users SET is_admin=true WHERE id=%s", (user,))
             conn.execute("UPDATE commercial_license SET license_key='invalid' WHERE singleton"); conn.commit()
         assert client.post('/api/v1/memories', headers=headers, json={}).status_code == 402
-        assert client.get('/api/v1/memories', headers=headers).status_code == 200
+        assert client.get('/api/v1/memories', headers=headers).status_code == 402
         assert client.get('/health').status_code == 200
         assert client.put('/api/v1/license', headers=headers, json={"mode": "commercial", "license_key": key}).status_code == 200
         with connect() as conn:

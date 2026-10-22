@@ -154,7 +154,7 @@ async def security_middleware(request: Request, call_next):
     if path.startswith("/api/v1/") and path not in {
         "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/me", "/api/v1/projects",
         "/api/v1/mobile/login", "/api/v1/mobile/logout",
-        "/api/v1/license",
+        "/api/v1/license", "/api/v1/edition",
     }:
         try:
             selected_project = projects.resolve_project(
@@ -229,7 +229,7 @@ async def security_middleware(request: Request, call_next):
 
     try:
         with project_scope(selected_project or current_project_id()):
-            if licensing.is_product_write(request.method, path):
+            if licensing.is_product_request(path):
                 try:
                     licensing.require_commercial_license()
                 except HTTPException as exc:
@@ -250,6 +250,11 @@ def license_admin(request: Request):
     if not principal.is_admin or principal.auth_type not in {"session", "mobile"}:
         raise HTTPException(403, "An administrator session is required")
     return principal
+
+
+@app.get("/api/v1/edition")
+def edition_status():
+    return licensing.public_status()
 
 
 @app.get("/api/v1/license")

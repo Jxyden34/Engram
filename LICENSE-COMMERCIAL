@@ -1,0 +1,14 @@
+Copyright (c) 2026 Jayden Hindley. All rights reserved.
+
+The commercial edition implementation in backend/app/commercial/, the owner
+licensing service in backend/owner/, and backend/scripts/commercial_license.py
+are proprietary. They are excluded from the Community edition's MIT grant.
+
+Use, copying, distribution, hosting and modification of these components
+require a separate commercial licence from Jayden Hindley. A valid activation
+key is required to use the Commercial edition. Payment and commercial terms
+are agreed separately; issuing a test key does not represent a payment.
+
+Third-party software retains its own licences and notices. No trademark or
+endorsement rights are granted. The software is supplied without warranty,
+to the extent permitted by applicable law.

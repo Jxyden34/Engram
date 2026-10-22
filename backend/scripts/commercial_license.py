@@ -1,4 +1,4 @@
-"""Owner-only issuer: python -m scripts.commercial_license --help (from backend)."""
+"""Proprietary owner issuer; see LICENSE-COMMERCIAL. Run from backend."""
 import argparse
 from datetime import date, datetime, time, timedelta, timezone
 import os
