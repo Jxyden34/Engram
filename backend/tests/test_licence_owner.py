@@ -56,3 +56,23 @@ def test_invalid_request_never_issues_key(setup):
     for email in ['bad','x@example.com\r\nBcc: victim@example.com']:
         assert client.post('/orders',json={'customer':'Example','email':email,'installation_id':str(uuid4())}).status_code==422
     assert client.get('/orders',auth=auth).json()['orders']==[]
+
+
+def test_sender_and_customer_recipient_are_separate(monkeypatch):
+    captured = {}
+    class SMTP:
+        def __init__(self, *args, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def login(self, username, password): captured['username'] = username
+        def send_message(self, message): captured['message'] = message
+    monkeypatch.setattr(service.smtplib, 'SMTP_SSL', SMTP)
+    monkeypatch.setattr(service, 'secret', lambda name: 'test-password')
+    monkeypatch.setenv('SMTP_SENDER', 'jayden@hindley.tech')
+    monkeypatch.setenv('SMTP_USERNAME', 'jayden@hindley.tech')
+    service.send_email({'id': str(uuid4()), 'customer': 'Customer Ltd',
+                        'email': 'customer@example.com', 'installation_id': str(uuid4()),
+                        'expires': '2026-12-31', 'license_key': 'test-key'})
+    assert captured['username'] == 'jayden@hindley.tech'
+    assert captured['message']['From'] == 'jayden@hindley.tech'
+    assert captured['message']['To'] == 'customer@example.com'
