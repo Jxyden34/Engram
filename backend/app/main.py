@@ -112,7 +112,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.8.0-pre.1",
+    version="2.8.0-pre.2",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -234,7 +234,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.1"}
+    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.2"}
 
 
 def _check_login(body: LoginRequest):
