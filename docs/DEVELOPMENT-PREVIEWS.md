@@ -28,8 +28,10 @@ It preserves an existing Docker installation and refuses conflicting container r
 
 The wizard selects the edition and a new install directory, generates service secrets,
 builds and starts the stack, creates the administrator, and can activate a Commercial
-key and download the AI models. Commercial setup asks for the issuer's **public** key
-file; the private issuer and owner SMTP service are never installed on customer hosts.
+key and download the AI models. Commercial setup can fetch the issuer's **public** key
+over HTTPS or read a local public-key file. The development default is the disposable
+beta licence service. The private issuer and owner SMTP service are never installed
+on customer hosts.
 
 For direct HTTPS, point the hostname's DNS to the host and allow incoming TCP ports
 80/443 before starting. Caddy obtains and stores the certificate automatically.

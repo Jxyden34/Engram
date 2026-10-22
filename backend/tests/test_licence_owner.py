@@ -56,6 +56,9 @@ def test_invalid_request_never_issues_key(setup):
     for email in ['bad','x@example.com\r\nBcc: victim@example.com']:
         assert client.post('/orders',json={'customer':'Example','email':email,'installation_id':str(uuid4())}).status_code==422
     assert client.get('/orders',auth=auth).json()['orders']==[]
+    public=client.get('/public-key')
+    assert public.status_code==200 and 'BEGIN PUBLIC KEY' in public.text
+    assert 'PRIVATE KEY' not in public.text
 
 
 def test_sender_and_customer_recipient_are_separate(monkeypatch):

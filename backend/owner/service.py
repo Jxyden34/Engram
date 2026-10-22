@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from cryptography.hazmat.primitives import serialization
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse,Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field, field_validator
 from scripts.commercial_license import issue
@@ -158,6 +158,13 @@ app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None
 @app.get("/")
 def storefront():
     return FileResponse(Path(__file__).with_name("index.html"))
+
+
+@app.get('/public-key')
+def issuer_public_key():
+    private=serialization.load_pem_private_key(Path(os.environ['ISSUER_PRIVATE_KEY_FILE']).read_bytes(),password=None)
+    public=private.public_key().public_bytes(serialization.Encoding.PEM,serialization.PublicFormat.SubjectPublicKeyInfo)
+    return Response(public,media_type='application/x-pem-file',headers={'Cache-Control':'public, max-age=3600'})
 
 
 @app.get("/admin")

@@ -26,7 +26,12 @@ def ask(label,default=''):
 
 
 def public_key(path):
-    content=Path(path).read_text()
+    if str(path).startswith('https://'):
+        with urllib.request.urlopen(str(path),timeout=15) as response:raw=response.read(8193)
+        if len(raw)>8192:raise ValueError('Issuer public-key response is too large')
+        content=raw.decode('ascii')
+    elif '://' in str(path):raise ValueError('Public key downloads require HTTPS')
+    else:content=Path(path).read_text()
     if 'PRIVATE KEY' in content or not content.startswith('-----BEGIN PUBLIC KEY-----'):
         raise ValueError('Choose the issuer PUBLIC key, never its private key')
     raw=base64.b64decode(''.join(content.splitlines()[1:-1]),validate=True)
@@ -58,6 +63,8 @@ def prepare(root,edition,hostname,mode,port,key=None,ollama=None):
     values['MINIO_ACCESS_KEY']=values['MINIO_ROOT_USER']
     values['DATABASE_URL']=f"postgresql://{values['POSTGRES_USER']}:{passwords['POSTGRES_PASSWORD']}@db:5432/{values['POSTGRES_DB']}"
     values['REDIS_URL']=f"redis://:{passwords['REDIS_PASSWORD']}@redis:6379/0"
+    if edition=='commercial' and not values.get('COMMERCIAL_LICENSE_PURCHASE_URL'):
+        values['COMMERCIAL_LICENSE_PURCHASE_URL']='https://engram-beta.hindley.tech/licence-store/'
     if ollama:values['OLLAMA_URL']=ollama
     config='\n'.join(f'{key}={value}' for key,value in values.items())+'\n'
     fd=os.open(root/'.env',os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
@@ -114,7 +121,7 @@ def main():
     if not re.fullmatch(r'\S{3,254}',username) or not 12<=len(password)<=256:raise ValueError('Use a username of 3–254 characters and a password of 12–256 characters')
     if not args.non_interactive and password!=getpass.getpass('Repeat administrator password: '):raise ValueError('Passwords do not match')
     key=args.public_key
-    if edition=='commercial' and not key:key=Path(ask('Path to the issuer PUBLIC key file'))
+    if edition=='commercial' and not key:key=ask('Issuer public-key HTTPS URL or local file','https://engram-beta.hindley.tech/licence-store/public-key')
     ollama=None
     if not args.non_interactive and ask('Use built-in Ollama?','yes').lower() in {'n','no'}:ollama=ask('Existing Ollama server URL')
     project='engram-'+edition
