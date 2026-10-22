@@ -10,6 +10,28 @@ permissions:
   contents: read
 
 jobs:
+  edition-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Package Personal and Commercial customer builds
+        run: python scripts/package-editions.py
+      - name: Validate extracted edition builds
+        run: |
+          for edition in personal commercial; do
+            mkdir -p "/tmp/engram-$edition"
+            unzip -q "dist/editions/engram-$(cat VERSION)-$edition.zip" -d "/tmp/engram-$edition"
+            cp "/tmp/engram-$edition/.env.example" "/tmp/engram-$edition/.env"
+            (cd "/tmp/engram-$edition" && docker compose config --quiet)
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: engram-customer-editions
+          path: dist/editions/*
+
   dr-monitor:
     runs-on: ubuntu-latest
     steps:
