@@ -24,6 +24,7 @@ const links = [
   ["/settings", "AI, API & OAuth", "⌘"],
   ["/licence", "Licence", "◇"],
 ];
+const publicPaths = ["/login", "/about", "/privacy", "/terms", "/licence"];
 
 export default function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -37,12 +38,12 @@ export default function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     setSelectedProject(window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001");
     document.cookie = `engram_project=${window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001"}; path=/; SameSite=Lax`;
-    if (edition && !edition.locked && pathname !== "/login") {
+    if (edition && !edition.locked && !publicPaths.includes(pathname)) {
       api<{ id: string; name: string }[]>("/api/v1/projects").then(setProjects).catch(() => {});
     }
   }, [pathname, edition]);
 
-  if (["/login", "/about", "/privacy", "/terms", "/licence"].includes(pathname)) {
+  if (publicPaths.includes(pathname)) {
     return <>{children}</>;
   }
   if (!edition) return <main className="licencePage"><p role="status">{editionError || "Checking your workspace…"}</p>{editionError && <button onClick={()=>window.location.reload()}>Try again</button>}</main>;
