@@ -76,10 +76,19 @@ class ModelChoice(BaseModel):
 def setup_model(body:ModelChoice,request:Request):
     commercial();p=instance_admin(request)
     if body.model not in installed_models():raise HTTPException(422,'Choose a model already installed on the configured Ollama server')
+    if not supports_chat(body.model):raise HTTPException(422,'This model only provides embeddings. Choose a chat/completion model.')
     with connect() as conn:
         conn.execute('UPDATE instance_setup SET chat_model=%s WHERE singleton',(body.model,));conn.commit()
     log(p.actor,'setup.model_selected','installation',request=request,new_data={'model':body.model})
     return {'model':body.model}
+
+
+def supports_chat(model):
+    try:
+        response=httpx.post(settings().ollama_url.rstrip('/')+'/api/show',json={'model':model},timeout=10)
+        response.raise_for_status()
+        return 'completion' in response.json().get('capabilities',[])
+    except (httpx.HTTPError,ValueError,TypeError) as exc:raise HTTPException(503,'Could not check the selected model capabilities') from exc
 
 
 @router.post('/setup/finish')

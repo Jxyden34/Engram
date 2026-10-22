@@ -112,3 +112,13 @@ def test_reminders_require_future_timezone_aware_dates():
     from pydantic import ValidationError
     for value in ['2020-01-01T12:00:00Z','2030-01-01T12:00:00']:
         with pytest.raises(ValidationError):Reminder(memory_id=uuid4(),due_at=value)
+
+
+def test_setup_does_not_choose_an_embedding_model_for_chat(monkeypatch):
+    from app.commercial import routes
+    monkeypatch.setattr(routes,'settings',lambda:SimpleNamespace(ollama_url='http://ollama:11434'))
+    response=SimpleNamespace(raise_for_status=lambda:None,json=lambda:{'capabilities':['embedding']})
+    monkeypatch.setattr(routes.httpx,'post',lambda *args,**kwargs:response)
+    assert routes.supports_chat('all-minilm') is False
+    response.json=lambda:{'capabilities':['completion','tools']}
+    assert routes.supports_chat('qwen3:4b') is True
