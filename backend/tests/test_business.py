@@ -40,7 +40,7 @@ def test_team_invitation_role_and_project_isolation(monkeypatch,tmp_path):
     app=FastAPI()
     app.middleware('http')(security_middleware)
     app.include_router(business_routes.router)
-    app.include_router(main_app.router)
+    app.mount('/',main_app.router)
     unique=uuid4().hex[:10];username='team-'+unique
     with connect() as conn:
         owner=conn.execute('INSERT INTO users(username,password_hash,is_admin) VALUES(%s,%s,true) RETURNING id',('owner-'+unique,hash_password('team-owner-test-password'))).fetchone()['id']
