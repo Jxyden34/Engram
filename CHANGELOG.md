@@ -1,10 +1,18 @@
 # Changelog
 
-## Unreleased — v2.8 development
+## v2.8.0 prerelease track — 2026-10-23
 
-- Add bounded Reflect answers with quick/standard/deep evidence budgets and checked, multi-source quotations.
-- Add explicitly saved project briefs with source fingerprints, project isolation, freshness checks and manual rebuild/review. Source memories remain unchanged.
-- Add migration 013 for saved briefs; see [rollout and limitations](docs/REFLECTION-BRIEFS.md). Runtime version remains 2.7.0 pending an explicitly approved release.
+- **pre.1:** bounded Reflect, checked multi-source quotations and explicitly saved project briefs; migration 013.
+- **pre.2:** source-cited, human-reviewed consolidation with provenance links and conservative confidence/trust.
+- **pre.3:** bounded, explainable retrieval decay; no content deletion or background rewriting.
+- **pre.4:** reversible searchable archival with stale-edit protection; migration 014.
+- **pre.5:** explicit brief refresh for review, preserving previous snapshots and linking refreshed briefs to them.
+
+Each increment is a separate cumulative GitHub prerelease. Stable remains v2.7.0;
+promote to stable v2.8.0 only after validation and the user's explicit instruction.
+No production deployment or native channel change is included. See
+[prerelease qualification](docs/V2.8-PRERELEASES.md) and
+[lifecycle behavior/rollback](docs/MEMORY-LIFECYCLE.md).
 
 ## 2.7.0 - 2026-10-08
 

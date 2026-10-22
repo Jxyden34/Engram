@@ -120,6 +120,7 @@ class BriefCreate(ReflectRequest):
     project_revision: str = Field(pattern=r'^[a-f0-9]{32}$')
     sources: list[BriefSource] = Field(min_length=1, max_length=20)
     claims: list[ReflectionClaim] = Field(min_length=1, max_length=6)
+    refresh_of: UUID | None = None
 
 
 class ConflictCompareRequest(BaseModel):

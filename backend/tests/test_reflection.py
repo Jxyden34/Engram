@@ -176,6 +176,10 @@ def test_brief_api_enforces_scopes_and_bound_projects(corpus):
     assert saved.status_code == 201
     brief_id = saved.json()['id']
     assert client.get(path+'/'+brief_id, headers=read_headers).json()['status'] == 'current'
+    with patch.object(reflection.intelligence,'search_memories',return_value=[source]), \
+            patch.object(reflection,'_ollama_json',return_value=MODEL):
+        refreshed = client.post(path+'/'+brief_id+'/refresh',headers=read_headers)
+    assert refreshed.status_code == 200 and refreshed.json()['refresh_of'] == brief_id
     assert client.get(path, headers={**headers, 'X-Engram-Project': projects[1]}).status_code == 403
     assert client.delete(path+'/'+brief_id, headers=read_headers).status_code == 403
     assert client.delete(path+'/'+brief_id, headers=headers).status_code == 200
@@ -215,3 +219,40 @@ def test_archival_is_searchable_reversible_and_invalidates_briefs(corpus):
         with pytest.raises(HTTPException) as missing:
             memories.set_archived(str(source['id']),True,restored['updated_at'],'test','Wrong project')
         assert missing.value.status_code == 404
+
+
+def test_brief_refresh_uses_current_evidence_and_preserves_previous_snapshot(corpus):
+    projects, source = corpus
+    with project_scope(projects[0]):
+        previous = reflection.save_brief(save_body(draft(source)), 'reviewer')
+        previous_id = str(previous['id'])
+        with connect() as conn:
+            original_snapshot = conn.execute('SELECT snapshot FROM project_briefs WHERE id=%s',(previous_id,)).fetchone()['snapshot']
+            updated = dict(conn.execute('UPDATE memories SET content=%s,updated_at=now() WHERE id=%s RETURNING *',
+                            (CONTENT+' A new reviewed decision.',source['id'])).fetchone())
+            conn.commit()
+        with patch.object(reflection.intelligence,'search_memories',return_value=[updated]), \
+                patch.object(reflection,'_ollama_json',return_value=MODEL) as model:
+            preview = reflection.refresh_brief(previous_id)
+        assert preview['refresh_of'] == previous_id and preview['refresh_title'] == previous['title']
+        assert MODEL['claims'][0]['text'] not in model.call_args.args[1], 'Stale generated text must not become new evidence'
+        with connect() as conn:
+            assert conn.execute('SELECT count(*) AS n FROM project_briefs').fetchone()['n'] == 1, 'Refresh is a preview, never an automatic save'
+        body = save_body(preview).model_copy(update={'refresh_of': previous['id']})
+        fresh = reflection.save_brief(body,'reviewer')
+        assert str(fresh['id']) != previous_id
+        assert reflection.get_brief(str(fresh['id']))['status'] == 'current'
+        assert reflection.get_brief(str(fresh['id']))['refresh_of'] == previous_id
+        with connect() as conn:
+            assert conn.execute('SELECT snapshot FROM project_briefs WHERE id=%s',(previous_id,)).fetchone()['snapshot'] == original_snapshot
+        with pytest.raises(HTTPException) as changed_question:
+            reflection.save_brief(body.model_copy(update={'question':'A different question?'}),'reviewer')
+        assert changed_question.value.status_code == 422
+    with project_scope(projects[1]), patch.object(reflection,'_ollama_json') as model:
+        with pytest.raises(HTTPException) as missing:
+            reflection.refresh_brief(previous_id)
+        assert missing.value.status_code == 404
+        with pytest.raises(HTTPException) as wrong_parent:
+            reflection.save_brief(body,'reviewer')
+        assert wrong_parent.value.status_code == 404
+    model.assert_not_called()

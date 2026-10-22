@@ -109,6 +109,13 @@ def save_brief(body: BriefCreate, actor: str) -> dict:
     if len(set(ids)) != len(ids):
         raise HTTPException(status_code=422, detail='Brief sources must be distinct')
     with connect() as conn:
+        if body.refresh_of:
+            previous = conn.execute('SELECT snapshot FROM project_briefs WHERE id=%s FOR SHARE', (body.refresh_of,)).fetchone()
+            if not previous:
+                raise HTTPException(status_code=404, detail='Previous brief not found in this project')
+            if (previous['snapshot']['question'] != body.question.strip()
+                    or previous['snapshot']['budget'] != body.budget):
+                raise HTTPException(status_code=422, detail='A refresh must use the saved question and evidence budget')
         rows = conn.execute('SELECT * FROM memories WHERE id=ANY(%s::uuid[]) ORDER BY id FOR SHARE', (ids,)).fetchall()
         by_id = {str(row['id']): row for row in rows}
         if (_revision(conn) != body.project_revision or len(rows) != len(ids)
@@ -119,12 +126,24 @@ def save_brief(body: BriefCreate, actor: str) -> dict:
         claims = _checked_claims(body.claims, sources)
         snapshot = {'question': body.question.strip(), 'budget': body.budget,
                     'project_revision': body.project_revision,
-                    'sources': [source.model_dump(mode='json') for source in body.sources], 'claims': claims}
+                    'sources': [source.model_dump(mode='json') for source in body.sources], 'claims': claims,
+                    'refresh_of': str(body.refresh_of) if body.refresh_of else None}
         row = conn.execute('''INSERT INTO project_briefs(title,snapshot,created_by)
             VALUES (%s,%s,%s) RETURNING id,title,created_at''',
             (body.title.strip(), Jsonb(snapshot), actor)).fetchone()
         conn.commit()
-    return {**dict(row), 'status': 'saved'}
+    return {**dict(row), 'status': 'saved', 'refresh_of': snapshot['refresh_of']}
+
+
+def refresh_brief(brief_id: str) -> dict:
+    with connect() as conn:
+        previous = conn.execute('SELECT title,snapshot FROM project_briefs WHERE id=%s', (brief_id,)).fetchone()
+        if not previous:
+            raise HTTPException(status_code=404, detail='Brief not found in this project')
+    snapshot = previous['snapshot']
+    # Generate only from current canonical memories; never feed the stale summary to the model.
+    result = reflect(snapshot['question'], snapshot['budget'])
+    return {**result,'refresh_of':brief_id,'refresh_title':previous['title']}
 
 
 def list_briefs() -> list[dict]:
@@ -155,7 +174,8 @@ def get_brief(brief_id: str) -> dict:
     return {'id': str(row['id']), 'title': row['title'], 'created_at': row['created_at'],
             'project_id': current_project_id(), 'question': snapshot['question'], 'budget': snapshot['budget'],
             'sources': sources, 'claims': [] if changed else snapshot['claims'],
-            'status': 'needs_review' if stale else 'current', 'evidence_changed': changed}
+            'status': 'needs_review' if stale else 'current', 'evidence_changed': changed,
+            'refresh_of': snapshot.get('refresh_of')}
 
 
 def delete_brief(brief_id: str) -> dict:

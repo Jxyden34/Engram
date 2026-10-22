@@ -7,7 +7,7 @@ import { api, dateText } from "@/lib/api";
 type Budget = "quick" | "standard" | "deep";
 type Claim = { text: string; citations: { source: number; quote: string }[] };
 type Source = { number: number; id: string; title: string; version?: string; content?: string; status?: string };
-type Answer = { question: string; budget: Budget; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean };
+type Answer = { question: string; budget: Budget; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string };
 type Brief = { id: string; title: string; created_at: string };
 
 export default function ReflectionPanel() {
@@ -44,6 +44,7 @@ export default function ReflectionPanel() {
       const saved = await api<Brief>("/api/v1/intelligence/briefs", { method: "POST", body: JSON.stringify({
         title, question: answer.question, budget: answer.budget, project_revision: answer.project_revision,
         sources: answer.sources.map(({ id, version }) => ({ id, version })), claims: answer.claims,
+        refresh_of: answer.refresh_of || null,
       }) });
       await loadBriefs(); setSelected(saved); setNotice("Brief saved. Your original memories are unchanged.");
     } catch (e: any) { setError(e.message); }
@@ -54,7 +55,7 @@ export default function ReflectionPanel() {
     setBusy(true); setError(""); setNotice(""); setAnswer(null); setSelected(null);
     try {
       const next = await api<Answer>(`/api/v1/intelligence/briefs/${brief.id}`);
-      setAnswer(next); setSelected(brief); setQuestion(next.question); setBudget(next.budget);
+      setAnswer(next); setSelected({ ...brief, title: next.title || brief.title }); setQuestion(next.question); setBudget(next.budget);
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -65,6 +66,18 @@ export default function ReflectionPanel() {
     try {
       await api(`/api/v1/intelligence/briefs/${selected.id}`, { method: "DELETE" });
       setAnswer(null); setSelected(null); await loadBriefs(); setNotice("Saved brief deleted. Source memories are unchanged.");
+    } catch (e: any) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+
+  async function refresh() {
+    if (!selected) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const next = await api<Answer>(`/api/v1/intelligence/briefs/${selected.id}/refresh`, { method: "POST" });
+      setAnswer(next); setTitle(next.refresh_title || selected.title); setSelected(null);
+      setQuestion(next.question); setBudget(next.budget);
+      setNotice("Fresh preview ready. Review the evidence and save a new brief; the previous snapshot is unchanged.");
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -81,7 +94,7 @@ export default function ReflectionPanel() {
           <option value="standard">Standard · up to 12 sources</option>
           <option value="deep">Deep · up to 20 sources</option>
         </select></div>
-      <button className="button primary" disabled={busy || !question.trim()}>{busy ? "Working…" : selected ? "Rebuild for review" : "Reflect"}</button>
+      <button className="button primary" disabled={busy || !question.trim()}>{busy ? "Working…" : "Reflect"}</button>
     </form>
     {error && <div className="errorBox" role="alert">{error}</div>}
     {notice && <div className="successBox" role="status">{notice}</div>}
@@ -105,7 +118,8 @@ export default function ReflectionPanel() {
         <div className="field"><label htmlFor="brief-title">Brief title</label><input id="brief-title" className="input" value={title} onChange={e => setTitle(e.target.value)} maxLength={120} required /></div>
         <button className="button" disabled={busy || !title.trim()}>Save reviewed brief</button>
       </form>}
-      {selected && <button className="ghostButton" disabled={busy} onClick={remove}>Delete saved brief</button>}
+      {answer.refresh_of && <p className="meta">Refreshed from an earlier brief. <button className="ghostButton" disabled={busy} onClick={() => open({id:answer.refresh_of!,title:"Previous brief",created_at:""})}>Open previous brief</button></p>}
+      {selected && <div className="row"><button className="button" disabled={busy} onClick={refresh}>Refresh for review</button><button className="ghostButton" disabled={busy} onClick={remove}>Delete saved brief</button></div>}
     </div>}
     <h3>Saved project briefs</h3>
     <p className="meta">Rebuilding creates a new preview. Save it as a new brief after review; existing briefs stay unchanged.</p>

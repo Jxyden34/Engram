@@ -58,3 +58,22 @@ API/workers. Fresh installs/CI mount it automatically. Rollback may retain the
 additive column and restore prior application images, but older versions do not
 understand archival and may show archived memories in default retrieval. Preserve
 the backup and test rollback in isolation before stable promotion.
+
+## Brief refresh for review — pre.5
+
+Open a saved project brief and choose **Refresh for review**. Engram reuses its
+saved question and evidence budget to retrieve current, unarchived memories. It
+does not feed the stale generated answer back to the model. The result is a
+preview; explicitly **Save reviewed brief** to create a new snapshot. The original
+snapshot remains unchanged and the refreshed brief links back to it.
+
+`POST /api/v1/intelligence/briefs/{id}/refresh` requires `memory:read` and shares
+Reflect's rate limit. Saving the reviewed result still requires `memory:write`,
+valid current source fingerprints and the previous brief in the same project.
+The save body includes `refresh_of`; its question/budget must match that parent.
+Changing evidence before save returns 409. New refreshes are never automatically
+saved or scheduled. Explicitly deleting a previous brief leaves a historical
+reference in its descendants; their old-brief link then returns not found.
+
+This increment uses existing snapshot metadata and needs no additional migration.
+Background refresh and automatic observations remain outside this prerelease.
