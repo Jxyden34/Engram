@@ -28,6 +28,7 @@ const links = [
   ["/branding", "Company branding", "◈"],
   ["/handover", "Project handover", "↗"],
   ["/setup", "Setup wizard", "◇"],
+  ["/reminders", "Reminders", "◷"],
 ];
 const publicPaths = ["/login", "/about", "/privacy", "/terms", "/licence", "/join", "/setup"];
 
@@ -39,6 +40,13 @@ export default function Shell({ children }: { children: ReactNode }) {
   const [selectedProject, setSelectedProject] = useState("");
   const [edition, setEdition] = useState<any>(null);
   const [editionError, setEditionError] = useState("");
+  const [due,setDue]=useState(0);
+  useEffect(()=>{
+    if(!edition||edition.locked||publicPaths.includes(pathname))return;
+    const refresh=()=>api<any[]>('/api/v1/reminders?due_only=true').then(rows=>setDue(rows.length)).catch(()=>{});
+    void refresh();const timer=window.setInterval(refresh,60000);window.addEventListener('engram-reminders',refresh);window.addEventListener('focus',refresh);
+    return()=>{clearInterval(timer);window.removeEventListener('engram-reminders',refresh);window.removeEventListener('focus',refresh)};
+  },[edition,pathname]);
   useEffect(() => { api("/api/v1/edition").then(setEdition).catch(e => setEditionError(e.message)); }, []);
 
   useEffect(() => {
@@ -117,7 +125,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="main">{children}</main>
+      <main className="main">{due>0&&<p className="successBox" role="status"><Link href="/reminders">{due} memory reminder{due===1?' is':'s are'} due →</Link></p>}{children}</main>
     </div>
   );
 }

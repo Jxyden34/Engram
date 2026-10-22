@@ -42,7 +42,7 @@ def main():
             return run("psql", "-XqAt", "-v", "ON_ERROR_STOP=1", "-c", query).stdout.strip()
 
         source = (ROOT / "ops/dr-monitor/monitor.sh").read_text()
-        functions, loop = source.split('log "starting version=3.7.0-dev-beta.6"', 1)
+        functions, loop = source.split('log "starting version=3.7.0-dev-beta.7"', 1)
         functions = functions.replace('WORKDIR="/tmp/engram-dr"',
                                       f'WORKDIR="{root}/work"')
         functions = functions.replace("/backups", str(root / "backups"))

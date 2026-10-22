@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.7.0-dev-beta.7 — unreleased
+
+- Add private in-app memory reminders in Personal and Commercial with local-time scheduling, due banners, snoozing and completion. Apply migration 018.
+
 ## 3.7.0-dev-beta.6 — unreleased
 
 - Add the Commercial first-run wizard with token-protected initial admin creation, licence activation, shared model selection and first-project creation. Apply migration 017.

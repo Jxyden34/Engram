@@ -62,6 +62,25 @@ def test_team_invitation_role_and_project_isolation(monkeypatch,tmp_path):
         assert client.get('/api/v1/memories',headers={**headers,'X-Engram-Project':DEFAULT_PROJECT_ID}).status_code==404
         assert client.post('/api/v1/team/invitations',headers=headers,json={'username':'outsider','role':'owner'}).status_code==403
         assert client.put('/api/v1/setup/models',headers=headers,json={'model':'arbitrary-model'}).status_code==403
+        with project_scope(project):
+            with connect() as conn:
+                memory=str(conn.execute("INSERT INTO memories(title,content,memory_type,created_by,updated_by) VALUES('Team decision','Approved evidence','decision','test','test') RETURNING id").fetchone()['id']);conn.commit()
+        exported=client.get('/api/v1/handover',headers=headers)
+        assert exported.status_code==200
+        assert [str(row['id']) for row in exported.json()['sources']]==[memory]
+        from datetime import datetime,timedelta,timezone
+        reminder={'memory_id':memory,'due_at':(datetime.now(timezone.utc)+timedelta(days=1)).isoformat(),'note':'Revisit'}
+        first=client.post('/api/v1/reminders',headers=headers,json=reminder)
+        assert first.status_code==201
+        identifier=first.json()['id']
+        assert client.post('/api/v1/reminders',headers=headers,json=reminder).json()['id']==identifier
+        owner_login=client.post('/api/v1/mobile/login',json={'username':'owner-'+unique,'password':'team-owner-test-password'})
+        owner_headers={'Authorization':'Bearer '+owner_login.json()['token'],'X-Engram-Project':project}
+        assert client.get('/api/v1/reminders',headers=owner_headers).json()==[]
+        assert client.patch('/api/v1/reminders/'+identifier,headers=owner_headers,json={'status':'done'}).status_code==404
+        assert len(client.get('/api/v1/reminders',headers=headers).json())==1
+        assert client.patch('/api/v1/reminders/'+identifier,headers=headers,json={'status':'done'}).status_code==200
+        assert client.get('/api/v1/reminders',headers=headers).json()==[]
         with connect() as conn:
             member=conn.execute('SELECT id FROM users WHERE username=%s',(username,)).fetchone()['id']
         bound=Principal('oauth',str(member),username,False,{'memory:write','memory:read','mcp:use'},'oauth',project)
@@ -71,7 +90,18 @@ def test_team_invitation_role_and_project_isolation(monkeypatch,tmp_path):
         assert client.get('/api/v1/memories',headers=headers).status_code==404
         with pytest.raises(HTTPException):resolve_project(bound,project)
     finally:
+        with project_scope(project):
+            with connect() as conn:
+                conn.execute('DELETE FROM audit_log WHERE project_id=%s',(project,))
+                conn.execute('DELETE FROM memories WHERE project_id=%s',(project,));conn.commit()
         with connect() as conn:
             conn.execute('DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE username IN (%s,%s))',(username,'owner-'+unique))
             conn.execute('DELETE FROM projects WHERE id=%s',(project,))
             conn.execute('DELETE FROM users WHERE username IN (%s,%s)',(username,'owner-'+unique));conn.commit()
+
+
+def test_reminders_require_future_timezone_aware_dates():
+    from app.reminders import Reminder
+    from pydantic import ValidationError
+    for value in ['2020-01-01T12:00:00Z','2030-01-01T12:00:00']:
+        with pytest.raises(ValidationError):Reminder(memory_id=uuid4(),due_at=value)

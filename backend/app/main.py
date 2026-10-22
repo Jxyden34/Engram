@@ -114,13 +114,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="3.7.0-dev-beta.6",
+    version="3.7.0-dev-beta.7",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
 from app.business_routes import router as business_router
 app.include_router(business_router)
+from app.reminders import router as reminder_router
+app.include_router(reminder_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -244,7 +246,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "3.7.0-dev-beta.6"}
+    return {"status": "ok", "service": "engram", "version": "3.7.0-dev-beta.7"}
 
 
 def license_admin(request: Request):
