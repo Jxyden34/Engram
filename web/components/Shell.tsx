@@ -27,8 +27,9 @@ const links = [
   ["/team", "Team workspace", "♧"],
   ["/branding", "Company branding", "◈"],
   ["/handover", "Project handover", "↗"],
+  ["/setup", "Setup wizard", "◇"],
 ];
-const publicPaths = ["/login", "/about", "/privacy", "/terms", "/licence", "/join"];
+const publicPaths = ["/login", "/about", "/privacy", "/terms", "/licence", "/join", "/setup"];
 
 export default function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -93,7 +94,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         </label>
 
         <nav>
-          {links.filter(([href])=>edition.edition==='commercial'||!['/team','/branding','/handover'].includes(href)).map(([href, label, icon]) => (
+          {links.filter(([href])=>edition.edition==='commercial'||!['/team','/branding','/handover','/setup'].includes(href)).map(([href, label, icon]) => (
             <Link
               key={href}
               href={href}

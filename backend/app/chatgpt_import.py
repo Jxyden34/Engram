@@ -1,3 +1,4 @@
+from app.preferences import chat_model as selected_chat_model
 import hashlib
 import json
 import logging
@@ -219,7 +220,7 @@ def _ollama_json(system: str, user: str, *, timeout: float = 300.0, max_tokens: 
     response = httpx.post(
         f"{cfg.ollama_url.rstrip('/')}/api/chat",
         json={
-            "model": cfg.chat_model,
+            "model": selected_chat_model(),
             "stream": False,
             "think": False,
             "format": format_schema or "json",
@@ -381,7 +382,7 @@ def create_import_job(source_document_id: str, actor: str, owner_id: str | None)
             VALUES (%s,%s,%s,%s)
             RETURNING *
             """,
-            (owner_id, source_document_id, actor, settings().chat_model),
+            (owner_id, source_document_id, actor, selected_chat_model()),
         ).fetchone()
         conn.commit()
 

@@ -26,7 +26,7 @@ def test_handover_exports_user_content_as_text():
     assert '\n    ![tracking]' in text
 
 
-def test_team_invitation_role_and_project_isolation(monkeypatch):
+def test_team_invitation_role_and_project_isolation(monkeypatch,tmp_path):
     from app import edition,licensing,business_routes
     from app.commercial import workspaces
     from app.main import app
@@ -47,6 +47,12 @@ def test_team_invitation_role_and_project_isolation(monkeypatch):
         with pytest.raises(HTTPException) as error:workspaces.accept(invitation['token'],'team-member-test-password')
         assert error.value.status_code==410
         client=TestClient(app)
+        token_file=tmp_path/'setup-token';token_file.write_text('a'*48)
+        from app.config import settings
+        monkeypatch.setattr(settings(),'setup_bootstrap_token_file',str(token_file))
+        body={'username':'new-admin','password':'secure-setup-password','token':'b'*48}
+        assert client.post('/api/v1/setup/bootstrap',json=body).status_code==403
+        assert client.post('/api/v1/setup/bootstrap',json={**body,'token':'a'*48}).status_code==409
         login=client.post('/api/v1/mobile/login',json={'username':username,'password':'team-member-test-password'})
         headers={'Authorization':'Bearer '+login.json()['token'],'X-Engram-Project':project}
         items=client.get('/api/v1/projects',headers=headers).json()
@@ -55,6 +61,7 @@ def test_team_invitation_role_and_project_isolation(monkeypatch):
         assert client.post('/api/v1/memories',headers=headers,json={'title':'No','content':'Viewer cannot edit'}).status_code==403
         assert client.get('/api/v1/memories',headers={**headers,'X-Engram-Project':DEFAULT_PROJECT_ID}).status_code==404
         assert client.post('/api/v1/team/invitations',headers=headers,json={'username':'outsider','role':'owner'}).status_code==403
+        assert client.put('/api/v1/setup/models',headers=headers,json={'model':'arbitrary-model'}).status_code==403
         with connect() as conn:
             member=conn.execute('SELECT id FROM users WHERE username=%s',(username,)).fetchone()['id']
         bound=Principal('oauth',str(member),username,False,{'memory:write','memory:read','mcp:use'},'oauth',project)

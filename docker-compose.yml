@@ -17,6 +17,7 @@ services:
       - ./db/migrations/014_commercial_license.sql:/docker-entrypoint-initdb.d/014-commercial-license.sql:ro
       - ./db/migrations/015_team_workspaces.sql:/docker-entrypoint-initdb.d/015-team-workspaces.sql:ro
       - ./db/migrations/016_branding.sql:/docker-entrypoint-initdb.d/016-branding.sql:ro
+      - ./db/migrations/017_setup.sql:/docker-entrypoint-initdb.d/017-setup.sql:ro
     networks: [backend]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]

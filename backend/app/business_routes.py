@@ -10,8 +10,89 @@ from app.audit import log
 from app.database import connect,current_project_id
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse,Response
+from app.config import settings
+from app.security import hash_password
+from pathlib import Path
+import hmac
+import httpx
 
 router=APIRouter(prefix='/api/v1')
+
+
+def instance_admin(request):
+    p=authenticate(request)
+    if not p.is_admin or p.auth_type not in {'session','mobile'}:raise HTTPException(403,'Instance administrator required')
+    return p
+
+
+@router.get('/setup/status')
+def setup_status():
+    if get_edition()!='commercial':return {'available':False}
+    with connect() as conn:
+        exists=conn.execute('SELECT 1 FROM users LIMIT 1').fetchone() is not None
+        row=conn.execute('SELECT completed_at FROM instance_setup WHERE singleton').fetchone()
+    return {'available':True,'needs_admin':not exists,'bootstrap_enabled':Path(settings().setup_bootstrap_token_file).is_file(),'completed_at':row['completed_at']}
+
+
+class Bootstrap(BaseModel):
+    username:str=Field(min_length=3,max_length=254,pattern=r'^\S+$')
+    password:str=Field(min_length=12,max_length=256)
+    token:str=Field(min_length=32,max_length=256)
+
+
+@router.post('/setup/bootstrap',status_code=201)
+def bootstrap(body:Bootstrap):
+    if get_edition()!='commercial':raise HTTPException(404,'Commercial setup only')
+    try:expected=Path(settings().setup_bootstrap_token_file).read_text().strip()
+    except OSError:raise HTTPException(403,'Bootstrap is disabled. Create an administrator using the local CLI.')
+    if len(expected)<32 or not hmac.compare_digest(expected.encode(),body.token.encode()):raise HTTPException(403,'Invalid setup token')
+    with connect() as conn:
+        conn.execute('SELECT pg_advisory_xact_lock(370006)')
+        if conn.execute('SELECT 1 FROM users LIMIT 1').fetchone():raise HTTPException(409,'Setup account creation is closed. Sign in with an existing account.')
+        conn.execute('INSERT INTO users(username,password_hash,is_admin) VALUES(%s,%s,true)',(body.username,hash_password(body.password)));conn.commit()
+    return {'username':body.username}
+
+
+def installed_models():
+    try:
+        response=httpx.get(settings().ollama_url.rstrip('/')+'/api/tags',timeout=10)
+        response.raise_for_status()
+        return [str(item['name']) for item in response.json()['models']]
+    except (httpx.HTTPError,ValueError,KeyError,TypeError) as exc:raise HTTPException(503,'Ollama is unavailable. Check the configured server and its models.') from exc
+
+
+@router.get('/setup/models')
+def setup_models(request:Request):
+    commercial();instance_admin(request)
+    from app.preferences import chat_model
+    return {'installed':installed_models(),'chat_model':chat_model(),'embedding_model':settings().embedding_model}
+
+
+class ModelChoice(BaseModel):
+    model:str=Field(min_length=1,max_length=200)
+
+
+@router.put('/setup/models')
+def setup_model(body:ModelChoice,request:Request):
+    commercial();p=instance_admin(request)
+    if body.model not in installed_models():raise HTTPException(422,'Choose a model already installed on the configured Ollama server')
+    with connect() as conn:
+        conn.execute('UPDATE instance_setup SET chat_model=%s WHERE singleton',(body.model,));conn.commit()
+    log(p.actor,'setup.model_selected','installation',request=request,new_data={'model':body.model})
+    return {'model':body.model}
+
+
+@router.post('/setup/finish')
+def setup_finish(request:Request):
+    commercial();p=instance_admin(request)
+    from app.preferences import chat_model
+    names=installed_models()
+    def present(model):return model in names or model+':latest' in names
+    if not present(chat_model()) or not present(settings().embedding_model):raise HTTPException(409,'Install the configured chat and embedding models before finishing setup')
+    with connect() as conn:
+        conn.execute('UPDATE instance_setup SET completed_at=now() WHERE singleton');conn.commit()
+    log(p.actor,'setup.completed','installation',request=request)
+    return {'ok':True}
 
 
 @router.get('/handover')

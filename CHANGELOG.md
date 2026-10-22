@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.7.0-dev-beta.6 — unreleased
+
+- Add the Commercial first-run wizard with token-protected initial admin creation, licence activation, shared model selection and first-project creation. Apply migration 017.
+
 ## 3.7.0-dev-beta.5 — unreleased
 
 - Add Commercial project handover exports with current memories, decisions, outstanding questions, checked saved briefs and source references in Markdown or JSON.
