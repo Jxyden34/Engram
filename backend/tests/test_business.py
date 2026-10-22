@@ -8,7 +8,7 @@ from app.security import Principal,hash_password
 
 
 def test_branding_rejects_unsafe_logo_and_unreadable_colours():
-    from app.business_routes import Branding
+    from app.commercial.routes import Branding
     from pydantic import ValidationError
     for payload in [{'logo':'javascript:alert(1)'},{'logo':'data:image/svg+xml;base64,PHN2Zz4='},{'accent':'#000000'},{'name':'  '}]:
         with pytest.raises(ValidationError):Branding(**payload)
@@ -22,18 +22,21 @@ def test_handover_exports_user_content_as_text():
           'sources':[{'id':'id','title':'<script>test</script>','content':'![tracking](https://example.com/pixel)',
                       'updated_at':'now','source_ref':None,'content_truncated':False}]}
     text=markdown(data)
-    assert '\n    <script>test</script>\n' in text
-    assert '\n    ![tracking]' in text
+    assert '\n```text\n<script>test</script>\n```' in text
+    assert '\n```text\n![tracking]' in text
 
 
 def test_team_invitation_role_and_project_isolation(monkeypatch,tmp_path):
-    from app import edition,licensing,business_routes
+    from app import edition,licensing
+    from app.commercial import routes as business_routes
     from app.commercial import workspaces
     from app.main import app
     from app.projects import resolve_project
     monkeypatch.setattr(edition,'get_edition',lambda:'commercial')
     monkeypatch.setattr(business_routes,'get_edition',lambda:'commercial')
     monkeypatch.setattr(licensing,'require_commercial_license',lambda:None)
+    monkeypatch.setattr(app.router,'routes',[r for r in app.router.routes if getattr(r,'path','') not in {'/api/v1/branding','/api/v1/setup/status'}])
+    app.include_router(business_routes.router)
     unique=uuid4().hex[:10];username='team-'+unique
     with connect() as conn:
         owner=conn.execute('INSERT INTO users(username,password_hash,is_admin) VALUES(%s,%s,true) RETURNING id',('owner-'+unique,hash_password('team-owner-test-password'))).fetchone()['id']

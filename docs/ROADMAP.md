@@ -14,13 +14,14 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 - 🔵 Later
 - 🧪 Experimental
 
-## v3.7.0-dev-beta.1 — commercial licensing 🧪
+## v3.7.0-dev-beta.7 — Personal and Commercial workspaces 🧪
 
-The active development version is `3.7.0-dev-beta.1`. This first v3.7 step adds
+The active development version is `3.7.0-dev-beta.7`. This track adds
 signed, installation-bound paid commercial keys, administrator activation and
 licence status. Personal Community is free for noncommercial use; Commercial is a
 separate build that requires activation. An owner dashboard turns manual payment
 confirmation into automatic key issuance and SMTP email. Online checkout is deferred.
+See [the development feature guide](DEVELOPMENT-PREVIEWS.md) for the six individually versioned additions.
 See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable remains v2.7.0;
 existing native releases retain their preview channels; v3.7 source uses a separate runtime and channel.
 

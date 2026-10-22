@@ -1,5 +1,6 @@
 """Bounded exports using current project evidence, without model-generated facts."""
 from datetime import datetime,timezone
+import re
 from app.database import connect,current_project_id
 from app import reflection
 
@@ -30,8 +31,10 @@ def snapshot():
 
 
 def plain(value):
-    # Indentation keeps user content as text rather than executable HTML or remote Markdown images.
-    return '\n'.join('    '+line for line in str(value).splitlines())
+    # A fence longer than any user-provided backtick run cannot be closed by source content.
+    value=str(value)
+    fence='`'*(max((len(m.group()) for m in re.finditer(r'`+',value)),default=0)+3)
+    return '\n'+fence+'text\n'+value+'\n'+fence+'\n'
 
 
 def markdown(data):

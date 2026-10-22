@@ -72,3 +72,12 @@ No Stripe integration, card collection, automatic payment verification or pricin
 
 For local offline issuance, the owner-only `scripts/commercial_license.py` CLI remains
 available in source. Keep the private key in owner infrastructure; never customer builds.
+
+## Renewal workflow
+
+The owner dashboard can confirm a renewal payment and email a replacement key with a
+later expiry. Repeating the same order/date produces the same replacement. Original
+keys remain valid until their original expiry; offline validation does not revoke them.
+The customer can request renewal from Licence. Expiry emails are queued once per
+30-day, 7-day and 1-day window, with retry on SMTP failure. Superseded orders receive
+no further expiry notices. The customer must activate the replacement key.

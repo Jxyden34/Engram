@@ -20,9 +20,9 @@
       },
       "channel": "preview"
     },
-    "v3.7-beta1": {
+    "v3.7-beta7": {
       "extends": "preview",
-      "channel": "v3.7-dev-beta-1",
+      "channel": "v3.7-dev-beta-7",
       "environment": "preview"
     }
   }
