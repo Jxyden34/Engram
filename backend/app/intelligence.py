@@ -103,9 +103,11 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
 
 
 def search_memories(query: str, limit: int, memory_type: str | None = None, include_historical: bool = False,
-                    *, since=None, until=None, infer_history: bool = True) -> list[dict]:
+                    *, since=None, until=None, infer_history: bool = True, include_archived: bool = False) -> list[dict]:
     plan = plan_query(query)
     history = "" if include_historical or (infer_history and plan["include_historical"]) else "AND (valid_to IS NULL OR valid_to > now())"
+    if not include_archived:
+        history += ' AND archived_at IS NULL'
     dates = """
       AND (%s::date IS NULL OR updated_at >= (%s::date::timestamp AT TIME ZONE 'UTC'))
       AND (%s::date IS NULL OR updated_at < ((%s::date + 1)::timestamp AT TIME ZONE 'UTC'))
@@ -204,11 +206,11 @@ def candidate_conflicts(limit: int = 20) -> list[dict]:
                  b.id AS second_id,b.title AS second_title,b.content AS second_content,
                  1-(a.embedding<=>b.embedding) AS similarity
           FROM (SELECT id,title,content,embedding FROM memories
-                WHERE deleted_at IS NULL AND (valid_to IS NULL OR valid_to>now()) AND embedding IS NOT NULL
+                WHERE deleted_at IS NULL AND archived_at IS NULL AND (valid_to IS NULL OR valid_to>now()) AND embedding IS NOT NULL
                 ORDER BY updated_at DESC LIMIT 200) a
           CROSS JOIN LATERAL (
             SELECT id,title,content,embedding FROM memories
-            WHERE id<>a.id AND deleted_at IS NULL AND (valid_to IS NULL OR valid_to>now()) AND embedding IS NOT NULL
+            WHERE id<>a.id AND deleted_at IS NULL AND archived_at IS NULL AND (valid_to IS NULL OR valid_to>now()) AND embedding IS NOT NULL
             ORDER BY embedding<=>a.embedding LIMIT 3
           ) b
           WHERE a.id::text < b.id::text AND a.content<>b.content AND 1-(a.embedding<=>b.embedding)>=0.72
@@ -240,7 +242,7 @@ def resolve_conflict(first_id: str, second_id: str, current_id: str, actor: str,
         rows = conn.execute(f"SELECT {MEMORY_FIELDS},deleted_at FROM memories WHERE id=ANY(%s::uuid[]) FOR UPDATE",
                             ([first_id, second_id],)).fetchall()
         now = datetime.now(timezone.utc)
-        if len(rows) != 2 or any(row["deleted_at"] or (row["valid_from"] and row["valid_from"] > now)
+        if len(rows) != 2 or any(row["deleted_at"] or row['archived_at'] or (row["valid_from"] and row["valid_from"] > now)
                                  or (row["valid_to"] and row["valid_to"] <= now) for row in rows):
             raise HTTPException(status_code=409, detail="Both memories must exist and be current")
         loser = next(row for row in rows if str(row["id"]) == older_id)

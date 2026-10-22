@@ -29,7 +29,7 @@ def _revision(conn) -> str:
     # Covers additions as well as edits/deletions; unrelated changes conservatively require review.
     return conn.execute("""SELECT md5(COALESCE(string_agg(id::text || ':' || updated_at::text,
         ',' ORDER BY id), '')) AS revision FROM memories
-        WHERE deleted_at IS NULL AND (valid_from IS NULL OR valid_from<=now())
+        WHERE deleted_at IS NULL AND archived_at IS NULL AND (valid_from IS NULL OR valid_from<=now())
           AND (valid_to IS NULL OR valid_to>now())""").fetchone()['revision']
 
 
@@ -40,7 +40,7 @@ def _version(row: dict) -> str:
 
 def _current(row: dict) -> bool:
     now = datetime.now(timezone.utc)
-    return (not row.get('deleted_at') and (not row.get('valid_from') or row['valid_from']<=now)
+    return (not row.get('deleted_at') and not row.get('archived_at') and (not row.get('valid_from') or row['valid_from']<=now)
             and (not row.get('valid_to') or row['valid_to']>now))
 
 

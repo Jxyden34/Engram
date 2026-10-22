@@ -28,7 +28,7 @@ def scan() -> dict:
                      n.updated_at AS second_updated, 1-(m.embedding <=> n.embedding) AS similarity
               FROM memories m CROSS JOIN LATERAL (
                 SELECT id, embedding, updated_at FROM memories n
-                WHERE n.id > m.id AND n.deleted_at IS NULL AND n.embedding IS NOT NULL
+                WHERE n.id > m.id AND n.deleted_at IS NULL AND n.archived_at IS NULL AND n.embedding IS NOT NULL
                   AND (n.valid_to IS NULL OR n.valid_to > now())
                   AND 1-(m.embedding <=> n.embedding) >= 0.65
                   AND 1-(m.embedding <=> n.embedding) < 0.94
@@ -36,7 +36,7 @@ def scan() -> dict:
                     (r.from_memory_id=m.id AND r.to_memory_id=n.id) OR (r.from_memory_id=n.id AND r.to_memory_id=m.id))
                 ORDER BY n.embedding <=> m.embedding LIMIT 1
               ) n
-              WHERE m.deleted_at IS NULL AND m.embedding IS NOT NULL
+              WHERE m.deleted_at IS NULL AND m.archived_at IS NULL AND m.embedding IS NOT NULL
                 AND (m.valid_to IS NULL OR m.valid_to > now())
               ORDER BY m.updated_at DESC LIMIT 500
             )
@@ -57,7 +57,7 @@ def scan() -> dict:
                    'Imported memory has no source reference; review its provenance.',
                    jsonb_build_object('source_type', source_type)
             FROM memories
-            WHERE deleted_at IS NULL AND source_type <> 'manual' AND source_ref IS NULL
+            WHERE deleted_at IS NULL AND archived_at IS NULL AND source_type <> 'manual' AND source_ref IS NULL
             ON CONFLICT DO NOTHING
             RETURNING id
         """).rowcount
@@ -67,7 +67,7 @@ def scan() -> dict:
                    'Memory has not been updated for two years; check whether it is still true.',
                    jsonb_build_object('updated_at', updated_at)
             FROM memories
-            WHERE deleted_at IS NULL AND valid_to IS NULL
+            WHERE deleted_at IS NULL AND archived_at IS NULL AND valid_to IS NULL
               AND updated_at < now() - interval '2 years'
             ON CONFLICT DO NOTHING
             RETURNING id
@@ -78,7 +78,7 @@ def scan() -> dict:
                    'This memory has low confidence; check the original source before relying on it.',
                    jsonb_build_object('confidence', confidence)
             FROM memories
-            WHERE deleted_at IS NULL AND confidence < 0.5
+            WHERE deleted_at IS NULL AND archived_at IS NULL AND confidence < 0.5
             ON CONFLICT DO NOTHING
             RETURNING id
         """).rowcount
@@ -89,6 +89,7 @@ def scan() -> dict:
                    jsonb_build_object('candidate_id', id)
             FROM candidate_memories
             WHERE status='pending' AND comparison='conflicts' AND nearest_memory_id IS NOT NULL
+              AND EXISTS (SELECT 1 FROM memories m WHERE m.id=nearest_memory_id AND m.deleted_at IS NULL AND m.archived_at IS NULL)
             ORDER BY nearest_memory_id, created_at DESC
             ON CONFLICT DO NOTHING
             RETURNING id
@@ -100,6 +101,7 @@ def scan() -> dict:
                    jsonb_build_object('candidate_id', id, 'source', 'document')
             FROM document_candidate_memories
             WHERE status='pending' AND comparison='conflicts' AND nearest_memory_id IS NOT NULL
+              AND EXISTS (SELECT 1 FROM memories m WHERE m.id=nearest_memory_id AND m.deleted_at IS NULL AND m.archived_at IS NULL)
             ORDER BY nearest_memory_id, created_at DESC
             ON CONFLICT DO NOTHING
             RETURNING id
@@ -111,11 +113,11 @@ def scan() -> dict:
                 FROM memories m
                 CROSS JOIN LATERAL (
                     SELECT id, embedding FROM memories n
-                    WHERE n.id > m.id AND n.deleted_at IS NULL AND n.embedding IS NOT NULL
+                    WHERE n.id > m.id AND n.deleted_at IS NULL AND n.archived_at IS NULL AND n.embedding IS NOT NULL
                       AND (n.valid_from IS NULL OR n.valid_from<=now()) AND (n.valid_to IS NULL OR n.valid_to>now())
                     ORDER BY n.embedding <=> m.embedding LIMIT 1
                 ) n
-                WHERE m.deleted_at IS NULL AND m.embedding IS NOT NULL
+                WHERE m.deleted_at IS NULL AND m.archived_at IS NULL AND m.embedding IS NOT NULL
                   AND (m.valid_from IS NULL OR m.valid_from<=now()) AND (m.valid_to IS NULL OR m.valid_to>now())
                 ORDER BY m.updated_at DESC LIMIT 500
             )
@@ -183,7 +185,7 @@ def approve(proposal_id: str, actor: str, payload: dict) -> dict:
             raise HTTPException(status_code=409, detail='Finding was already dismissed')
         ids = [str(proposal['memory_id'])] + ([str(proposal['related_memory_id'])] if proposal['related_memory_id'] else [])
         rows = conn.execute('''SELECT id,updated_at,content,confidence,source_trust FROM memories
-            WHERE id=ANY(%s::uuid[]) AND deleted_at IS NULL
+            WHERE id=ANY(%s::uuid[]) AND deleted_at IS NULL AND archived_at IS NULL
             AND (valid_from IS NULL OR valid_from<=now()) AND (valid_to IS NULL OR valid_to>now())
             ORDER BY id FOR UPDATE''', (ids,)).fetchall()
         current = {str(row['id']): row['updated_at'] for row in rows}
@@ -234,9 +236,9 @@ def draft_consolidation(proposal_id: str) -> dict:
                    a.title AS first_title, a.content AS first_content, a.updated_at AS first_updated,
                    b.title AS second_title, b.content AS second_content, b.updated_at AS second_updated
             FROM agent_proposals p
-            JOIN memories a ON a.id=p.memory_id AND a.deleted_at IS NULL
+            JOIN memories a ON a.id=p.memory_id AND a.deleted_at IS NULL AND a.archived_at IS NULL
                 AND (a.valid_from IS NULL OR a.valid_from<=now()) AND (a.valid_to IS NULL OR a.valid_to>now())
-            JOIN memories b ON b.id=p.related_memory_id AND b.deleted_at IS NULL
+            JOIN memories b ON b.id=p.related_memory_id AND b.deleted_at IS NULL AND b.archived_at IS NULL
                 AND (b.valid_from IS NULL OR b.valid_from<=now()) AND (b.valid_to IS NULL OR b.valid_to>now())
             WHERE p.id=%s AND p.proposal_type='duplicate' AND p.status='pending'
         """, (proposal_id,)).fetchone()
@@ -274,8 +276,8 @@ def draft_consolidation(proposal_id: str) -> dict:
             UPDATE agent_proposals p
             SET evidence = p.evidence || jsonb_build_object('draft', %s::jsonb)
             WHERE p.id=%s AND p.status='pending'
-              AND EXISTS (SELECT 1 FROM memories m WHERE m.id=p.memory_id AND m.updated_at=%s AND m.deleted_at IS NULL)
-              AND EXISTS (SELECT 1 FROM memories m WHERE m.id=p.related_memory_id AND m.updated_at=%s AND m.deleted_at IS NULL)
+              AND EXISTS (SELECT 1 FROM memories m WHERE m.id=p.memory_id AND m.updated_at=%s AND m.deleted_at IS NULL AND m.archived_at IS NULL)
+              AND EXISTS (SELECT 1 FROM memories m WHERE m.id=p.related_memory_id AND m.updated_at=%s AND m.deleted_at IS NULL AND m.archived_at IS NULL)
             RETURNING id
         """, (json.dumps(draft), proposal_id, row["first_updated"], row["second_updated"])).fetchone()
         if not updated:

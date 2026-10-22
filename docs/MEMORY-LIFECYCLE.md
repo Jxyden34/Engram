@@ -35,3 +35,26 @@ No background rewrite, database migration or automatic removal is involved.
 The existing quality score remains in place. This is an explainable ranking
 heuristic, not a trained estimate of truth or a guarantee that every old memory
 appears within the bounded candidate pool.
+
+## Searchable archival — pre.4
+
+Open a memory, enter a reason and choose **Archive memory**. Its content, version
+history and provenance remain intact. Archive and restore require `memory:write`,
+are audited and reject stale edits. Restore from the same memory page.
+
+Default memory lists, hybrid/legacy search, Ask, Reflect, context building and new
+Agent suggestions exclude archived memories. The **Include archived** control in
+Memories includes them in lists/search; REST search accepts `include_archived:true`
+and MCP `memory_search` accepts the same flag. Direct memory links still work in
+the authorized project. History and archive filters are independent; include both
+when searching a memory that is both archived and historical. Archival does not
+mean deletion, does not erase existing graph/history views, and is never automatic.
+
+Archiving a supporting source marks its saved briefs for review and hides their
+previous answer. Restoring does not silently recertify a previous brief.
+
+Back up PostgreSQL and apply `014_memory_archival.sql` after 013 before updating
+API/workers. Fresh installs/CI mount it automatically. Rollback may retain the
+additive column and restore prior application images, but older versions do not
+understand archival and may show archived memories in default retrieval. Preserve
+the backup and test rollback in isolation before stable promotion.

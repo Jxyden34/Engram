@@ -34,6 +34,7 @@ def corpus():
                     conn.execute('DELETE FROM project_briefs')
                     conn.execute('DELETE FROM audit_log')
                     conn.execute('DELETE FROM api_keys')
+                    conn.execute('DELETE FROM memory_versions')
                     conn.execute('DELETE FROM memories')
                     conn.commit()
         with connect() as conn:
@@ -178,3 +179,39 @@ def test_brief_api_enforces_scopes_and_bound_projects(corpus):
     assert client.get(path, headers={**headers, 'X-Engram-Project': projects[1]}).status_code == 403
     assert client.delete(path+'/'+brief_id, headers=read_headers).status_code == 403
     assert client.delete(path+'/'+brief_id, headers=headers).status_code == 200
+    archive_path = f"/api/v1/memories/{source['id']}/archive"
+    archive_body = {'archived':True,'expected_updated_at':source['updated_at'].isoformat(),'reason':'Archive API check'}
+    assert client.post(archive_path,headers=read_headers,json=archive_body).status_code == 403
+    assert client.post(archive_path,headers=headers,json=archive_body).status_code == 200
+
+
+def test_archival_is_searchable_reversible_and_invalidates_briefs(corpus):
+    from app import memories, intelligence
+    projects, source = corpus
+    vector = '['+','.join(['1']+['0']*383)+']'
+    with project_scope(projects[0]), patch.object(intelligence,'embed_literal',return_value=vector):
+        saved = reflection.save_brief(save_body(draft(source)), 'reviewer')
+        archived = memories.set_archived(str(source['id']),True,source['updated_at'],'test','Cold project evidence')
+        assert archived['content'] == CONTENT and archived['archived_at'] is not None
+        assert memories.list_memories() == []
+        assert intelligence.search_memories('project',10) == []
+        assert [str(row['id']) for row in intelligence.search_memories('project',10,include_archived=True)] == [str(source['id'])]
+        assert memories.list_memories(include_archived=True)[0]['archived_at']
+        assert memories.get(str(source['id']),touch=False)['content'] == CONTENT
+        brief = reflection.get_brief(str(saved['id']))
+        assert brief['claims'] == [] and brief['sources'][0]['status'] == 'unavailable'
+        with patch.object(reflection,'_ollama_json') as model:
+            assert reflection.reflect('project','quick')['insufficient'] is True
+        model.assert_not_called()
+        with pytest.raises(HTTPException) as stale:
+            memories.set_archived(str(source['id']),False,source['updated_at'],'test','Stale restore')
+        assert stale.value.status_code == 409
+        restored = memories.set_archived(str(source['id']),False,archived['updated_at'],'test','Restore relevant evidence')
+        assert restored['archived_at'] is None and restored['content'] == CONTENT
+        assert len(memories.versions(str(source['id']))) == 2
+        assert len(memories.list_memories()) == 1
+        assert reflection.get_brief(str(saved['id']))['status'] == 'needs_review'
+    with project_scope(projects[1]):
+        with pytest.raises(HTTPException) as missing:
+            memories.set_archived(str(source['id']),True,restored['updated_at'],'test','Wrong project')
+        assert missing.value.status_code == 404

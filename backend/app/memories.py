@@ -8,7 +8,7 @@ from app.util import json_text
 MEMORY_FIELDS = """
 id, owner_id, title, content, memory_type, importance, confidence, tags,
 source_type, source_ref, metadata, created_by, updated_by, created_at, updated_at,
-valid_from, valid_to, supersedes_memory_id, source_trust, access_count, last_accessed_at
+valid_from, valid_to, supersedes_memory_id, source_trust, access_count, last_accessed_at, archived_at
 """
 
 MEMORY_SCORE_SQL = """
@@ -66,9 +66,10 @@ def get(memory_id: str, include_deleted: bool=False, touch: bool=True):
     return item
 
 
-def list_memories(limit=50,offset=0,memory_type=None,tag=None,include_deleted=False,include_historical=False):
+def list_memories(limit=50,offset=0,memory_type=None,tag=None,include_deleted=False,include_historical=False,include_archived=False):
     clauses=[]; params=[]
     if not include_deleted: clauses.append("deleted_at IS NULL")
+    if not include_archived: clauses.append("archived_at IS NULL")
     if not include_historical: clauses.append("(valid_to IS NULL OR valid_to > now())")
     if memory_type: clauses.append("memory_type=%s"); params.append(memory_type)
     if tag: clauses.append("%s=ANY(tags)"); params.append(tag)
@@ -136,7 +137,7 @@ def search(query: str,limit: int,memory_type: str|None,include_historical: bool=
     with connect() as conn:
         rows=conn.execute(f"""
           SELECT {MEMORY_FIELDS},1-(embedding<=>%s::vector) AS semantic_score,ts_rank_cd(search_vector,websearch_to_tsquery('english',%s)) AS lexical_score,{MEMORY_SCORE_SQL} AS memory_score
-          FROM memories WHERE deleted_at IS NULL AND embedding IS NOT NULL {history} AND (%s::text IS NULL OR memory_type=%s)
+          FROM memories WHERE deleted_at IS NULL AND archived_at IS NULL AND embedding IS NOT NULL {history} AND (%s::text IS NULL OR memory_type=%s)
             AND (%s::date IS NULL OR updated_at >= (%s::date::timestamp AT TIME ZONE 'UTC'))
             AND (%s::date IS NULL OR updated_at < ((%s::date + 1)::timestamp AT TIME ZONE 'UTC'))
           ORDER BY ((1-(embedding<=>%s::vector))*.72 + LEAST(ts_rank_cd(search_vector,websearch_to_tsquery('english',%s)),1.0)*.13 + ({MEMORY_SCORE_SQL})*.15) DESC LIMIT %s
@@ -147,6 +148,22 @@ def search(query: str,limit: int,memory_type: str|None,include_historical: bool=
     for row in rows:
         item=dict(row); item["semantic_score"]=float(item["semantic_score"] or 0); item["lexical_score"]=float(item["lexical_score"] or 0); item["memory_score"]=float(item["memory_score"] or 0); item["result_type"]="memory"; out.append(item)
     return out
+def set_archived(memory_id: str, archived: bool, expected_updated_at, actor: str, reason: str):
+    with connect() as conn:
+        old = conn.execute(f'SELECT {MEMORY_FIELDS} FROM memories WHERE id=%s AND deleted_at IS NULL FOR UPDATE', (memory_id,)).fetchone()
+        if not old:
+            raise HTTPException(status_code=404, detail='Memory not found')
+        if old['updated_at'] != expected_updated_at:
+            raise HTTPException(status_code=409, detail='Memory changed. Reload it before changing archival state.')
+        if bool(old['archived_at']) == archived:
+            return dict(old)
+        _save_version(conn,memory_id,memory_snapshot(dict(old)),actor,reason)
+        row = conn.execute(f'''UPDATE memories SET archived_at=CASE WHEN %s THEN now() ELSE NULL END,
+            updated_at=now(),updated_by=%s WHERE id=%s RETURNING {MEMORY_FIELDS}''', (archived,actor,memory_id)).fetchone()
+        conn.commit()
+    return dict(row)
+
+
 def request_delete(memory_id: str, actor: str, reason: str):
     memory = get(memory_id)
     with connect() as conn:

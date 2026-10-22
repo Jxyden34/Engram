@@ -46,6 +46,13 @@ class SearchRequest(BaseModel):
     memory_type: str | None = None
     include_documents: bool = True
     include_historical: bool = False
+    include_archived: bool = False
+
+
+class ArchiveRequest(BaseModel):
+    archived: bool
+    expected_updated_at: datetime
+    reason: str = Field(min_length=3, max_length=1000)
 
 
 class AskRequest(BaseModel):

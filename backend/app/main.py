@@ -41,6 +41,7 @@ from app.mcp_server import mcp, mcp_principal
 from app.rate_limit import check_rate
 from app.schemas import (
     ApiKeyCreate,
+    ArchiveRequest,
     CandidateUpdate,
     CaptureCreate,
     ChatImportCreate,
@@ -112,7 +113,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.8.0-pre.3",
+    version="2.8.0-pre.4",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -234,7 +235,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.3"}
+    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.4"}
 
 
 def _check_login(body: LoginRequest):
@@ -434,7 +435,7 @@ def stats(request: Request):
     require(request, "memory:read")
     with connect() as conn:
         return {
-            "memories": conn.execute("SELECT count(*) AS n FROM memories WHERE deleted_at IS NULL AND (valid_to IS NULL OR valid_to > now())").fetchone()["n"],
+            "memories": conn.execute("SELECT count(*) AS n FROM memories WHERE deleted_at IS NULL AND archived_at IS NULL AND (valid_to IS NULL OR valid_to > now())").fetchone()["n"],
             "entities": conn.execute("SELECT count(*) AS n FROM entities").fetchone()["n"],
             "events": conn.execute("SELECT count(*) AS n FROM events").fetchone()["n"],
             "documents": conn.execute("SELECT count(*) AS n FROM documents WHERE deleted_at IS NULL").fetchone()["n"],
@@ -477,6 +478,7 @@ def memory_list(
     tag: str | None = None,
     include_deleted: bool = False,
     include_historical: bool = False,
+    include_archived: bool = False,
 ):
     p = require(request, "memory:read")
     if include_deleted and not p.is_admin:
@@ -488,6 +490,7 @@ def memory_list(
         tag,
         include_deleted,
         include_historical,
+        include_archived,
     )
 
 
@@ -548,10 +551,19 @@ def ask_memories(body: AskRequest, request: Request):
     return ask.answer(body.question, body.memory_type, body.since, body.until)
 
 
+@app.post('/api/v1/memories/{memory_id}/archive')
+def memory_archive(memory_id: UUID, body: ArchiveRequest, request: Request):
+    p = require(request,'memory:write')
+    row = memories.set_archived(str(memory_id),body.archived,body.expected_updated_at,p.actor,body.reason)
+    log(p.actor,'memory.archived' if body.archived else 'memory.unarchived','memory',str(memory_id),request,body.reason)
+    return row
+
+
 @app.post("/api/v1/search")
 def search(body: SearchRequest, request: Request):
     require(request, "memory:read")
-    results = intelligence.search_memories(body.query, body.limit, body.memory_type, body.include_historical)
+    results = intelligence.search_memories(body.query, body.limit, body.memory_type, body.include_historical,
+                                           include_archived=body.include_archived)
     if body.include_documents:
         p = authenticate(request)
         if "document:read" in p.scopes:
