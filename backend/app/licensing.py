@@ -1,4 +1,4 @@
-"""Common edition API. Community is MIT licensed and never requires a key."""
+"""Common edition API. Personal Community never requires a key; business use requires Commercial."""
 from fastapi import HTTPException
 from app.edition import get_edition
 from app.config import settings

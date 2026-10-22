@@ -3,7 +3,7 @@
 ## 3.0.0-dev-beta.1 — unreleased
 
 - Add offline Ed25519 commercial licence keys bound to an installation and expiry date, an owner-only issuer CLI, and administrator activation/status in Settings.
-- Split MIT Community (free including business use) and Commercial builds. Commercial requires a valid key for product API/MCP access; health, login and activation remain available. Community images omit proprietary code; both customer builds omit the issuer CLI.
+- Split Personal Community (free for noncommercial use) and Commercial builds. Commercial requires a valid key for product API/MCP access; health, login and activation remain available. Community images omit proprietary code; both customer builds omit the issuer CLI.
 - Add a responsive activation screen and separate owner licence manager. Manually confirming payment issues one key and automatically emails it from the configured SMTP mailbox, with durable retries and same-key resending.
 - Add migration 014. Checkout, payment processing and online revocation are not included. Existing releases retain their licence notices.
 

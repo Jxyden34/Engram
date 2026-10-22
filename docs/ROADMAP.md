@@ -18,7 +18,7 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 
 The active development version is `3.0.0-dev-beta.1`. This first v3 step adds
 signed, installation-bound paid commercial keys, administrator activation and
-licence status. MIT Community is free, including business use; Commercial is a
+licence status. Personal Community is free for noncommercial use; Commercial is a
 separate build that requires activation. An owner dashboard turns manual payment
 confirmation into automatic key issuance and SMTP email. Online checkout is deferred.
 See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable remains v2.7.0;

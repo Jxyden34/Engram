@@ -17,7 +17,7 @@ and paste the emailed key. A missing, forged, expired or differently scoped key 
 product API and MCP access locked with HTTP 402. Health, login and licence activation
 remain reachable. There is no Personal toggle in Commercial.
 
-Community is MIT licensed and requires no key. Its final image omits commercial
+Personal Community requires no key. Business and commercial users must use Commercial with a valid paid key. Its final image omits commercial
 implementation code. Customer images omit the issuer CLI, owner service and signing secrets.
 
 ## Owner service

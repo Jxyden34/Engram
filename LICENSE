@@ -1,26 +1,54 @@
-MIT License - Engram Community
-
+Engram Personal Self-Hosting License 1.0
 Copyright (c) 2026 Jayden Hindley
 
-This grant covers the Community edition and shared source. Components with a
-separate licence notice (backend/app/commercial/, backend/owner/, and
-backend/scripts/commercial_license.py) are excluded; see LICENSE-COMMERCIAL.
-Community images omit those proprietary components.
+1. Personal permission
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+You may download, copy, run, back up and modify Engram, without a license fee,
+for your own personal, noncommercial use. This includes self-hosting it on
+hardware you own or on infrastructure you rent for that purpose, and connecting
+your personal AI clients. No separate written permission is needed for these
+uses. You remain responsible for infrastructure and other third-party costs.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+You may share copies and modifications with other individuals for their own
+personal, noncommercial use, provided you include this license and copyright
+notice, identify your changes, and do not charge for the software or access to
+it. Recipients receive permission directly under these same terms.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. Commercial rights reserved
+
+Commercial use requires a separate written license from Jayden Hindley. This
+includes use for an employer, business or client; selling or sublicensing
+Engram or derivatives; providing managed hosting or paid access; and embedding
+Engram in a commercial product or service. The personal permission above does
+not authorize these uses, even if no fee is charged to an end user.
+
+Contact the copyright holder through https://hindley.tech/contact to discuss
+commercial permission. No commercial permission, price, service commitment or
+support obligation is implied by making the source publicly visible.
+
+3. Scope and conditions
+
+This license applies to Engram code owned by Jayden Hindley distributed with
+this notice. The same personal-use permission is also granted for that code
+in the official Engram v2.7.0 release, despite its earlier restrictive notice.
+Separately marked commercial components in backend/app/commercial/, backend/owner/
+and backend/scripts/commercial_license.py use LICENSE-COMMERCIAL instead.
+Third-party code and dependencies remain subject to their respective licenses.
+You must preserve their notices and comply with their terms.
+
+No ownership, trademark rights or right to imply endorsement is granted.
+All rights not expressly granted are reserved. This is a source-available,
+personal-use license, not an open-source license. Rights available under
+applicable law are not limited by these terms.
+
+If you breach these terms, the permissions granted here terminate. Previously
+compliant use remains permitted under the terms supplied with that version;
+this license does not require accepting a future license to keep using it.
+
+4. No warranty or liability
+
+TO THE EXTENT PERMITTED BY LAW, THE SOFTWARE IS PROVIDED "AS IS", WITHOUT
+WARRANTIES OF ANY KIND, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NON-INFRINGEMENT. THE COPYRIGHT HOLDER IS NOT LIABLE FOR CLAIMS,
+DAMAGES OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE. NOTHING IN
+THIS LICENSE EXCLUDES LIABILITY THAT CANNOT LAWFULLY BE EXCLUDED.

@@ -11,7 +11,7 @@ Ollama processing, source-aware search and controlled access for your AI clients
 **[Connect an MCP client](https://jxyden34.github.io/Engram/mcp.html)** ·
 **[Report feedback](https://github.com/Jxyden34/Engram/issues/new/choose)**
 
-**v3 beta editions:** MIT Community is free, including business use. Commercial
+**v3 beta editions:** Personal Community is free for noncommercial use. Commercial
 is a separate paid build activated with a licence key. See the [license](LICENSE)
 and [usage guide](docs/LICENSING.md).
 
@@ -224,7 +224,7 @@ See [SECURITY.md](SECURITY.md).
 
 ## License
 
-The v3 Community build is MIT licensed, including business use. The separate
+The v3 Personal Community build is source-available and free for personal, noncommercial use. Business and commercial use require a paid key. The separate
 Commercial build and owner licensing service use [commercial terms](LICENSE-COMMERCIAL).
 These changes are on the v3 development branch; existing releases retain their licence notices.
 See [LICENSE](LICENSE) and the [usage guide](docs/LICENSING.md).
