@@ -1,7 +1,7 @@
 # Engram 3.7 development features
 
 Each feature has its own version and commit. The current source version is
-`3.7.0-dev-beta.7`. Stable production remains unchanged; these are draft previews.
+`3.7.0-dev-beta.8`. Stable production remains unchanged; these are draft previews.
 
 | Version | Feature | Edition | Where |
 | --- | --- | --- | --- |
@@ -11,6 +11,36 @@ Each feature has its own version and commit. The current source version is
 | 3.7.0-dev-beta.5 | Project handover packs | Commercial | Project handover |
 | 3.7.0-dev-beta.6 | Guided first-run setup | Commercial | `/setup` |
 | 3.7.0-dev-beta.7 | Memory reminders | Personal and Commercial | Reminders and each memory's detail page |
+| 3.7.0-dev-beta.8 | Host deployment installer | Personal and Commercial | Terminal setup wizard |
+
+## One-command host deployment
+
+On a fresh Ubuntu or Debian host:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/codex/v3-commercial-licensing/install.sh | sudo bash
+```
+
+This development command currently selects draft PR #85's branch. Inspect the script
+before running it as root. It installs prerequisite tools and Docker from Docker's
+official apt repository if needed, then opens an interactive deployment wizard.
+It preserves an existing Docker installation and refuses conflicting container runtimes.
+
+The wizard selects the edition and a new install directory, generates service secrets,
+builds and starts the stack, creates the administrator, and can activate a Commercial
+key and download the AI models. Commercial setup asks for the issuer's **public** key
+file; the private issuer and owner SMTP service are never installed on customer hosts.
+
+For direct HTTPS, point the hostname's DNS to the host and allow incoming TCP ports
+80/443 before starting. Caddy obtains and stores the certificate automatically.
+Alternatively choose an existing proxy/tunnel; the gateway binds to localhost only.
+The installer verifies local health and reports public HTTPS verification separately.
+It does not create DNS records or change an external provider's account.
+
+An existing install directory, configuration, or matching Docker resources causes
+setup to stop. Failed installations retain their directory and data for diagnosis.
+Use the upgrade guide for existing deployments. Downloaded customer ZIPs also include
+the wizard: run `sudo python3 install.py` on the host.
 
 ## Team workspaces
 

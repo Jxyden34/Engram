@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.7.0-dev-beta.8 — unreleased
+
+- Add a full Linux host setup command with prerequisite installation, an interactive deployment wizard, generated secrets, administrator creation, optional model downloads and HTTPS configuration.
+
 ## 3.7.0-dev-beta.7 — unreleased
 
 - Add private in-app memory reminders in Personal and Commercial with local-time scheduling, due banners, snoozing and completion. Apply migration 018.

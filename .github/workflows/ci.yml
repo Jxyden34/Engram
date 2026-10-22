@@ -40,7 +40,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql rclone jq shellcheck
       - name: Check DR scripts
         run: |
-          shellcheck ops/dr-monitor/monitor.sh ops/db-backup/backup.sh ops/object-backup/backup.sh
+          shellcheck ops/dr-monitor/monitor.sh ops/db-backup/backup.sh ops/object-backup/backup.sh install.sh
           sh scripts/check-repo-secrets.sh
       - name: Test DR monitor with isolated PostgreSQL and local replication
         run: python3 scripts/test-dr-monitor.py
@@ -250,3 +250,22 @@ jobs:
           docker build -t engram-commercial --build-arg ENGRAM_EDITION=commercial backend
           docker run --rm engram-commercial python -c "from pathlib import Path; from app.edition import get_edition; assert get_edition() == 'commercial'; assert Path('/srv/app/commercial/licensing.py').is_file(); assert not Path('/srv/scripts/commercial_license.py').exists()"
           docker build -t engram-licence-owner -f backend/owner/Dockerfile backend
+
+      - name: Exercise full host installer on an isolated stack
+        env:
+          ENGRAM_INSTALL_ADMIN_USER: installer-admin
+          ENGRAM_INSTALL_ADMIN_PASSWORD: installer-smoke-password-not-production
+        run: |
+          sudo --preserve-env=ENGRAM_INSTALL_ADMIN_USER,ENGRAM_INSTALL_ADMIN_PASSWORD python3 install.py \
+            --directory /tmp/engram-installer-smoke --edition personal --host localhost \
+            --mode proxy --port 18080 --non-interactive --skip-models
+          curl --fail --silent http://127.0.0.1:18080/health
+      - name: Remove isolated installer test stack
+        if: always()
+        run: |
+          if test -f /tmp/engram-installer-smoke/docker-compose.install.yml; then
+            sudo docker compose --project-directory /tmp/engram-installer-smoke \
+              -f /tmp/engram-installer-smoke/docker-compose.yml \
+              -f /tmp/engram-installer-smoke/docker-compose.community.yml \
+              -f /tmp/engram-installer-smoke/docker-compose.install.yml down --volumes
+          fi

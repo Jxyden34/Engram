@@ -10,7 +10,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 DIRECTORIES = ("backend/app/", "backend/scripts/", "web/", "db/", "gateway/", "ops/", "extensions/engram-capture/")
-FILES = {"VERSION", "LICENSE", "LICENSE-COMMERCIAL", "SECURITY.md", ".env.example", "docker-compose.yml",
+FILES = {"VERSION", "LICENSE", "LICENSE-COMMERCIAL", "SECURITY.md", ".env.example", "docker-compose.yml", "install.py", "install.sh",
          "backend/Dockerfile", "backend/.dockerignore", "backend/requirements.txt",
          "docs/DEPLOYMENT.md", "docs/PROJECTS-AGENT.md", "docs/REFLECTION-BRIEFS.md",
          "docs/LICENSING.md", "docs/COMMERCIAL-LICENSING.md", "docs/DEVELOPMENT-PREVIEWS.md"}
@@ -53,6 +53,8 @@ storage and network setup. Existing installations must apply migrations through 
 Use docs/PROJECTS-AGENT.md for the project migrations and docs/REFLECTION-BRIEFS.md
 for migration 013. Apply migrations 014 through 018 with psql before starting an updated API on an
 existing database. See docs/DEVELOPMENT-PREVIEWS.md. New databases apply these on first boot.
+
+For guided host deployment, run `sudo python3 install.py`. The steps below are the manual alternative.
 
 1. Copy `.env.example` to `.env` and configure independent secrets and your domain.
 2. Run `docker compose build`. The included override selects {edition.title()}.
