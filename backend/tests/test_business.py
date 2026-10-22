@@ -7,6 +7,14 @@ from app.database import connect,DEFAULT_PROJECT_ID
 from app.security import Principal,hash_password
 
 
+def test_branding_rejects_unsafe_logo_and_unreadable_colours():
+    from app.business_routes import Branding
+    from pydantic import ValidationError
+    for payload in [{'logo':'javascript:alert(1)'},{'logo':'data:image/svg+xml;base64,PHN2Zz4='},{'accent':'#000000'},{'name':'  '}]:
+        with pytest.raises(ValidationError):Branding(**payload)
+    assert Branding(name=' Example ').name=='Example'
+
+
 def test_team_invitation_role_and_project_isolation(monkeypatch):
     from app import edition,licensing,business_routes
     from app.commercial import workspaces

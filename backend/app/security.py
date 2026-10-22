@@ -201,7 +201,8 @@ def authenticate(request: Request) -> Principal:
 def require(request: Request, *scopes: str) -> Principal:
     principal = authenticate(request)
     from app.edition import get_edition
-    if get_edition() == 'commercial' and principal.user_id:
+    if (get_edition() == 'commercial' and principal.user_id
+            and not (request.method=='GET' and request.url.path=='/api/v1/projects')):
         from app.commercial.workspaces import role
         from app.database import current_project_id
         member_role = role(principal,current_project_id())

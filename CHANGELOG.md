@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.7.0-dev-beta.3 — unreleased
+
+- Add instance-wide Commercial company branding, a PNG logo and branded sign-in. Apply migration 016.
+
 ## 3.7.0-dev-beta.2 — unreleased
 
 - Add Commercial team workspaces with project roles, one-use invitations and membership-aware credential access. Apply migration 015 before upgrading.

@@ -43,6 +43,6 @@ def is_product_request(path: str) -> bool:
     if path == "/mcp" or path.startswith("/mcp/"):
         return True
     return path.startswith("/api/v1/") and path not in {
-        "/api/v1/license", "/api/v1/edition", "/api/v1/auth/login", "/api/v1/auth/logout",
+        "/api/v1/license", "/api/v1/edition", "/api/v1/branding", "/api/v1/auth/login", "/api/v1/auth/logout",
         "/api/v1/auth/me", "/api/v1/mobile/login", "/api/v1/mobile/logout",
     }

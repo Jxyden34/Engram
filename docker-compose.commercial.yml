@@ -1,21 +1,21 @@
 services:
   api:
-    image: engram-api:3.7.0-dev-beta.2-commercial
+    image: engram-api:3.7.0-dev-beta.3-commercial
     build:
       context: ./backend
       args:
         ENGRAM_EDITION: commercial
   worker:
-    image: engram-worker:3.7.0-dev-beta.2-commercial
+    image: engram-worker:3.7.0-dev-beta.3-commercial
     build:
       context: ./backend
       args:
         ENGRAM_EDITION: commercial
   connector-scheduler:
-    image: engram-scheduler:3.7.0-dev-beta.2-commercial
+    image: engram-scheduler:3.7.0-dev-beta.3-commercial
     build:
       context: ./backend
       args:
         ENGRAM_EDITION: commercial
   web:
-    image: engram-web:3.7.0-dev-beta.2-commercial
+    image: engram-web:3.7.0-dev-beta.3-commercial

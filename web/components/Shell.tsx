@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import LicencePage from "@/app/licence/page";
+import {useBranding} from './Branding';
 
 const links = [
   ["/", "Overview", "◈"],
@@ -24,11 +25,13 @@ const links = [
   ["/settings", "AI, API & OAuth", "⌘"],
   ["/licence", "Licence", "◇"],
   ["/team", "Team workspace", "♧"],
+  ["/branding", "Company branding", "◈"],
 ];
 const publicPaths = ["/login", "/about", "/privacy", "/terms", "/licence", "/join"];
 
 export default function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const brand=useBranding();
   const router = useRouter();
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState("");
@@ -70,10 +73,10 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandMark" aria-hidden="true" />
+          {brand.logo?<img src={brand.logo} alt="" width={39} height={39}/>:<div className="brandMark" aria-hidden="true" />}
           <div>
-            <strong>Engram</strong>
-            <span>private cognition layer</span>
+            <strong>{brand.name}</strong>
+            <span>{brand.tagline}</span>
           </div>
         </div>
 
@@ -89,7 +92,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         </label>
 
         <nav>
-          {links.filter(([href])=>edition.edition==='commercial'||href!=='/team').map(([href, label, icon]) => (
+          {links.filter(([href])=>edition.edition==='commercial'||!['/team','/branding'].includes(href)).map(([href, label, icon]) => (
             <Link
               key={href}
               href={href}
