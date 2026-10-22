@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     session_ttl_hours: int = 12
     mobile_session_ttl_days: int = 30
     max_upload_mb: int = 50
+    commercial_license_public_key_path: str = "/run/secrets/commercial-license-public.pem"
     bulk_max_files: int = 1000
     bulk_max_total_mb: int = 500
     zip_max_expanded_mb: int = 500

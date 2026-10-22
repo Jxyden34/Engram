@@ -20,6 +20,7 @@ from app import projects
 from app import memory_agent
 from app import ask
 from app import reflection
+from app import licensing
 from app import document_memory_import as doc_mem
 from app.audit import log
 from app.capture import create_capture
@@ -40,6 +41,7 @@ from app.documents import bulk_upload, get_document, list_documents, minio_clien
 from app.mcp_server import mcp, mcp_principal
 from app.rate_limit import check_rate
 from app.schemas import (
+    LicenseActivation,
     ApiKeyCreate,
     CandidateUpdate,
     CaptureCreate,
@@ -112,7 +114,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.7.0",
+    version="3.0.0-dev-beta.1",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -152,6 +154,7 @@ async def security_middleware(request: Request, call_next):
     if path.startswith("/api/v1/") and path not in {
         "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/me", "/api/v1/projects",
         "/api/v1/mobile/login", "/api/v1/mobile/logout",
+        "/api/v1/license",
     }:
         try:
             selected_project = projects.resolve_project(
@@ -226,6 +229,11 @@ async def security_middleware(request: Request, call_next):
 
     try:
         with project_scope(selected_project or current_project_id()):
+            if licensing.is_product_write(request.method, path):
+                try:
+                    licensing.require_commercial_license()
+                except HTTPException as exc:
+                    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
             return await call_next(request)
     finally:
         if token is not None:
@@ -234,7 +242,29 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.7.0"}
+    return {"status": "ok", "service": "engram", "version": "3.0.0-dev-beta.1"}
+
+
+def license_admin(request: Request):
+    principal = authenticate(request)
+    if not principal.is_admin or principal.auth_type not in {"session", "mobile"}:
+        raise HTTPException(403, "An administrator session is required")
+    return principal
+
+
+@app.get("/api/v1/license")
+def license_status(request: Request):
+    license_admin(request)
+    return licensing.status()
+
+
+@app.put("/api/v1/license")
+def license_activate(body: LicenseActivation, request: Request):
+    principal = license_admin(request)
+    result = licensing.activate(body.mode, body.license_key, principal.actor)
+    log(principal.actor, "license.update", "installation", result["installation_id"],
+        request=request, new_data={"mode": result["mode"], "license_id": result["license_id"]})
+    return result
 
 
 def _check_login(body: LoginRequest):

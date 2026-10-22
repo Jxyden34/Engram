@@ -14,6 +14,15 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 - 🔵 Later
 - 🧪 Experimental
 
+## v3.0.0-dev-beta.1 — commercial licensing 🧪
+
+The active development version is `3.0.0-dev-beta.1`. This first v3 step adds
+signed, installation-bound paid commercial keys, administrator activation and
+licence status. Personal/noncommercial self-hosting stays free. Payment and
+agreement are handled manually before issuing a key; online checkout is deferred.
+See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable remains v2.7.0;
+native companion builds retain their existing preview version and channel.
+
 ## Alpha1 — mobile review and filtered Ask 🧪
 
 These server features are promoted to v2.7.0 on `main` through PR #36. Patched native-device qualification is in progress. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback:
@@ -537,8 +546,8 @@ project boundaries.
 
 ### Hindsight-inspired reflection and project briefs
 
-Implementation for the v2.8 development track; stable remains v2.7.0 until a
-separate release is explicitly approved. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
+Implemented during the earlier v2.8 development track and carried into the v3
+beta; stable remains v2.7.0. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
 
 - Bounded, current-project Reflect answers with quick/standard/deep evidence budgets.
 - Multiple exact source excerpts per claim, checked before displaying an answer.

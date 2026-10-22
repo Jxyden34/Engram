@@ -1,10 +1,16 @@
 # Changelog
 
-## Unreleased — v2.8 development
+## 3.0.0-dev-beta.1 — unreleased
+
+- Add offline Ed25519 commercial licence keys bound to an installation and expiry date, an owner-only issuer CLI, and administrator activation/status in Settings.
+- Preserve free personal/noncommercial self-hosting. Invalid or expired commercial entitlements block interactive API/MCP writes while leaving read access, renewal and recovery available.
+- Add migration 014. Keys are issued manually after payment and agreement; checkout, payment processing and online revocation are not included in this first step.
+
+### Earlier development carried forward
 
 - Add bounded Reflect answers with quick/standard/deep evidence budgets and checked, multi-source quotations.
 - Add explicitly saved project briefs with source fingerprints, project isolation, freshness checks and manual rebuild/review. Source memories remain unchanged.
-- Add migration 013 for saved briefs; see [rollout and limitations](docs/REFLECTION-BRIEFS.md). Runtime version remains 2.7.0 pending an explicitly approved release.
+- Add migration 013 for saved briefs; see [rollout and limitations](docs/REFLECTION-BRIEFS.md).
 
 ## 2.7.0 - 2026-10-08
 

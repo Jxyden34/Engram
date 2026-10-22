@@ -16,19 +16,26 @@ export default function SettingsPage() {
   const [newToken, setNewToken] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [license, setLicense] = useState<any>(null);
+  const [useMode, setUseMode] = useState("personal");
+  const [licenseKey, setLicenseKey] = useState("");
+  const [savingLicense, setSavingLicense] = useState(false);
 
   async function load() {
     try {
-      const [keyRows, clients, grantRows, summary] = await Promise.all([
+      const [keyRows, clients, grantRows, summary, entitlement] = await Promise.all([
         api<any[]>("/api/v1/keys"),
         api<any[]>("/api/v1/oauth/clients"),
         api<any[]>("/api/v1/oauth/grants"),
         api<any>("/api/v1/oauth/summary"),
+        api<any>("/api/v1/license"),
       ]);
       setKeys(keyRows);
       setOauthClients(clients);
       setGrants(grantRows);
       setOauthSummary(summary);
+      setLicense(entitlement);
+      setUseMode(entitlement.mode);
     } catch (e: any) {
       setError(e.message);
     }
@@ -37,6 +44,23 @@ export default function SettingsPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  async function saveLicense(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSavingLicense(true);
+    setError("");
+    setNotice("");
+    try {
+      const result: any = await api("/api/v1/license", {
+        method: "PUT", body: JSON.stringify({ mode: useMode, license_key: licenseKey.trim() || null }),
+      });
+      setLicense(result);
+      setUseMode(result.mode);
+      setLicenseKey("");
+      setNotice(result.mode === "commercial" ? "Commercial licence activated." : "Personal use selected. The stored commercial key was removed.");
+    } catch (e: any) { setError(e.message); }
+    finally { setSavingLicense(false); }
+  }
 
   async function createKey(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -126,6 +150,27 @@ export default function SettingsPage() {
 
       {error && <div className="errorBox">{error}</div>}
       {notice && <div className="successBox">{notice}</div>}
+
+      {license && <section className="panel" aria-labelledby="license-heading">
+        <div className="panelHead"><h2 id="license-heading">Licence</h2><span className="badge">{license.state}</span></div>
+        <p className="meta">Personal, noncommercial self-hosting is free. Work, business and client use require a paid commercial licence.</p>
+        <p className="meta">Installation ID: <code>{license.installation_id}</code></p>
+        {license.customer && <p>Licensed to {license.customer} · expires {dateText(license.expires_at)}</p>}
+        {license.message && <p role="alert" className="errorBox">{license.message}</p>}
+        <form onSubmit={saveLicense}>
+          <label>Use mode<select value={useMode} onChange={e => setUseMode(e.target.value)} disabled={savingLicense}>
+            <option value="personal">Personal / noncommercial</option>
+            <option value="commercial">Commercial</option>
+          </select></label>
+          {useMode === "commercial" && <label>Commercial licence key<input type="password" autoComplete="off" spellCheck={false}
+            value={licenseKey} onChange={e => setLicenseKey(e.target.value)} maxLength={8192} disabled={savingLicense}
+            placeholder="ENGRAM-C1.…" />
+            <span className="meta">Paste the key issued for this installation. Leave blank to keep an existing valid key.</span>
+          </label>}
+          <button type="submit" disabled={savingLicense}>{savingLicense ? "Saving…" : "Save licence"}</button>
+        </form>
+        <p className="meta"><a href="https://hindley.tech/contact" target="_blank" rel="noreferrer">Request a commercial licence</a> with your installation ID. Keys are issued after payment and agreement; online checkout is not available in this beta.</p>
+      </section>}
 
       <div className="split">
         <section className="panel" style={{ marginTop: 0 }}>

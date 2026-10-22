@@ -21,5 +21,7 @@ The license also grants the personal-use permission for Jayden Hindley's code
 in the official v2.7.0 release; its original license file has the earlier notice.
 
 For commercial enquiries, use [Jayden's contact page](https://hindley.tech/contact).
+The v3 development beta adds [commercial key issuance and activation](COMMERCIAL-LICENSING.md)
+for separately agreed paid licences. It does not process payments.
 No managed paid service or published commercial pricing is being offered here.
 The [license text](../LICENSE) governs; this page is a summary.

@@ -14,6 +14,7 @@ services:
       - ./db/migrations/011_agent_schedules.sql:/docker-entrypoint-initdb.d/011-agent-schedules.sql:ro
       - ./db/migrations/012_agent_review.sql:/docker-entrypoint-initdb.d/012-agent-review.sql:ro
       - ./db/migrations/013_project_briefs.sql:/docker-entrypoint-initdb.d/013-project-briefs.sql:ro
+      - ./db/migrations/014_commercial_license.sql:/docker-entrypoint-initdb.d/014-commercial-license.sql:ro
     networks: [backend]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
