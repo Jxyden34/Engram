@@ -76,3 +76,23 @@ def test_sender_and_customer_recipient_are_separate(monkeypatch):
     assert captured['username'] == 'jayden@hindley.tech'
     assert captured['message']['From'] == 'jayden@hindley.tech'
     assert captured['message']['To'] == 'customer@example.com'
+
+
+def test_renewal_replaces_once_and_suppresses_old_notices(setup,monkeypatch):
+    client,auth,headers=setup
+    order=client.post('/orders',json={'customer':'Renewal Ltd','email':'customer@example.com','installation_id':str(uuid4())}).json()['id']
+    expiry=date.today()+timedelta(days=7)
+    assert client.post(f'/orders/{order}/paid',auth=auth,headers=headers,json={'expires':expiry.isoformat()}).status_code==200
+    for _ in range(2):service.queue_expiry_notices(today=date.today())
+    with service.database() as db:
+        assert db.execute('SELECT count(*) FROM renewal_notices').fetchone()[0]==1
+    replacement_expiry=expiry+timedelta(days=60)
+    responses=[client.post(f'/orders/{order}/renew',auth=auth,headers=headers,json={'expires':replacement_expiry.isoformat()}) for _ in range(2)]
+    assert all(r.status_code==200 for r in responses)
+    assert responses[0].json()['id']==responses[1].json()['id']
+    with service.database() as db:
+        rows=db.execute('SELECT * FROM orders ORDER BY created').fetchall()
+        assert len(rows)==2 and rows[0]['license_key']!=rows[1]['license_key']
+        assert rows[1]['renewal_of']==order
+    monkeypatch.setattr(service,'send_email',lambda row:pytest.fail('Old licence must not get expiry notices'))
+    assert service.deliver_notice() is False

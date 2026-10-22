@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.7.0-dev-beta.4 — unreleased
+
+- Add Commercial expiry warnings, renewal requests, owner-confirmed replacement keys and deduplicated expiry emails. Payment remains manual.
+
 ## 3.7.0-dev-beta.3 — unreleased
 
 - Add instance-wide Commercial company branding, a PNG logo and branded sign-in. Apply migration 016.

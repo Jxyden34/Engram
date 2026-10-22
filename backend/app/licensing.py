@@ -21,7 +21,7 @@ def status() -> dict:
 
 def public_status() -> dict:
     current = status()
-    return {k: current[k] for k in ("edition", "state", "locked", "installation_id", "purchase_url")}
+    return {k: current[k] for k in ("edition", "state", "locked", "installation_id", "purchase_url", "expires_at")}
 
 
 def activate(mode: str, key: str | None, actor: str) -> dict:

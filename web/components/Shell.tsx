@@ -109,6 +109,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="sidebarFoot">
+          {edition.expires_at&&new Date(edition.expires_at).getTime()-Date.now()<30*86400000&&<Link href="/licence" className="badge">Licence expires {new Date(edition.expires_at).toLocaleDateString()} · renew</Link>}
           <div className="secureDot"><i /> Encrypted edge</div>
           <button className="ghostButton" onClick={logout}>Sign out</button>
         </div>
