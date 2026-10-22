@@ -15,6 +15,17 @@ def test_branding_rejects_unsafe_logo_and_unreadable_colours():
     assert Branding(name=' Example ').name=='Example'
 
 
+def test_handover_exports_user_content_as_text():
+    from app.commercial.handover import markdown
+    data={'project':{'name':'Example'},'generated_at':'now','summary':'One memory',
+          'limitations':'Bounded export','decisions':[],'outstanding_questions':[], 'briefs':[],
+          'sources':[{'id':'id','title':'<script>test</script>','content':'![tracking](https://example.com/pixel)',
+                      'updated_at':'now','source_ref':None,'content_truncated':False}]}
+    text=markdown(data)
+    assert '\n    <script>test</script>\n' in text
+    assert '\n    ![tracking]' in text
+
+
 def test_team_invitation_role_and_project_isolation(monkeypatch):
     from app import edition,licensing,business_routes
     from app.commercial import workspaces

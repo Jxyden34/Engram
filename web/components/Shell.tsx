@@ -26,6 +26,7 @@ const links = [
   ["/licence", "Licence", "◇"],
   ["/team", "Team workspace", "♧"],
   ["/branding", "Company branding", "◈"],
+  ["/handover", "Project handover", "↗"],
 ];
 const publicPaths = ["/login", "/about", "/privacy", "/terms", "/licence", "/join"];
 
@@ -92,7 +93,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         </label>
 
         <nav>
-          {links.filter(([href])=>edition.edition==='commercial'||!['/team','/branding'].includes(href)).map(([href, label, icon]) => (
+          {links.filter(([href])=>edition.edition==='commercial'||!['/team','/branding','/handover'].includes(href)).map(([href, label, icon]) => (
             <Link
               key={href}
               href={href}

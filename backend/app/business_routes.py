@@ -8,8 +8,21 @@ from app.edition import get_edition
 from app.security import authenticate, require
 from app.audit import log
 from app.database import connect,current_project_id
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse,Response
 
 router=APIRouter(prefix='/api/v1')
+
+
+@router.get('/handover')
+def handover(request:Request,format:Literal['json','markdown']='json'):
+    commercial();p=require(request,'memory:read')
+    from app.commercial import handover as exporter
+    result=exporter.snapshot()
+    log(p.actor,'handover.exported','project',current_project_id(),request,new_data={'format':format,'count':result['exported_memories']})
+    headers={'Content-Disposition':f'attachment; filename="engram-handover.{"json" if format=="json" else "md"}"','Cache-Control':'no-store'}
+    if format=='markdown':return Response(exporter.markdown(result),media_type='text/markdown',headers=headers)
+    return JSONResponse(jsonable_encoder(result),headers=headers)
 
 
 def commercial():

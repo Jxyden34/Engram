@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.7.0-dev-beta.5 — unreleased
+
+- Add Commercial project handover exports with current memories, decisions, outstanding questions, checked saved briefs and source references in Markdown or JSON.
+
 ## 3.7.0-dev-beta.4 — unreleased
 
 - Add Commercial expiry warnings, renewal requests, owner-confirmed replacement keys and deduplicated expiry emails. Payment remains manual.

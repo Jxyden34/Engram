@@ -114,7 +114,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="3.7.0-dev-beta.4",
+    version="3.7.0-dev-beta.5",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -244,7 +244,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "3.7.0-dev-beta.4"}
+    return {"status": "ok", "service": "engram", "version": "3.7.0-dev-beta.5"}
 
 
 def license_admin(request: Request):
