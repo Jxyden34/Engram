@@ -30,13 +30,17 @@ def test_team_invitation_role_and_project_isolation(monkeypatch,tmp_path):
     from app import edition,licensing
     from app.commercial import routes as business_routes
     from app.commercial import workspaces
-    from app.main import app
+    from app.main import app as main_app,security_middleware
+    from fastapi import FastAPI
     from app.projects import resolve_project
     monkeypatch.setattr(edition,'get_edition',lambda:'commercial')
     monkeypatch.setattr(business_routes,'get_edition',lambda:'commercial')
     monkeypatch.setattr(licensing,'require_commercial_license',lambda:None)
-    monkeypatch.setattr(app.router,'routes',[r for r in app.router.routes if getattr(r,'path','') not in {'/api/v1/branding','/api/v1/setup/status'}])
+    # Include Commercial routes before the main application's terminal MCP mount.
+    app=FastAPI()
+    app.middleware('http')(security_middleware)
     app.include_router(business_routes.router)
+    app.include_router(main_app.router)
     unique=uuid4().hex[:10];username='team-'+unique
     with connect() as conn:
         owner=conn.execute('INSERT INTO users(username,password_hash,is_admin) VALUES(%s,%s,true) RETURNING id',('owner-'+unique,hash_password('team-owner-test-password'))).fetchone()['id']
