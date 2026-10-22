@@ -35,6 +35,33 @@ def _matches(query: str, name: str) -> bool:
     return len(name) >= 3 and bool(re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", query))
 
 
+def decay_priority(row: dict[str, Any], intent: str) -> tuple[float, list[str]]:
+    """Conservative read-time priority decay; never changes stored facts or history queries."""
+    now = datetime.now(timezone.utc)
+    updated = row.get('updated_at')
+    if intent == 'history' or not updated:
+        return 1.0, []
+    age_days = max(0, (now-updated).total_seconds()/86400)
+    if age_days <= 180:
+        return 1.0, []
+    quality = sum((max(0, min(1, float(row.get(key) if row.get(key) is not None else default))))
+                  for key, default in [('confidence', 1), ('source_trust', 1)])
+    quality = (quality+max(0, min(1, float(row.get('importance') or 5)/10)))/3
+    last_used = row.get('last_accessed_at')
+    recently_used = last_used and (now-last_used).total_seconds() < 180*86400
+    penalty = min(.35, ((age_days-180)/730)*(.10+.25*(1-quality))*(.25 if recently_used else 1))
+    if penalty < .001:
+        return 1.0, []
+    reasons = ['older evidence']
+    if not row.get('access_count'):
+        reasons.append('never retrieved')
+    elif not recently_used:
+        reasons.append('not retrieved recently')
+    if quality < .6:
+        reasons.append('limited confidence, importance or source trust')
+    return round(1-penalty, 4), reasons
+
+
 def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, Any]:
     semantic = max(0.0, min(1.0, float(row.get("semantic_score") or 0)))
     lexical = max(0.0, min(1.0, float(row.get("lexical_score") or 0)))
@@ -44,6 +71,8 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
     temporal = 1.0 if (intent == "history" and historical) or (intent != "history" and not historical) else 0.0
     weights = (0.46, 0.24, 0.12, 0.13, 0.05)
     score = sum(a * b for a, b in zip((semantic, lexical, graph, quality, temporal), weights))
+    decay, decay_reasons = decay_priority(row, intent)
+    score *= decay
     reasons = []
     if semantic >= 0.55:
         reasons.append("semantic match")
@@ -55,6 +84,8 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
         reasons.append("high-quality source")
     if historical:
         reasons.append("historical fact")
+    if decay_reasons:
+        reasons.append(f"priority reduced {round((1-decay)*100)}%: {', '.join(decay_reasons)}")
     item = dict(row)
     item.update(
         semantic_score=semantic,
@@ -62,6 +93,8 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
         graph_score=graph,
         memory_score=quality,
         retrieval_score=round(score, 4),
+        decay_factor=decay,
+        decay_reasons=decay_reasons,
         match_reasons=reasons,
         temporal_state="historical" if historical else "current",
         result_type="memory",

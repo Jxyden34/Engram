@@ -20,3 +20,18 @@ it does not automatically rewrite clusters or remove duplicate originals.
 
 This increment reuses the existing Agent tables and requires no new migration.
 All prereleases follow [the explicit stable-promotion gate](V2.8-PRERELEASES.md).
+
+## Explainable retrieval decay — pre.3
+
+Hybrid retrieval gradually reduces the priority of evidence older than 180 days.
+Confidence, source trust and importance determine the strength; use in the last
+180 days reduces the penalty. New facts have a grace period, and a qualifying
+candidate's score never loses more than 35% through this adjustment. Low priority
+is not deletion, archival, or proof that an old fact is false.
+
+Search results expose `decay_factor`, `decay_reasons` and a match explanation,
+also shown in Intelligence. Explicit history queries bypass this added penalty.
+No background rewrite, database migration or automatic removal is involved.
+The existing quality score remains in place. This is an explainable ranking
+heuristic, not a trained estimate of truth or a guarantee that every old memory
+appears within the bounded candidate pool.
