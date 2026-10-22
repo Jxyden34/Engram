@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.7.0-dev-beta.2 — unreleased
+
+- Add Commercial team workspaces with project roles, one-use invitations and membership-aware credential access. Apply migration 015 before upgrading.
+
 ## 3.7.0-dev-beta.1 — unreleased
 
 - Add offline Ed25519 commercial licence keys bound to an installation and expiry date, an owner-only issuer CLI, and administrator activation/status in Settings.

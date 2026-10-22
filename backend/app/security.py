@@ -28,6 +28,7 @@ class Principal:
     scopes: set[str]
     auth_type: str
     project_id: str | None = None
+    team_only: bool = False
 
 
 ADMIN_SCOPES = {
@@ -118,7 +119,7 @@ def session_principal(token: str) -> Principal | None:
     with connect() as conn:
         row = conn.execute(
             """
-            SELECT s.id AS session_id, u.id AS user_id, u.username, u.is_admin, u.is_active
+            SELECT s.id AS session_id, u.id AS user_id, u.username, u.is_admin, u.is_active, u.team_only
             FROM sessions s
             JOIN users u ON u.id = s.user_id
             WHERE s.token_hash = %s
@@ -139,6 +140,7 @@ def session_principal(token: str) -> Principal | None:
         is_admin=bool(row["is_admin"]),
         scopes=set(ADMIN_SCOPES) if row["is_admin"] else {"memory:read", "memory:write", "document:read"},
         auth_type="session",
+        team_only=bool(row["team_only"]),
     )
 
 
@@ -198,6 +200,13 @@ def authenticate(request: Request) -> Principal:
 
 def require(request: Request, *scopes: str) -> Principal:
     principal = authenticate(request)
+    from app.edition import get_edition
+    if get_edition() == 'commercial' and principal.user_id:
+        from app.commercial.workspaces import role
+        from app.database import current_project_id
+        member_role = role(principal,current_project_id())
+        if member_role is None or (member_role == 'viewer' and any(s not in {'memory:read','document:read','mcp:use'} for s in scopes)):
+            raise HTTPException(403,'Your project role does not permit this action')
     missing = [scope for scope in scopes if scope not in principal.scopes]
     if missing:
         raise HTTPException(status_code=403, detail=f"Missing scope(s): {', '.join(missing)}")

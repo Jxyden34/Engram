@@ -23,8 +23,9 @@ const links = [
   ["/audit", "Audit trail", "⌁"],
   ["/settings", "AI, API & OAuth", "⌘"],
   ["/licence", "Licence", "◇"],
+  ["/team", "Team workspace", "♧"],
 ];
-const publicPaths = ["/login", "/about", "/privacy", "/terms", "/licence"];
+const publicPaths = ["/login", "/about", "/privacy", "/terms", "/licence", "/join"];
 
 export default function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -39,7 +40,15 @@ export default function Shell({ children }: { children: ReactNode }) {
     setSelectedProject(window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001");
     document.cookie = `engram_project=${window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001"}; path=/; SameSite=Lax`;
     if (edition && !edition.locked && !publicPaths.includes(pathname)) {
-      api<{ id: string; name: string }[]>("/api/v1/projects").then(setProjects).catch(() => {});
+      api<{ id: string; name: string }[]>("/api/v1/projects").then(items=>{
+        setProjects(items);
+        const current=window.localStorage.getItem('engram_project_id')||'00000000-0000-0000-0000-000000000001';
+        if(items.length&&!items.some(item=>item.id===current)){
+          window.localStorage.setItem('engram_project_id',items[0].id);
+          document.cookie=`engram_project=${items[0].id}; path=/; SameSite=Lax`;
+          window.location.reload();
+        }
+      }).catch(() => {});
     }
   }, [pathname, edition]);
 
@@ -80,7 +89,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         </label>
 
         <nav>
-          {links.map(([href, label, icon]) => (
+          {links.filter(([href])=>edition.edition==='commercial'||href!=='/team').map(([href, label, icon]) => (
             <Link
               key={href}
               href={href}

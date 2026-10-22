@@ -33,7 +33,7 @@ The [deployment guide](docs/DEPLOYMENT.md) recommends 4 CPU cores and 8 GB RAM
 Engram 2.7 adds projects, Memory Agent and filtered Ask. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
 
 **Current stable release:** `v2.7.0`
-**Development beta:** `v3.7.0-dev-beta.1` — [paid commercial licence keys](docs/COMMERCIAL-LICENSING.md).
+**Development beta:** `v3.7.0-dev-beta.2` — [paid commercial licence keys](docs/COMMERCIAL-LICENSING.md).
 **Mobile preview:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 

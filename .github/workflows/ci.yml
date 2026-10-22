@@ -127,6 +127,11 @@ jobs:
             psql -v ON_ERROR_STOP=1 -U engram -d engram \
             < db/migrations/014_commercial_license.sql
 
+          for migration in db/migrations/0{15..20}_*.sql; do
+            test -f "$migration" || continue
+            docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U engram -d engram < "$migration"
+          done
+
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"

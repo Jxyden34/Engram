@@ -114,11 +114,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="3.7.0-dev-beta.1",
+    version="3.7.0-dev-beta.2",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
+from app.business_routes import router as business_router
+app.include_router(business_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -137,10 +139,10 @@ async def security_middleware(request: Request, call_next):
     if path.startswith("/api/v1/"):
         check_rate(request, "api", 240, 60)
 
-    if path in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
+    if path in {"/api/v1/auth/login", "/api/v1/mobile/login", "/api/v1/team/accept"}:
         check_rate(request, "login", 12, 300)
 
-    if path.startswith("/api/v1/") and path not in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
+    if path.startswith("/api/v1/") and path not in {"/api/v1/auth/login", "/api/v1/mobile/login", "/api/v1/team/accept"}:
         try:
             validate_csrf(request)
         except HTTPException as exc:
@@ -154,7 +156,7 @@ async def security_middleware(request: Request, call_next):
     if path.startswith("/api/v1/") and path not in {
         "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/me", "/api/v1/projects",
         "/api/v1/mobile/login", "/api/v1/mobile/logout",
-        "/api/v1/license", "/api/v1/edition",
+        "/api/v1/license", "/api/v1/edition", "/api/v1/team/accept",
     }:
         try:
             selected_project = projects.resolve_project(
@@ -242,7 +244,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "3.7.0-dev-beta.1"}
+    return {"status": "ok", "service": "engram", "version": "3.7.0-dev-beta.2"}
 
 
 def license_admin(request: Request):
