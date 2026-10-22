@@ -1,6 +1,6 @@
-# Engram v3 editions
+# Engram v3.7 editions
 
-The v3 development branch offers two builds. Existing released versions retain their own licence notices.
+The v3.7 development branch offers two builds. Existing released versions retain their own licence notices.
 
 | Build | Terms | Activation |
 | --- | --- | --- |

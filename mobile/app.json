@@ -2,7 +2,7 @@
   "expo": {
     "name": "Engram Beta",
     "slug": "engram-mobile",
-    "version": "3.0.0",
+    "version": "3.7.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -23,13 +23,13 @@
       "predictiveBackGestureEnabled": false
     },
     "extra": {
-      "release": "3.0.0-dev-beta.1",
+      "release": "3.7.0-dev-beta.1",
       "eas": {
         "projectId": "4bfa32da-3316-4752-aa52-605ded14d3c2"
       }
     },
     "owner": "jxyden34",
-    "runtimeVersion": "3.0.0-dev-beta.1-native1",
+    "runtimeVersion": "3.7.0-dev-beta.1-native1",
     "updates": {
       "url": "https://u.expo.dev/4bfa32da-3316-4752-aa52-605ded14d3c2"
     },

@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.0.0-dev-beta.1 — unreleased
+## 3.7.0-dev-beta.1 — unreleased
 
 - Add offline Ed25519 commercial licence keys bound to an installation and expiry date, an owner-only issuer CLI, and administrator activation/status in Settings.
 - Split Personal Community (free for noncommercial use) and Commercial builds. Commercial requires a valid key for product API/MCP access; health, login and activation remain available. Community images omit proprietary code; both customer builds omit the issuer CLI.

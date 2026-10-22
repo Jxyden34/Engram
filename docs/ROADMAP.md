@@ -14,15 +14,15 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 - 🔵 Later
 - 🧪 Experimental
 
-## v3.0.0-dev-beta.1 — commercial licensing 🧪
+## v3.7.0-dev-beta.1 — commercial licensing 🧪
 
-The active development version is `3.0.0-dev-beta.1`. This first v3 step adds
+The active development version is `3.7.0-dev-beta.1`. This first v3.7 step adds
 signed, installation-bound paid commercial keys, administrator activation and
 licence status. Personal Community is free for noncommercial use; Commercial is a
 separate build that requires activation. An owner dashboard turns manual payment
 confirmation into automatic key issuance and SMTP email. Online checkout is deferred.
 See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable remains v2.7.0;
-existing native releases retain their preview channels; v3 source uses a separate runtime and channel.
+existing native releases retain their preview channels; v3.7 source uses a separate runtime and channel.
 
 ## Alpha1 — mobile review and filtered Ask 🧪
 
@@ -547,7 +547,7 @@ project boundaries.
 
 ### Hindsight-inspired reflection and project briefs
 
-Implemented during the earlier v2.8 development track and carried into the v3
+Implemented during the earlier v2.8 development track and carried into the v3.7
 beta; stable remains v2.7.0. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
 
 - Bounded, current-project Reflect answers with quick/standard/deep evidence budgets.
@@ -641,7 +641,7 @@ not a promise of a hosted service date.
 
 ---
 
-# v3 — Personal Knowledge OS 🔵
+# v3.7 — Personal Knowledge OS 🔵
 
 ## v3.0 — Memory Agent
 
@@ -751,7 +751,7 @@ Features:
 8. 🔵 Memory consolidation, decay and archival.
 9. 🔵 Managed-service readiness: onboarding, usage visibility, team governance
    and operational commitments.
-10. 🔵 v3 autonomous maintenance and notification capabilities.
+10. 🔵 v3.7 autonomous maintenance and notification capabilities.
 
 ---
 

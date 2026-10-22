@@ -11,7 +11,7 @@ Ollama processing, source-aware search and controlled access for your AI clients
 **[Connect an MCP client](https://jxyden34.github.io/Engram/mcp.html)** ·
 **[Report feedback](https://github.com/Jxyden34/Engram/issues/new/choose)**
 
-**v3 beta editions:** Personal Community is free for noncommercial use. Commercial
+**v3.7 beta editions:** Personal Community is free for noncommercial use. Commercial
 is a separate paid build activated with a licence key. See the [license](LICENSE)
 and [usage guide](docs/LICENSING.md).
 
@@ -33,7 +33,7 @@ The [deployment guide](docs/DEPLOYMENT.md) recommends 4 CPU cores and 8 GB RAM
 Engram 2.7 adds projects, Memory Agent and filtered Ask. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
 
 **Current stable release:** `v2.7.0`
-**Development beta:** `v3.0.0-dev-beta.1` — [paid commercial licence keys](docs/COMMERCIAL-LICENSING.md).
+**Development beta:** `v3.7.0-dev-beta.1` — [paid commercial licence keys](docs/COMMERCIAL-LICENSING.md).
 **Mobile preview:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
@@ -224,9 +224,9 @@ See [SECURITY.md](SECURITY.md).
 
 ## License
 
-The v3 Personal Community build is source-available and free for personal, noncommercial use. Business and commercial use require a paid key. The separate
+The v3.7 Personal Community build is source-available and free for personal, noncommercial use. Business and commercial use require a paid key. The separate
 Commercial build and owner licensing service use [commercial terms](LICENSE-COMMERCIAL).
-These changes are on the v3 development branch; existing releases retain their licence notices.
+These changes are on the v3.7 development branch; existing releases retain their licence notices.
 See [LICENSE](LICENSE) and the [usage guide](docs/LICENSING.md).
 
 

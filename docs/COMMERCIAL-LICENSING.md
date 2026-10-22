@@ -1,4 +1,4 @@
-# Commercial licensing and email delivery (v3 development beta)
+# Commercial licensing and email delivery (v3.7 development beta)
 
 ## Customer builds
 
