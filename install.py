@@ -27,7 +27,8 @@ def ask(label,default=''):
 
 def public_key(path):
     if str(path).startswith('https://'):
-        with urllib.request.urlopen(str(path),timeout=15) as response:raw=response.read(8193)
+        request=urllib.request.Request(str(path),headers={'User-Agent':'EngramInstaller/3.7 (+https://github.com/Jxyden34/Engram)','Accept':'application/x-pem-file, text/plain'})
+        with urllib.request.urlopen(request,timeout=15) as response:raw=response.read(8193)
         if len(raw)>8192:raise ValueError('Issuer public-key response is too large')
         content=raw.decode('ascii')
     elif '://' in str(path):raise ValueError('Public key downloads require HTTPS')
@@ -167,7 +168,8 @@ def main():
     print('If using an existing proxy/tunnel, forward it to http://127.0.0.1:'+str(args.port))
     if mode=='https':
         try:
-            with urllib.request.urlopen('https://'+hostname+'/health',timeout=30) as response:assert response.status==200
+            request=urllib.request.Request('https://'+hostname+'/health',headers={'User-Agent':'EngramInstaller/3.7 (+https://github.com/Jxyden34/Engram)'})
+            with urllib.request.urlopen(request,timeout=30) as response:assert response.status==200
             print('Public HTTPS verified')
         except Exception:print('Local deployment passed; public HTTPS is not verified. Check DNS, inbound ports 80/443 and gateway logs.')
 
