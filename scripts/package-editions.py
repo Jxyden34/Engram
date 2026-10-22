@@ -9,10 +9,11 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-DIRECTORIES = ("backend/app/", "backend/scripts/", "web/", "db/", "gateway/", "ops/")
-FILES = {"VERSION", "LICENSE", "LICENSE-COMMERCIAL", ".env.example", "docker-compose.yml",
+DIRECTORIES = ("backend/app/", "backend/scripts/", "web/", "db/", "gateway/", "ops/", "extensions/engram-capture/")
+FILES = {"VERSION", "LICENSE", "LICENSE-COMMERCIAL", "SECURITY.md", ".env.example", "docker-compose.yml",
          "backend/Dockerfile", "backend/.dockerignore", "backend/requirements.txt",
-         "docs/DEPLOYMENT.md", "docs/LICENSING.md", "docs/COMMERCIAL-LICENSING.md"}
+         "docs/DEPLOYMENT.md", "docs/PROJECTS-AGENT.md", "docs/REFLECTION-BRIEFS.md",
+         "docs/LICENSING.md", "docs/COMMERCIAL-LICENSING.md"}
 
 
 def package(output: Path):
@@ -49,6 +50,9 @@ def package(output: Path):
 This is a source/build package, not a prebuilt Docker image. Install Docker Engine
 and the Compose plugin on a Linux host. Read docs/DEPLOYMENT.md for environment,
 storage and network setup. Existing installations must apply migrations through 014.
+Use docs/PROJECTS-AGENT.md for the project migrations and docs/REFLECTION-BRIEFS.md
+for migration 013. Apply db/migrations/014_commercial_license.sql with psql before
+starting a v3 API on an existing database. New databases apply these on first boot.
 
 1. Copy `.env.example` to `.env` and configure independent secrets and your domain.
 2. Run `docker compose build`. The included override selects {edition.title()}.
@@ -58,7 +62,7 @@ storage and network setup. Existing installations must apply migrations through 
                 names = set(bundle.namelist())
                 assert not any(name.startswith("backend/owner/") for name in names)
                 assert "backend/scripts/commercial_license.py" not in names
-                assert "backend/app/commercial/licensing.py" in names if edition == "commercial" else "backend/app/commercial/licensing.py" not in names
+                assert ("backend/app/commercial/licensing.py" in names) == (edition == "commercial")
                 assert bundle.read("backend/app/EDITION").decode() == marker
             digest = hashlib.sha256(target.read_bytes()).hexdigest()
             target.with_suffix(".zip.sha256").write_text(f"{digest}  {target.name}\n", encoding="utf-8")
