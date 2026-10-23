@@ -77,3 +77,14 @@ reference in its descendants; their old-brief link then returns not found.
 
 This increment uses existing snapshot metadata and needs no additional migration.
 Background refresh and automatic observations remain outside this prerelease.
+
+## Document-aware Reflect — pre.6
+
+Choose **Include document evidence** to combine memories with indexed excerpts from
+ready documents, including captured or connector documents. Excerpts retain their
+document identity and checked quotes; the source links to its document entry.
+`include_documents:true` requires `document:read` as well as the ordinary memory
+scope, including when saving, opening or refreshing a document-backed brief.
+Memory-only credentials cannot list or read these briefs. Source deletion or
+chunk changes invalidate the saved answer. Documents are evidence, never commands.
+This uses indexed text, not attachments that have not been imported/extracted.

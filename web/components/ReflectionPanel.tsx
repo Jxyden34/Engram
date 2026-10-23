@@ -6,13 +6,15 @@ import { api, dateText } from "@/lib/api";
 
 type Budget = "quick" | "standard" | "deep";
 type Claim = { text: string; citations: { source: number; quote: string }[] };
-type Source = { number: number; id: string; title: string; version?: string; content?: string; status?: string };
-type Answer = { question: string; budget: Budget; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string };
+type Source = { number: number; id: string; kind?: "memory" | "document_chunk"; document_id?: string | null; title: string; version?: string; content?: string; status?: string };
+type Answer = { question: string; budget: Budget; include_documents?: boolean; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string };
 type Brief = { id: string; title: string; created_at: string };
 
 export default function ReflectionPanel() {
   const [question, setQuestion] = useState("");
   const [budget, setBudget] = useState<Budget>("standard");
+  const [includeDocuments, setIncludeDocuments] = useState(false);
+  const sourceLink = (source: Source) => source.kind === 'document_chunk' ? `/documents#document-${source.document_id}` : `/memories/${source.id}`;
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [title, setTitle] = useState("");
   const [briefs, setBriefs] = useState<Brief[]>([]);
@@ -30,7 +32,7 @@ export default function ReflectionPanel() {
     e.preventDefault();
     setBusy(true); setError(""); setNotice(""); setAnswer(null); setSelected(null);
     try {
-      setAnswer(await api<Answer>("/api/v1/intelligence/reflect", { method: "POST", body: JSON.stringify({ question, budget }) }));
+      setAnswer(await api<Answer>("/api/v1/intelligence/reflect", { method: "POST", body: JSON.stringify({ question, budget,include_documents:includeDocuments }) }));
       setTitle(question.slice(0, 120));
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
@@ -43,7 +45,8 @@ export default function ReflectionPanel() {
     try {
       const saved = await api<Brief>("/api/v1/intelligence/briefs", { method: "POST", body: JSON.stringify({
         title, question: answer.question, budget: answer.budget, project_revision: answer.project_revision,
-        sources: answer.sources.map(({ id, version }) => ({ id, version })), claims: answer.claims,
+        sources: answer.sources.map(({ id, version,kind }) => ({ id, version,kind:kind||'memory' })), claims: answer.claims,
+        include_documents:!!answer.include_documents,
         refresh_of: answer.refresh_of || null,
       }) });
       await loadBriefs(); setSelected(saved); setNotice("Brief saved. Your original memories are unchanged.");
@@ -56,6 +59,7 @@ export default function ReflectionPanel() {
     try {
       const next = await api<Answer>(`/api/v1/intelligence/briefs/${brief.id}`);
       setAnswer(next); setSelected({ ...brief, title: next.title || brief.title }); setQuestion(next.question); setBudget(next.budget);
+      setIncludeDocuments(!!next.include_documents);
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -77,6 +81,7 @@ export default function ReflectionPanel() {
       const next = await api<Answer>(`/api/v1/intelligence/briefs/${selected.id}/refresh`, { method: "POST" });
       setAnswer(next); setTitle(next.refresh_title || selected.title); setSelected(null);
       setQuestion(next.question); setBudget(next.budget);
+      setIncludeDocuments(!!next.include_documents);
       setNotice("Fresh preview ready. Review the evidence and save a new brief; the previous snapshot is unchanged.");
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
@@ -94,6 +99,7 @@ export default function ReflectionPanel() {
           <option value="standard">Standard · up to 12 sources</option>
           <option value="deep">Deep · up to 20 sources</option>
         </select></div>
+      <label><input type="checkbox" checked={includeDocuments} onChange={e=>setIncludeDocuments(e.target.checked)} /> Include document evidence</label>
       <button className="button primary" disabled={busy || !question.trim()}>{busy ? "Working…" : "Reflect"}</button>
     </form>
     {error && <div className="errorBox" role="alert">{error}</div>}
@@ -107,11 +113,11 @@ export default function ReflectionPanel() {
         <p>{claim.text}</p>
         {claim.citations.map((citation, i) => {
           const source = answer.sources[citation.source - 1];
-          return <blockquote key={i}><p>{citation.quote}</p>{source && <Link href={`/memories/${source.id}`}>[{citation.source}] {source.title}</Link>}</blockquote>;
+          return <blockquote key={i}><p>{citation.quote}</p>{source && <Link href={sourceLink(source)}>[{citation.source}] {source.title}</Link>}</blockquote>;
         })}
       </div>)}
       <details><summary>Retrieved evidence</summary>{answer.sources.map(source => <div key={source.id}>
-        <p>{source.status === "unavailable" ? `[${source.number}] Unavailable source` : <Link href={`/memories/${source.id}`}>[{source.number}] {source.title}</Link>} {source.status && `· ${source.status}`}</p>
+        <p>{source.status === "unavailable" ? `[${source.number}] Unavailable source` : <Link href={sourceLink(source)}>[{source.number}] {source.title}</Link>} {source.status && `· ${source.status}`}</p>
         {source.content && <p style={{ whiteSpace: "pre-wrap" }}>{source.content}</p>}
       </div>)}</details>
       {!selected && !!answer.claims.length && !answer.insufficient && <form onSubmit={save}>

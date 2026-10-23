@@ -113,7 +113,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.8.0-pre.5",
+    version="2.8.0-pre.6",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -235,7 +235,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.5"}
+    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.6"}
 
 
 def _check_login(body: LoginRequest):
@@ -587,19 +587,23 @@ def memory_context(body: ContextRequest, request: Request):
 @app.post('/api/v1/intelligence/reflect')
 def reflect_memories(body: ReflectRequest, request: Request):
     require(request, 'memory:read')
+    if body.include_documents:
+        require(request,'document:read')
     check_rate(request, 'reflect', 3, 60)
-    return reflection.reflect(body.question, body.budget)
+    return reflection.reflect(body.question, body.budget,include_documents=body.include_documents)
 
 
 @app.get('/api/v1/intelligence/briefs')
 def list_project_briefs(request: Request):
-    require(request, 'memory:read')
-    return reflection.list_briefs()
+    p = require(request, 'memory:read')
+    return reflection.list_briefs(allow_documents='document:read' in p.scopes)
 
 
 @app.post('/api/v1/intelligence/briefs', status_code=201)
 def save_project_brief(body: BriefCreate, request: Request):
     p = require(request, 'memory:write')
+    if body.include_documents or any(source.kind == 'document_chunk' for source in body.sources):
+        require(request,'document:read')
     result = reflection.save_brief(body, p.actor)
     log(p.actor, 'brief.created', 'project_brief', str(result['id']), request)
     return result
@@ -607,13 +611,14 @@ def save_project_brief(body: BriefCreate, request: Request):
 
 @app.get('/api/v1/intelligence/briefs/{brief_id}')
 def get_project_brief(brief_id: UUID, request: Request):
-    require(request, 'memory:read')
-    return reflection.get_brief(str(brief_id))
+    p = require(request, 'memory:read')
+    return reflection.get_brief(str(brief_id),allow_documents='document:read' in p.scopes)
 
 
 @app.delete('/api/v1/intelligence/briefs/{brief_id}')
 def delete_project_brief(brief_id: UUID, request: Request):
     p = require(request, 'memory:write')
+    reflection.get_brief(str(brief_id),allow_documents='document:read' in p.scopes)
     result = reflection.delete_brief(str(brief_id))
     log(p.actor, 'brief.deleted', 'project_brief', str(brief_id), request)
     return result
@@ -621,9 +626,9 @@ def delete_project_brief(brief_id: UUID, request: Request):
 
 @app.post('/api/v1/intelligence/briefs/{brief_id}/refresh')
 def refresh_project_brief(brief_id: UUID, request: Request):
-    require(request,'memory:read')
+    p = require(request,'memory:read')
     check_rate(request,'reflect',3,60)
-    return reflection.refresh_brief(str(brief_id))
+    return reflection.refresh_brief(str(brief_id),allow_documents='document:read' in p.scopes)
 
 
 @app.get("/api/v1/intelligence/conflict-candidates")

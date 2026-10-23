@@ -36,6 +36,8 @@ def corpus():
                     conn.execute('DELETE FROM api_keys')
                     conn.execute('DELETE FROM memory_versions')
                     conn.execute('DELETE FROM memories')
+                    conn.execute('DELETE FROM document_chunks')
+                    conn.execute('DELETE FROM documents')
                     conn.commit()
         with connect() as conn:
             conn.execute('DELETE FROM projects WHERE id=ANY(%s::uuid[])', (projects,))
@@ -51,7 +53,8 @@ def draft(source, budget='standard'):
 def save_body(result):
     return BriefCreate(title='Architecture brief', question=result['question'], budget=result['budget'],
                        project_revision=result['project_revision'], claims=result['claims'],
-                       sources=[{'id': s['id'], 'version': s['version']} for s in result['sources']])
+                       include_documents=bool(result.get('include_documents')),
+                       sources=[{'id': s['id'], 'version': s['version'],'kind':s.get('kind','memory')} for s in result['sources']])
 
 
 @pytest.mark.parametrize('budget,limit,chars', [('quick', 6, 4000), ('standard', 12, 9000), ('deep', 20, 16000)])
@@ -172,6 +175,8 @@ def test_brief_api_enforces_scopes_and_bound_projects(corpus):
     read_headers = {'Authorization': f'Bearer {reader}'}
     path = '/api/v1/intelligence/briefs'
     assert client.post(path, headers=read_headers, json=body).status_code == 403
+    assert client.post('/api/v1/intelligence/reflect',headers=read_headers,
+                       json={'question':'Documents?','include_documents':True}).status_code == 403
     saved = client.post(path, headers=headers, json=body)
     assert saved.status_code == 201
     brief_id = saved.json()['id']
@@ -256,3 +261,44 @@ def test_brief_refresh_uses_current_evidence_and_preserves_previous_snapshot(cor
             reflection.save_brief(body,'reviewer')
         assert wrong_parent.value.status_code == 404
     model.assert_not_called()
+
+
+def test_document_reflection_checks_provenance_scopes_changes_and_rls(corpus):
+    from app import documents
+    projects, _ = corpus
+    text = 'The backup window starts at midnight and lasts one hour.'
+    model = {'claims':[{'text':'The backup starts at midnight.',
+              'citations':[{'source':1,'quote':'backup window starts at midnight'}]}],'insufficient':False}
+    with project_scope(projects[0]):
+        with connect() as conn:
+            document = conn.execute('''INSERT INTO documents(filename,object_key,byte_size,sha256,status,uploaded_by)
+                VALUES ('Backup plan',%s,100,'qa','ready','test') RETURNING id''',(uuid4().hex,)).fetchone()['id']
+            chunk = conn.execute('INSERT INTO document_chunks(document_id,chunk_index,content) VALUES (%s,0,%s) RETURNING id',
+                                (document,text)).fetchone()['id']
+            conn.commit()
+        with patch.object(reflection.intelligence,'search_memories',return_value=[]), \
+                patch.object(documents,'search_chunks',return_value=[{'id':chunk,'semantic_score':1}]), \
+                patch.object(reflection,'_ollama_json',return_value=model):
+            result = reflection.reflect('When does backup start?','quick',include_documents=True)
+        assert result['sources'][0]['kind'] == 'document_chunk'
+        assert result['sources'][0]['document_id'] == str(document)
+        saved = reflection.save_brief(save_body(result),'test')
+        brief_id = str(saved['id'])
+        assert reflection.list_briefs() == []
+        assert reflection.list_briefs(allow_documents=True)[0]['id'] == saved['id']
+        for action in (reflection.get_brief,reflection.refresh_brief):
+            with pytest.raises(HTTPException) as forbidden:
+                action(brief_id)
+            assert forbidden.value.status_code == 403
+        assert reflection.get_brief(brief_id,allow_documents=True)['status'] == 'current'
+        with connect() as conn:
+            conn.execute('UPDATE document_chunks SET content=%s WHERE id=%s',(text+' Revised.',chunk));conn.commit()
+        assert reflection.get_brief(brief_id,allow_documents=True)['claims'] == []
+        with pytest.raises(HTTPException) as stale:
+            reflection.save_brief(save_body(result),'test')
+        assert stale.value.status_code == 409
+    with project_scope(projects[1]), patch.object(reflection.intelligence,'search_memories',return_value=[]), \
+            patch.object(documents,'search_chunks',return_value=[{'id':chunk,'semantic_score':1}]), \
+            patch.object(reflection,'_ollama_json') as llm:
+        assert reflection.reflect('Backup?','quick',include_documents=True)['sources'] == []
+    llm.assert_not_called()

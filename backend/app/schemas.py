@@ -90,6 +90,7 @@ class ContextRequest(BaseModel):
 class ReflectRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     budget: Literal['quick', 'standard', 'deep'] = 'standard'
+    include_documents: bool = False
 
 
 class ReflectionCitation(BaseModel):
@@ -111,8 +112,15 @@ class ReflectionAnswer(BaseModel):
 
 
 class BriefSource(BaseModel):
-    id: UUID
+    id: UUID | int
+    kind: Literal['memory', 'document_chunk'] = 'memory'
     version: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+    @model_validator(mode='after')
+    def source_identity(self):
+        if (self.kind == 'memory' and not isinstance(self.id, UUID)) or (self.kind == 'document_chunk' and (type(self.id) is not int or self.id < 1)):
+            raise ValueError('Invalid source ID for source kind')
+        return self
 
 
 class BriefCreate(ReflectRequest):
