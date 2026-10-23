@@ -248,6 +248,9 @@ def test_brief_refresh_uses_current_evidence_and_preserves_previous_snapshot(cor
         assert str(fresh['id']) != previous_id
         assert reflection.get_brief(str(fresh['id']))['status'] == 'current'
         assert reflection.get_brief(str(fresh['id']))['refresh_of'] == previous_id
+        changes = reflection.get_brief(str(fresh['id']))['changes']
+        assert changes['unchanged'] == 1 and changes['added'] == changes['removed'] == []
+        assert changes['sources'][0]['state'] == 'changed'
         with connect() as conn:
             assert conn.execute('SELECT snapshot FROM project_briefs WHERE id=%s',(previous_id,)).fetchone()['snapshot'] == original_snapshot
         with pytest.raises(HTTPException) as changed_question:
@@ -302,3 +305,22 @@ def test_document_reflection_checks_provenance_scopes_changes_and_rls(corpus):
             patch.object(reflection,'_ollama_json') as llm:
         assert reflection.reflect('Backup?','quick',include_documents=True)['sources'] == []
     llm.assert_not_called()
+
+
+def test_brief_comparison_tracks_text_changes_and_redacts_unavailable_evidence(corpus):
+    projects,source = corpus
+    with project_scope(projects[0]):
+        original = draft(source)
+        previous = reflection.save_brief(save_body(original),'test')
+        new_claim = {**original['claims'][0],'text':'A newly reviewed local AI conclusion.'}
+        body = save_body({**original,'claims':[new_claim]}).model_copy(update={'refresh_of':previous['id']})
+        saved = reflection.save_brief(body,'test')
+        changes = reflection.get_brief(str(saved['id']))['changes']
+        assert changes['added'] == [new_claim['text']]
+        assert changes['removed'] == [original['claims'][0]['text']]
+        with connect() as conn:
+            conn.execute('UPDATE memories SET deleted_at=now() WHERE id=%s',(source['id'],));conn.commit()
+        changes = reflection.get_brief(str(saved['id']))['changes']
+        assert changes['added'] == changes['removed'] == [] and changes['redacted'] == 2
+        reflection.delete_brief(str(previous['id']))
+        assert reflection.get_brief(str(saved['id']))['changes'] == {'available':False}

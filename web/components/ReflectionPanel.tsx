@@ -7,7 +7,7 @@ import { api, dateText } from "@/lib/api";
 type Budget = "quick" | "standard" | "deep";
 type Claim = { text: string; citations: { source: number; quote: string }[] };
 type Source = { number: number; id: string; kind?: "memory" | "document_chunk"; document_id?: string | null; title: string; version?: string; content?: string; status?: string };
-type Answer = { question: string; budget: Budget; include_documents?: boolean; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string };
+type Answer = { question: string; budget: Budget; include_documents?: boolean; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string; changes?: {available:boolean;added?:string[];removed?:string[];unchanged?:number;redacted?:number;sources?:{title:string;state:string}[];basis?:string} | null };
 type Brief = { id: string; title: string; created_at: string };
 
 export default function ReflectionPanel() {
@@ -109,6 +109,15 @@ export default function ReflectionPanel() {
       <p className="meta">{answer.sources.length} retrieved sources · {answer.budget} budget. Quotes are checked against source text; review whether they support each conclusion.</p>
       {answer.status === "needs_review" && <p role="status" className="errorBox">Project memories have changed. {answer.evidence_changed ? "Supporting evidence changed or became unavailable, so the old answer is hidden." : "New or changed memories may affect this brief."} Rebuild and review before relying on it.</p>}
       {answer.insufficient && <p>No supported answer was found in the retrieved evidence. Try a more specific question or use Search.</p>}
+      {answer.changes && <details open><summary>What changed?</summary>
+        {!answer.changes.available ? <p>The previous brief is no longer available.</p> : <>
+          <p className="meta">{answer.changes.basis}</p>
+          <h4>Added to this answer</h4>{answer.changes.added?.map((text,i)=><p key={i}>{text}</p>)}
+          <h4>Not in this answer</h4>{answer.changes.removed?.map((text,i)=><p key={i}>{text}</p>)}
+          <p className="meta">{answer.changes.unchanged} unchanged statements. {answer.changes.redacted ? `${answer.changes.redacted} statements hidden because supporting sources are unavailable.` : ""}</p>
+          {answer.changes.sources?.map((source,i)=><p key={i}>{source.title} · {source.state}</p>)}
+        </>}
+      </details>}
       {answer.claims.map((claim, index) => <div key={index} style={{ borderTop: "1px solid #2a3037", padding: "12px 0" }}>
         <p>{claim.text}</p>
         {claim.citations.map((citation, i) => {

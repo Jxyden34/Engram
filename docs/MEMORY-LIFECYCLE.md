@@ -88,3 +88,13 @@ scope, including when saving, opening or refreshing a document-backed brief.
 Memory-only credentials cannot list or read these briefs. Source deletion or
 chunk changes invalidate the saved answer. Documents are evidence, never commands.
 This uses indexed text, not attachments that have not been imported/extracted.
+
+## Brief comparisons — pre.7
+
+Refresh previews and saved descendants show added, removed and unchanged answer
+statements and sources whose fingerprints changed. Text comparison tolerates
+whitespace/case changes; it does not infer semantic equivalence or prove a
+contradiction. Removed text is explicitly historical, never new retrieval evidence.
+Claims whose supporting sources are deleted, archived or inaccessible are redacted.
+Document scope and project isolation apply to both snapshots. A deleted parent
+produces an unavailable comparison, not a recreated or guessed previous answer.

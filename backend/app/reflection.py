@@ -62,6 +62,36 @@ def _document_access(snapshot, allow_documents):
         raise HTTPException(status_code=403, detail='Document access required for this brief')
 
 
+def _compare_snapshots(conn, previous, current):
+    """Explicit textual comparison; historical summaries are not new evidence."""
+    refs = previous['sources']+current['sources']
+    rows = _load_sources(conn,refs)
+    def visible(snapshot):
+        texts = {}
+        hidden = 0
+        for claim in snapshot['claims']:
+            cited = [snapshot['sources'][citation['source']-1] for citation in claim['citations']]
+            if any(_key(ref) not in rows or not _current(rows[_key(ref)]) for ref in cited):
+                hidden += 1
+            else:
+                texts[' '.join(claim['text'].split()).casefold()] = claim['text']
+        return texts,hidden
+    old,old_hidden = visible(previous)
+    new,new_hidden = visible(current)
+    old_refs,new_refs = ({_key(ref):ref for ref in snapshot['sources']} for snapshot in (previous,current))
+    changes = []
+    for key in sorted(old_refs.keys() | new_refs.keys()):
+        state = 'added' if key not in old_refs else 'removed' if key not in new_refs else 'changed' if old_refs[key]['version'] != new_refs[key]['version'] else None
+        if state:
+            row = rows.get(key)
+            available = row and _current(row)
+            changes.append({'title':row['title'] if available else 'Unavailable source','state':state})
+    return {'available':True,'added':[text for key,text in new.items() if key not in old],
+            'removed':[text for key,text in old.items() if key not in new], 'unchanged':len(old.keys() & new.keys()),
+            'redacted':old_hidden+new_hidden,'sources':changes,
+            'basis':'Text comparison, not proof of a contradiction. Removed claims are historical summaries.'}
+
+
 def _version(row: dict) -> str:
     fields = {key: row.get(key) for key in ('id', 'title', 'content', 'updated_at', 'valid_from', 'valid_to')}
     return hashlib.sha256(json.dumps(fields, default=str, sort_keys=True).encode()).hexdigest()
@@ -192,7 +222,9 @@ def refresh_brief(brief_id: str, *, allow_documents=False) -> dict:
     _document_access(snapshot,allow_documents)
     # Generate only from current canonical memories; never feed the stale summary to the model.
     result = reflect(snapshot['question'], snapshot['budget'],include_documents=bool(snapshot.get('include_documents')))
-    return {**result,'refresh_of':brief_id,'refresh_title':previous['title']}
+    with connect() as conn:
+        changes = _compare_snapshots(conn,snapshot,result)
+    return {**result,'refresh_of':brief_id,'refresh_title':previous['title'],'changes':changes}
 
 
 def list_briefs(*, allow_documents=False) -> list[dict]:
@@ -220,12 +252,20 @@ def get_brief(brief_id: str, *, allow_documents=False) -> dict:
                             'status': ('current' if _version(memory) == source['version'] else 'changed') if available else 'unavailable'})
         changed = any(source['status'] != 'current' for source in sources)
         stale = changed or _revision(conn,bool(snapshot.get('include_documents'))) != snapshot['project_revision']
+        changes = None
+        if snapshot.get('refresh_of'):
+            previous = conn.execute('SELECT snapshot FROM project_briefs WHERE id=%s',(snapshot['refresh_of'],)).fetchone()
+            if previous:
+                _document_access(previous['snapshot'],allow_documents)
+                changes = _compare_snapshots(conn,previous['snapshot'],snapshot)
+            else:
+                changes = {'available':False}
     # Withhold old generated text/quotes when supporting evidence changed or became unavailable.
     return {'id': str(row['id']), 'title': row['title'], 'created_at': row['created_at'],
             'project_id': current_project_id(), 'question': snapshot['question'], 'budget': snapshot['budget'],
             'sources': sources, 'claims': [] if changed else snapshot['claims'],
             'status': 'needs_review' if stale else 'current', 'evidence_changed': changed,
-            'refresh_of': snapshot.get('refresh_of'),'include_documents':bool(snapshot.get('include_documents'))}
+            'refresh_of': snapshot.get('refresh_of'),'include_documents':bool(snapshot.get('include_documents')),'changes':changes}
 
 
 def delete_brief(brief_id: str) -> dict:
