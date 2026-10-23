@@ -55,6 +55,16 @@ class ArchiveRequest(BaseModel):
     reason: str = Field(min_length=3, max_length=1000)
 
 
+class ClusterDraftRequest(BaseModel):
+    memory_ids: list[UUID] = Field(min_length=3,max_length=10)
+
+
+class ClusterApproveRequest(BaseModel):
+    title: str = Field(min_length=1,max_length=300)
+    content: str = Field(min_length=1,max_length=10000)
+    source_versions: dict[UUID,str] = Field(min_length=3,max_length=10)
+
+
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     memory_type: str | None = Field(default=None, min_length=1, max_length=80)

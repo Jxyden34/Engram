@@ -109,3 +109,19 @@ and the final source/character limits remain unchanged. The UI shows executed
 queries and whether follow-up planning was unavailable. A failed or invalid plan
 falls back to the retrieved evidence instead of claiming extra reasoning succeeded.
 This is a bounded retrieval expansion, not an open-ended autonomous agent.
+
+## Reviewed cluster consolidation — pre.9
+
+In Memory Agent, choose 3–10 related current memories and draft a group summary.
+Every selected source must have an exact supporting quote before a draft can be
+saved. Review the quotes, edit the summary and explicitly approve it. The new
+memory preserves all originals, has a `derived_from` link to every source, and
+inherits no more confidence/trust than the weakest source. Approval locks the
+draft and sources, checks their fingerprints and records one result for retries.
+Deleted, archived, changed or foreign-project sources cannot be approved.
+
+Cluster drafts use project-scoped evidence snapshots, are separate from ordinary
+project briefs and never enter retrieval as facts until human approval. Showing
+100 current memories bounds the picker; use search on the Memories page to inspect
+larger collections. Apply migration `015_cluster_review.sql` after 014 before this
+API; fresh installations and CI mount it automatically.

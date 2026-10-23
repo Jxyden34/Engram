@@ -35,6 +35,7 @@ def corpus():
                     conn.execute('DELETE FROM audit_log')
                     conn.execute('DELETE FROM api_keys')
                     conn.execute('DELETE FROM memory_versions')
+                    conn.execute('DELETE FROM memory_relations')
                     conn.execute('DELETE FROM memories')
                     conn.execute('DELETE FROM document_chunks')
                     conn.execute('DELETE FROM documents')
@@ -339,3 +340,39 @@ def test_followup_searches_are_bounded_deduplicated_and_transparent(corpus,inval
     assert result['reasoning_status'] == ('followup_unavailable' if invalid_plan else 'expanded')
     assert len(result['search_queries']) == search.call_count
     assert result['evidence_chars'] <= 16000
+
+
+def test_cluster_review_preserves_sources_provenance_and_retry_state(corpus):
+    from app import consolidation,memories
+    from app.schemas import ClusterApproveRequest
+    projects,source=corpus
+    ids=[source['id']]
+    texts=[CONTENT,'The service keeps original records traceable.','Every generated summary requires human approval.']
+    with project_scope(projects[0]):
+        with connect() as conn:
+            for text in texts[1:]:
+                ids.append(conn.execute("INSERT INTO memories(title,content,confidence,source_trust,created_by,updated_by) VALUES ('Cluster source',%s,.4,.7,'test','test') RETURNING id",(text,)).fetchone()['id'])
+            conn.commit()
+        generated={'claims':[{'text':text,'citations':[{'source':i+1,'quote':text}]} for i,text in enumerate(texts)],'insufficient':False}
+        with patch.object(reflection,'_ollama_json',return_value=generated):
+            drafted=consolidation.create_draft(ids,'test')
+        assert reflection.list_briefs()==[] and len(consolidation.list_drafts())==1
+        body=ClusterApproveRequest(title='Reviewed summary',content=drafted['content'],source_versions=drafted['source_versions'])
+        with patch.object(memories,'embed_literal',return_value='['+','.join(['1']+['0']*383)+']'),patch.object(memories,'_queue_enrichment'):
+            saved=consolidation.approve(drafted['id'],body,'reviewer')
+            assert consolidation.approve(drafted['id'],body,'reviewer')==saved
+        summary=memories.get(saved['result_memory_id'],touch=False)
+        assert float(summary['confidence'])==.4 and len(memories.relations(saved['result_memory_id']))==3
+        assert [memories.get(str(key),touch=False)['content'] for key in ids]==texts
+        with patch.object(reflection,'_ollama_json',return_value=generated):
+            stale=consolidation.create_draft(ids,'test')
+        with connect() as conn:
+            conn.execute('UPDATE memories SET updated_at=now() WHERE id=%s',(ids[0],));conn.commit()
+        with pytest.raises(HTTPException) as changed:
+            consolidation.approve(stale['id'],body,'reviewer')
+        assert changed.value.status_code==409
+    with project_scope(projects[1]):
+        for action in (lambda:consolidation.get_draft(drafted['id']),lambda:consolidation.create_draft(ids,'test')):
+            with pytest.raises(HTTPException) as missing:
+                action()
+            assert missing.value.status_code==404

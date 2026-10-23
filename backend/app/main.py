@@ -20,6 +20,7 @@ from app import projects
 from app import memory_agent
 from app import ask
 from app import reflection
+from app import consolidation
 from app import document_memory_import as doc_mem
 from app.audit import log
 from app.capture import create_capture
@@ -42,6 +43,8 @@ from app.rate_limit import check_rate
 from app.schemas import (
     ApiKeyCreate,
     ArchiveRequest,
+    ClusterDraftRequest,
+    ClusterApproveRequest,
     CandidateUpdate,
     CaptureCreate,
     ChatImportCreate,
@@ -113,7 +116,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.8.0-pre.8",
+    version="2.8.0-pre.9",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -235,7 +238,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.8"}
+    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.9"}
 
 
 def _check_login(body: LoginRequest):
@@ -591,6 +594,35 @@ def reflect_memories(body: ReflectRequest, request: Request):
         require(request,'document:read')
     check_rate(request, 'reflect', 3, 60)
     return reflection.reflect(body.question, body.budget,include_documents=body.include_documents,reasoning=body.reasoning)
+
+
+@app.get('/api/v1/intelligence/clusters')
+def list_clusters(request:Request):
+    require(request,'memory:read')
+    return consolidation.list_drafts()
+
+
+@app.post('/api/v1/intelligence/clusters',status_code=201)
+def create_cluster(body:ClusterDraftRequest,request:Request):
+    p = require(request,'memory:write')
+    check_rate(request,'cluster_draft',3,60)
+    result = consolidation.create_draft(body.memory_ids,p.actor)
+    log(p.actor,'cluster.drafted','project_brief',result['id'],request)
+    return result
+
+
+@app.get('/api/v1/intelligence/clusters/{draft_id}')
+def get_cluster(draft_id:UUID,request:Request):
+    require(request,'memory:read')
+    return consolidation.get_draft(str(draft_id))
+
+
+@app.post('/api/v1/intelligence/clusters/{draft_id}/approve')
+def approve_cluster(draft_id:UUID,body:ClusterApproveRequest,request:Request):
+    p = require(request,'memory:write')
+    result = consolidation.approve(str(draft_id),body,p.actor)
+    log(p.actor,'cluster.accepted','project_brief',str(draft_id),request,new_data=result)
+    return result
 
 
 @app.get('/api/v1/intelligence/briefs')

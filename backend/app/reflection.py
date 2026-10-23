@@ -131,14 +131,22 @@ def _retrieve(question,limit,include_documents):
     return [row for row in rows[:limit] if _current(row)]
 
 
-def reflect(question: str, budget: str, *, include_documents=False, reasoning=False) -> dict:
+def reflect(question: str, budget: str, *, include_documents=False, reasoning=False, source_ids=None) -> dict:
     question = question.strip()
     if not question:
         raise HTTPException(status_code=422, detail='Enter a question first')
     limit, max_chars = BUDGETS[budget]
     with connect() as conn:
         revision = _revision(conn, include_documents)
-    rows = _retrieve(question,limit,include_documents)
+    if source_ids is not None:
+        refs = [{'kind':'memory','id':str(key)} for key in source_ids]
+        with connect() as conn:
+            loaded = _load_sources(conn,refs)
+        if len(loaded) != len(refs) or any(not _current(row) for row in loaded.values()):
+            raise HTTPException(status_code=404,detail='All selected sources must be current memories in this project')
+        rows = [loaded[_key(ref)] for ref in refs]
+    else:
+        rows = _retrieve(question,limit,include_documents)
     queries = [question]
     reasoning_status = 'single_search'
     followups = {'quick':0,'standard':1,'deep':2}[budget] if reasoning else 0
@@ -189,7 +197,7 @@ def reflect(question: str, budget: str, *, include_documents=False, reasoning=Fa
     if not sources:
         return {**result, 'claims': [], 'insufficient': True}
     try:
-        data = _ollama_json(SYSTEM, json.dumps({'question': question, 'sources': sources}),
+        data = _ollama_json(SYSTEM + (' Cite every selected source at least once; preserve disagreements instead of guessing a unified fact.' if source_ids else ''), json.dumps({'question': question, 'sources': sources}),
                             timeout=90.0, max_tokens=2000, format_schema=ReflectionAnswer.model_json_schema())
     except Exception as exc:
         raise HTTPException(status_code=503, detail='Reflection is unavailable. Try Search or build context.') from exc
@@ -209,7 +217,7 @@ def reflect(question: str, budget: str, *, include_documents=False, reasoning=Fa
     return {**result, 'claims': claims, 'insufficient': answer.insufficient}
 
 
-def save_brief(body: BriefCreate, actor: str) -> dict:
+def save_brief(body: BriefCreate, actor: str, *, purpose='brief') -> dict:
     if not body.title.strip() or not body.question.strip():
         raise HTTPException(status_code=422, detail='Enter a title and question')
     refs = [source.model_dump(mode='json') for source in body.sources]
@@ -241,6 +249,7 @@ def save_brief(body: BriefCreate, actor: str) -> dict:
                     'refresh_of': str(body.refresh_of) if body.refresh_of else None}
         snapshot['include_documents'] = body.include_documents
         snapshot['reasoning'] = body.reasoning
+        snapshot['purpose'] = purpose
         row = conn.execute('''INSERT INTO project_briefs(title,snapshot,created_by)
             VALUES (%s,%s,%s) RETURNING id,title,created_at''',
             (body.title.strip(), Jsonb(snapshot), actor)).fetchone()
@@ -266,7 +275,8 @@ def refresh_brief(brief_id: str, *, allow_documents=False) -> dict:
 def list_briefs(*, allow_documents=False) -> list[dict]:
     with connect() as conn:
         return [dict(row) for row in conn.execute('''SELECT id,title,created_at
-            FROM project_briefs WHERE %s OR NOT COALESCE((snapshot->>'include_documents')::boolean,false)
+            FROM project_briefs WHERE COALESCE(snapshot->>'purpose','brief')='brief'
+            AND (%s OR NOT COALESCE((snapshot->>'include_documents')::boolean,false))
             ORDER BY created_at DESC,id LIMIT 100''',(allow_documents,)).fetchall()]
 
 
