@@ -15,6 +15,18 @@ Ollama processing, source-aware search and controlled access for your AI clients
 is a separate paid build activated with a licence key. See the [license](LICENSE)
 and [usage guide](docs/LICENSING.md).
 
+## Install the development beta
+
+On a fresh Ubuntu or Debian host, run:
+
+```sh
+curl -fsSL https://engram-beta.hindley.tech/install.sh | sudo bash
+```
+
+The interactive wizard installs prerequisites, asks for your edition, domain and
+administrator account, and deploys the server. See the [installer guide](docs/DEVELOPMENT-PREVIEWS.md#one-command-host-deployment)
+for requirements and deployment options. This installs the development preview.
+
 ## Why Engram?
 
 | When you need to… | Engram gives you… |

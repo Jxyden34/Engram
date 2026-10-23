@@ -18,7 +18,7 @@ Each feature has its own version and commit. The current source version is
 On a fresh Ubuntu or Debian host:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/codex/v3-commercial-licensing/install.sh | sudo bash
+curl -fsSL https://engram-beta.hindley.tech/install.sh | sudo bash
 ```
 
 This development command currently selects draft PR #85's branch. Inspect the script

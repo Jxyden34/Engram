@@ -260,6 +260,9 @@ jobs:
             --directory /tmp/engram-installer-smoke --edition personal --host localhost \
             --mode proxy --port 18080 --non-interactive --skip-models
           curl --fail --silent http://127.0.0.1:18080/health
+          curl --fail --silent http://127.0.0.1:18080/install.sh -o /tmp/engram-downloaded-install.sh
+          cmp install.sh /tmp/engram-downloaded-install.sh
+          bash -n /tmp/engram-downloaded-install.sh
       - name: Remove isolated installer test stack
         if: always()
         run: |
