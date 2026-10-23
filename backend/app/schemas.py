@@ -91,6 +91,12 @@ class ReflectRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     budget: Literal['quick', 'standard', 'deep'] = 'standard'
     include_documents: bool = False
+    reasoning: bool = False
+
+
+class ReflectionQueries(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    queries: list[str] = Field(max_length=2)
 
 
 class ReflectionCitation(BaseModel):

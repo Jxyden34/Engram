@@ -98,3 +98,14 @@ contradiction. Removed text is explicitly historical, never new retrieval eviden
 Claims whose supporting sources are deleted, archived or inaccessible are redacted.
 Document scope and project isolation apply to both snapshots. A deleted parent
 produces an unavailable comparison, not a recreated or guessed previous answer.
+
+## Bounded follow-up retrieval — pre.8
+
+Enable **Allow bounded follow-up searches** with Standard or Deep evidence budgets.
+After reading initial evidence, the local model may propose one additional search
+for Standard or two for Deep. Quick keeps one search. Every retrieval uses the
+same project and source permissions; repeated sources share one citation number
+and the final source/character limits remain unchanged. The UI shows executed
+queries and whether follow-up planning was unavailable. A failed or invalid plan
+falls back to the retrieved evidence instead of claiming extra reasoning succeeded.
+This is a bounded retrieval expansion, not an open-ended autonomous agent.

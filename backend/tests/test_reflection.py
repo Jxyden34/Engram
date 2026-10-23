@@ -54,6 +54,7 @@ def save_body(result):
     return BriefCreate(title='Architecture brief', question=result['question'], budget=result['budget'],
                        project_revision=result['project_revision'], claims=result['claims'],
                        include_documents=bool(result.get('include_documents')),
+                       reasoning=bool(result.get('reasoning')),
                        sources=[{'id': s['id'], 'version': s['version'],'kind':s.get('kind','memory')} for s in result['sources']])
 
 
@@ -324,3 +325,17 @@ def test_brief_comparison_tracks_text_changes_and_redacts_unavailable_evidence(c
         assert changes['added'] == changes['removed'] == [] and changes['redacted'] == 2
         reflection.delete_brief(str(previous['id']))
         assert reflection.get_brief(str(saved['id']))['changes'] == {'available':False}
+
+
+@pytest.mark.parametrize('invalid_plan',[False,True])
+def test_followup_searches_are_bounded_deduplicated_and_transparent(corpus,invalid_plan):
+    projects,source = corpus
+    plan = {'queries':['Architecture details','Review rules']} if not invalid_plan else {'queries':['x'*301]}
+    with project_scope(projects[0]), patch.object(reflection.intelligence,'search_memories',return_value=[source]) as search, \
+            patch.object(reflection,'_ollama_json',side_effect=[plan,MODEL]):
+        result = reflection.reflect('What guides this project?','deep',reasoning=True)
+    assert len(result['sources']) == 1, 'Duplicate sources from several searches must share one citation number'
+    assert search.call_count == (1 if invalid_plan else 3)
+    assert result['reasoning_status'] == ('followup_unavailable' if invalid_plan else 'expanded')
+    assert len(result['search_queries']) == search.call_count
+    assert result['evidence_chars'] <= 16000

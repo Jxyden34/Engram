@@ -7,13 +7,14 @@ import { api, dateText } from "@/lib/api";
 type Budget = "quick" | "standard" | "deep";
 type Claim = { text: string; citations: { source: number; quote: string }[] };
 type Source = { number: number; id: string; kind?: "memory" | "document_chunk"; document_id?: string | null; title: string; version?: string; content?: string; status?: string };
-type Answer = { question: string; budget: Budget; include_documents?: boolean; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string; changes?: {available:boolean;added?:string[];removed?:string[];unchanged?:number;redacted?:number;sources?:{title:string;state:string}[];basis?:string} | null };
+type Answer = { reasoning?:boolean; reasoning_status?:string; search_queries?:string[]; question: string; budget: Budget; include_documents?: boolean; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string; changes?: {available:boolean;added?:string[];removed?:string[];unchanged?:number;redacted?:number;sources?:{title:string;state:string}[];basis?:string} | null };
 type Brief = { id: string; title: string; created_at: string };
 
 export default function ReflectionPanel() {
   const [question, setQuestion] = useState("");
   const [budget, setBudget] = useState<Budget>("standard");
   const [includeDocuments, setIncludeDocuments] = useState(false);
+  const [reasoning,setReasoning] = useState(false);
   const sourceLink = (source: Source) => source.kind === 'document_chunk' ? `/documents#document-${source.document_id}` : `/memories/${source.id}`;
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [title, setTitle] = useState("");
@@ -32,7 +33,7 @@ export default function ReflectionPanel() {
     e.preventDefault();
     setBusy(true); setError(""); setNotice(""); setAnswer(null); setSelected(null);
     try {
-      setAnswer(await api<Answer>("/api/v1/intelligence/reflect", { method: "POST", body: JSON.stringify({ question, budget,include_documents:includeDocuments }) }));
+      setAnswer(await api<Answer>("/api/v1/intelligence/reflect", { method: "POST", body: JSON.stringify({ question, budget,include_documents:includeDocuments,reasoning }) }));
       setTitle(question.slice(0, 120));
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
@@ -47,6 +48,7 @@ export default function ReflectionPanel() {
         title, question: answer.question, budget: answer.budget, project_revision: answer.project_revision,
         sources: answer.sources.map(({ id, version,kind }) => ({ id, version,kind:kind||'memory' })), claims: answer.claims,
         include_documents:!!answer.include_documents,
+        reasoning:!!answer.reasoning,
         refresh_of: answer.refresh_of || null,
       }) });
       await loadBriefs(); setSelected(saved); setNotice("Brief saved. Your original memories are unchanged.");
@@ -60,6 +62,7 @@ export default function ReflectionPanel() {
       const next = await api<Answer>(`/api/v1/intelligence/briefs/${brief.id}`);
       setAnswer(next); setSelected({ ...brief, title: next.title || brief.title }); setQuestion(next.question); setBudget(next.budget);
       setIncludeDocuments(!!next.include_documents);
+      setReasoning(!!next.reasoning);
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -82,6 +85,7 @@ export default function ReflectionPanel() {
       setAnswer(next); setTitle(next.refresh_title || selected.title); setSelected(null);
       setQuestion(next.question); setBudget(next.budget);
       setIncludeDocuments(!!next.include_documents);
+      setReasoning(!!next.reasoning);
       setNotice("Fresh preview ready. Review the evidence and save a new brief; the previous snapshot is unchanged.");
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
@@ -100,6 +104,7 @@ export default function ReflectionPanel() {
           <option value="deep">Deep · up to 20 sources</option>
         </select></div>
       <label><input type="checkbox" checked={includeDocuments} onChange={e=>setIncludeDocuments(e.target.checked)} /> Include document evidence</label>
+      <label><input type="checkbox" checked={reasoning} onChange={e=>setReasoning(e.target.checked)} /> Allow bounded follow-up searches</label>
       <button className="button primary" disabled={busy || !question.trim()}>{busy ? "Working…" : "Reflect"}</button>
     </form>
     {error && <div className="errorBox" role="alert">{error}</div>}
@@ -107,6 +112,9 @@ export default function ReflectionPanel() {
     {answer && <div aria-live="polite">
       <h3>{selected?.title || "Review this answer"}</h3>
       <p className="meta">{answer.sources.length} retrieved sources · {answer.budget} budget. Quotes are checked against source text; review whether they support each conclusion.</p>
+      {answer.search_queries && <details><summary>Retrieval steps · {answer.search_queries.length} searches</summary>
+        <p className="meta">{answer.reasoning_status?.replaceAll('_',' ')}</p>{answer.search_queries.map((query,i)=><p key={i}>{i+1}. {query}</p>)}
+      </details>}
       {answer.status === "needs_review" && <p role="status" className="errorBox">Project memories have changed. {answer.evidence_changed ? "Supporting evidence changed or became unavailable, so the old answer is hidden." : "New or changed memories may affect this brief."} Rebuild and review before relying on it.</p>}
       {answer.insufficient && <p>No supported answer was found in the retrieved evidence. Try a more specific question or use Search.</p>}
       {answer.changes && <details open><summary>What changed?</summary>
