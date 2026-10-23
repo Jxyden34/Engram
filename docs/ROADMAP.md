@@ -14,6 +14,17 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 - 🔵 Later
 - 🧪 Experimental
 
+## v3.7.0-dev-beta.8 — Personal and Commercial workspaces 🧪
+
+The active development version is `3.7.0-dev-beta.8`. This track adds
+signed, installation-bound paid commercial keys, administrator activation and
+licence status. Personal Community is free for noncommercial use; Commercial is a
+separate build that requires activation. An owner dashboard turns manual payment
+confirmation into automatic key issuance and SMTP email. Online checkout is deferred.
+See [the development feature guide](DEVELOPMENT-PREVIEWS.md) for the seven individually versioned additions.
+See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable remains v2.7.0;
+existing native releases retain their preview channels; v3.7 source uses a separate runtime and channel.
+
 ## Alpha1 — mobile review and filtered Ask 🧪
 
 These server features are promoted to v2.7.0 on `main` through PR #36. Patched native-device qualification is in progress. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback:
@@ -537,8 +548,8 @@ project boundaries.
 
 ### Hindsight-inspired reflection and project briefs
 
-Implementation for the v2.8 development track; stable remains v2.7.0 until a
-separate release is explicitly approved. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
+Implemented during the earlier v2.8 development track and carried into the v3.7
+beta; stable remains v2.7.0. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
 
 - Bounded, current-project Reflect answers with quick/standard/deep evidence budgets.
 - Multiple exact source excerpts per claim, checked before displaying an answer.
@@ -631,7 +642,7 @@ not a promise of a hosted service date.
 
 ---
 
-# v3 — Personal Knowledge OS 🔵
+# v3.7 — Personal Knowledge OS 🔵
 
 ## v3.0 — Memory Agent
 
@@ -741,7 +752,7 @@ Features:
 8. 🔵 Memory consolidation, decay and archival.
 9. 🔵 Managed-service readiness: onboarding, usage visibility, team governance
    and operational commitments.
-10. 🔵 v3 autonomous maintenance and notification capabilities.
+10. 🔵 v3.7 autonomous maintenance and notification capabilities.
 
 ---
 

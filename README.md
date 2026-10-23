@@ -11,9 +11,21 @@ Ollama processing, source-aware search and controlled access for your AI clients
 **[Connect an MCP client](https://jxyden34.github.io/Engram/mcp.html)** ·
 **[Report feedback](https://github.com/Jxyden34/Engram/issues/new/choose)**
 
-**Free for personal, noncommercial self-hosting.** Commercial, workplace and
-managed-hosting use require separate written permission. Engram is
-source-available; see the [license](LICENSE) and [usage guide](docs/LICENSING.md).
+**v3.7 beta editions:** Personal Community is free for noncommercial use. Commercial
+is a separate paid build activated with a licence key. See the [license](LICENSE)
+and [usage guide](docs/LICENSING.md).
+
+## Install the development beta
+
+On a fresh Ubuntu or Debian host, run:
+
+```sh
+curl -fsSL https://engram-beta.hindley.tech/install.sh | sudo bash
+```
+
+The interactive wizard installs prerequisites, asks for your edition, domain and
+administrator account, and deploys the server. See the [installer guide](docs/DEVELOPMENT-PREVIEWS.md#one-command-host-deployment)
+for requirements and deployment options. This installs the development preview.
 
 ## Why Engram?
 
@@ -33,6 +45,7 @@ The [deployment guide](docs/DEPLOYMENT.md) recommends 4 CPU cores and 8 GB RAM
 Engram 2.7 adds projects, Memory Agent and filtered Ask. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
 
 **Current stable release:** `v2.7.0`
+**Development beta:** `v3.7.0-dev-beta.8` — [team workspaces, branding, renewals, handovers, setup and reminders](docs/DEVELOPMENT-PREVIEWS.md).
 **Mobile preview:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
@@ -223,8 +236,9 @@ See [SECURITY.md](SECURITY.md).
 
 ## License
 
-Engram is **source-available and free for personal, noncommercial self-hosting**.
-Commercial, workplace and managed-hosting use require separate written permission.
+The v3.7 Personal Community build is source-available and free for personal, noncommercial use. Business and commercial use require a paid key. The separate
+Commercial build and owner licensing service use [commercial terms](LICENSE-COMMERCIAL).
+These changes are on the v3.7 development branch; existing releases retain their licence notices.
 See [LICENSE](LICENSE) and the [usage guide](docs/LICENSING.md).
 
 

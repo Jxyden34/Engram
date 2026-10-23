@@ -1,6 +1,13 @@
 :8080 {
 	encode zstd gzip
 
+	handle /install.sh {
+		root * /srv/engram
+		header Content-Type "text/x-shellscript; charset=utf-8"
+		header Cache-Control "no-store"
+		file_server
+	}
+
 	@internal path /internal/*
 	respond @internal 404
 

@@ -1,3 +1,4 @@
+from app.preferences import chat_model as selected_chat_model
 import logging
 import re
 from typing import Any
@@ -113,7 +114,7 @@ def create_job(document_id: str, actor: str, owner_id: str | None):
             VALUES (%s,%s,%s,%s,%s)
             RETURNING *
             """,
-            (document_id, owner_id, actor, settings().chat_model, chunk_count),
+            (document_id, owner_id, actor, selected_chat_model(), chunk_count),
         ).fetchone()
         conn.commit()
 

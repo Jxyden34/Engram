@@ -2,8 +2,10 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import {useBranding} from '@/components/Branding';
 
 export default function LoginPage() {
+  const brand=useBranding();
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,8 +40,9 @@ export default function LoginPage() {
   return (
     <div className="loginPage">
       <form className="loginCard" onSubmit={submit}>
-        <div className="loginLogo" aria-hidden="true" />
-        <h1>Enter Engram</h1>
+        {brand.logo?<img src={brand.logo} width={64} height={64} alt=""/>:<div className="loginLogo" aria-hidden="true" />}
+        <h1>Enter {brand.name}</h1>
+        <p>{brand.tagline}</p>
         <p>Your private cognition layer. Human-readable, AI-accessible, and under your control.</p>
         {error && <div className="errorBox">{error}</div>}
         <div className="field">
