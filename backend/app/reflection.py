@@ -26,7 +26,11 @@ answer the question, return {"claims":[],"insufficient":true}.
 Also return gaps: up to three objects with kind (missing or conflicting), description,
 next_question and citations. Missing means not established in retrieved evidence,
 not absent from the world. A conflict needs exact quotes from two distinct sources.
-Use an empty gaps list when no material gap is apparent.
+If a requested person, date, deadline or other essential detail is not recorded,
+report that missing detail as a gap. Related architectural facts do not answer a
+question about an unrecorded deadline or approver. If no part can be answered,
+set insufficient true with no claims and at least one missing gap.
+Use an empty gaps list only when all requested details are supported.
 This is a bounded synthesis, not an exhaustive review of the project."""
 
 
@@ -251,8 +255,10 @@ def reflect(question: str, budget: str, *, include_documents=False, reasoning=Fa
     if not sources:
         return {**result, 'claims': [], 'insufficient': True, 'gaps':[_missing_gap()]}
     try:
+        schema = ReflectionAnswer.model_json_schema()
+        schema['required'] = ['claims','insufficient','gaps']
         data = _ollama_json(SYSTEM + (' Cite every selected source at least once; preserve disagreements instead of guessing a unified fact.' if source_ids else ''), json.dumps({'question': question, 'as_of':result['as_of'],'sources': sources}),
-                            timeout=90.0, max_tokens=2000, format_schema=ReflectionAnswer.model_json_schema())
+                            timeout=90.0, max_tokens=2000, format_schema=schema)
     except Exception as exc:
         raise HTTPException(status_code=503, detail='Reflection is unavailable. Try Search or build context.') from exc
     try:
