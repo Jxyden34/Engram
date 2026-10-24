@@ -7,10 +7,13 @@ import test from 'node:test';
 const require = createRequire(import.meta.url);
 const expo = createRequire(require.resolve('expo/package.json'));
 const cli = createRequire(expo.resolve('@expo/cli/package.json'));
+const config = createRequire(expo.resolve('@expo/config/package.json'));
+const configPlugins = createRequire(config.resolve('@expo/config-plugins/package.json'));
 const native = createRequire(require.resolve('react-native/package.json'));
 const postcss = createRequire(cli.resolve('postcss'));
 const micromatch = createRequire(cli.resolve('micromatch'));
-const xcodeRequire = createRequire(cli.resolve('xcode'));
+// The retained config consumer still uses Xcode 3; current Expo plugins use Xcode 4.
+const xcodeRequire = createRequire(configPlugins.resolve('xcode'));
 const shellQuote = native('shell-quote');
 const { SourceMapConsumer, SourceNode } = postcss('source-map-js');
 const braces = micromatch('braces');
@@ -71,13 +74,16 @@ test('UUID namespace generators reject partial writes before modifying buffers',
 });
 
 test('Xcode still generates distinct uppercase 24-character project IDs', () => {
-  const project = cli('xcode').project('unused.pbxproj');
-  project.hash = { project: { objects: {} } };
-  const first = project.generateUuid();
-  const second = project.generateUuid();
-  assert.match(first, /^[A-F0-9]{24}$/);
-  assert.match(second, /^[A-F0-9]{24}$/);
-  assert.notEqual(first, second);
+  for (const importer of [expo, cli, config]) {
+    const plugins = createRequire(importer.resolve('@expo/config-plugins/package.json'));
+    const project = plugins('xcode').project('unused.pbxproj');
+    project.hash = { project: { objects: {} } };
+    const first = project.generateUuid();
+    const second = project.generateUuid();
+    assert.match(first, /^[A-F0-9]{24}$/);
+    assert.match(second, /^[A-F0-9]{24}$/);
+    assert.notEqual(first, second);
+  }
 });
 
 test('brace walkers reject excessive nesting for strings and direct ASTs', () => {
@@ -161,16 +167,22 @@ test('RSA verification accepts valid SHA-256 with optional NULL and rejects wron
   assert.equal(publicKey.verify(otherDigest, signature), false);
 });
 
-test('all Expo signing and Xcode importer contexts use the same repaired packages', () => {
+test('Expo signing and legacy Xcode importers retain repaired packages; Xcode 4 removes uuid', () => {
   const updates = createRequire(require.resolve('expo-updates/package.json'));
   for (const importer of [cli, updates]) {
     const certificates = createRequire(importer.resolve('@expo/code-signing-certificates'));
     assert.equal(certificates('node-forge'), forge);
   }
-  for (const importer of [expo, cli]) {
+  for (const importer of [expo, cli, config]) {
     const plugins = createRequire(importer.resolve('@expo/config-plugins/package.json'));
     const project = createRequire(plugins.resolve('xcode'));
-    assert.equal(project('uuid'), uuid);
+    const metadata = plugins('xcode/package.json');
+    if (metadata.version === '3.0.1') {
+      assert.equal(project('uuid'), uuid);
+    } else {
+      assert.equal(metadata.version, '4.0.0');
+      assert.equal(metadata.dependencies.uuid, undefined);
+    }
   }
 });
 
