@@ -533,12 +533,11 @@ project boundaries.
 
 ---
 
-## v2.8 — Memory Lifecycle 🟢
+## v2.8 — Memory Lifecycle ✅
 
 ### Hindsight-inspired reflection and project briefs
 
-Implementation for the v2.8 development track; stable remains v2.7.0 until a
-separate release is explicitly approved. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
+Stable v2.8.0 delivers the qualified memory lifecycle and reflection increments. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
 
 - Bounded, current-project Reflect answers with quick/standard/deep evidence budgets.
 - Multiple exact source excerpts per claim, checked before displaying an answer.
@@ -549,9 +548,11 @@ separate release is explicitly approved. See [Reflection and project briefs](REF
 - Existing local Ollama and PostgreSQL/RLS remain the implementation; no Hindsight
   runtime or new model dependency is required.
 
-This first increment does not implement autonomous reflection loops, automatic
-observations, background brief refresh, decay or archival. Those remain future
-lifecycle work below.
+The dedicated v2.8 prerelease track adds reviewed consolidation, explainable decay,
+reversible searchable archival and explicit brief refresh for review. See
+[the feature increments](MEMORY-LIFECYCLE.md) and [qualification/promotion gate](V2.8-PRERELEASES.md).
+Stable qualification includes migration/restore checks and cumulative tests. Autonomous
+reflection loops, automatic observations and background brief refresh remain future work.
 
 ### Decay
 
@@ -566,7 +567,8 @@ Reduce retrieval priority for memories that are:
 
 ### Consolidation
 
-Merge repetitive memory clusters into stronger summaries while keeping originals traceable.
+Create human-reviewed pairwise summaries with checked quotations and provenance
+links, preserving original memories. Reviewed groups of 3–10 memories are also supported.
 
 ### Archival
 
@@ -738,7 +740,7 @@ Features:
 6. 🟡 Gmail read-only connector qualification, then calendar and cloud-storage
    connectors.
 7. 🟡 Universal search and the explicit cross-project search/audit model.
-8. 🔵 Memory consolidation, decay and archival.
+8. ✅ v2.8 reflection, briefs, consolidation, decay, archival, pinning and audited undo.
 9. 🔵 Managed-service readiness: onboarding, usage visibility, team governance
    and operational commitments.
 10. 🔵 v3 autonomous maintenance and notification capabilities.

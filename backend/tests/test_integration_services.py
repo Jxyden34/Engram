@@ -183,7 +183,10 @@ def test_alpha_review_filters_isolation_stale_sources_and_retry():
             with connect() as conn:
                 ids = [str(proposal['memory_id']), str(proposal['related_memory_id'])]
                 stamps = {str(a['id']): a['updated_at'], str(b['id']): b['updated_at']}
-                evidence = {'draft': {'safe_to_merge': True, 'title':'Draft','content':'Draft content', 'source_updated_at':[stamps[id].isoformat() for id in ids]}}
+                source_contents = {str(a['id']): 'Launch after human review', str(b['id']): 'Launch context'}
+                evidence = {'draft': {'safe_to_merge': True, 'title':'Draft','content':'Draft content',
+                    'quotes':[{'source':i+1,'quote':source_contents[key]} for i,key in enumerate(ids)],
+                    'source_updated_at':[stamps[id].isoformat() for id in ids]}}
                 duplicate = str(conn.execute("INSERT INTO agent_proposals(proposal_type,memory_id,related_memory_id,reason,evidence) VALUES ('duplicate',%s,%s,'Review',%s::jsonb) RETURNING id", (*ids, json.dumps(evidence))).fetchone()['id'])
                 conn.commit()
             with patch.object(memories, 'embed_literal', return_value=vector), patch.object(memories, '_queue_enrichment'):
@@ -193,6 +196,8 @@ def test_alpha_review_filters_isolation_stale_sources_and_retry():
             saved = memories.get(str(result['result_memory_id']))
             assert saved['title'] == payload['title']
             assert saved['content'] == payload['content']
+            assert len(saved['metadata']['supporting_quotes']) == 2
+            assert {str(r['to_memory_id']) for r in memories.relations(str(result['result_memory_id']))} == set(ids)
             assert memories.get(str(a['id']))['content'] == 'Launch after human review'
             assert memories.get(str(b['id']))['content'] == 'Launch context'
             assert len(list_proposals('accepted')) == 2
@@ -438,8 +443,16 @@ def test_agent_draft_is_review_only_and_project_scoped():
         draft_consolidation(proposal_id)
     assert exc.value.status_code == 404
     with project_scope(project_id):
+        with patch('app.memory_agent._ollama_json', return_value={
+            'safe_to_merge': True, 'title':'Bad draft', 'content':'Invented summary', 'reason':'Test',
+            'quotes':[{'source':1,'quote':'Original fact A'},{'source':2,'quote':'Invented source text'}],
+        }):
+            with pytest.raises(HTTPException) as bad_quote:
+                draft_consolidation(proposal_id)
+            assert bad_quote.value.status_code == 502
         with patch("app.memory_agent._ollama_json", return_value={
             "safe_to_merge": True, "title": "Combined", "content": "A and B", "reason": "Same topic",
+            "quotes": [{"source":1,"quote":"Original fact A"},{"source":2,"quote":"Original fact B"}],
         }):
             draft = draft_consolidation(proposal_id)
         assert draft["title"] == "Combined"

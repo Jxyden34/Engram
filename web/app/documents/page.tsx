@@ -352,7 +352,7 @@ export default function DocumentsPage() {
             </thead>
             <tbody>
               {items.map((d) => (
-                <tr key={d.id}>
+                <tr key={d.id} id={`document-${d.id}`}>
                   <td>
                     <strong>{d.filename}</strong>
                     <div className="meta">{d.content_type || "unknown type"}</div>

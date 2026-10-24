@@ -100,6 +100,26 @@ jobs:
             psql -v ON_ERROR_STOP=1 -U engram -d engram \
             < db/migrations/013_project_briefs.sql
 
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/014_memory_archival.sql
+
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/015_cluster_review.sql
+
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/016_memory_pinning.sql
+
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/017_lifecycle_undo.sql
+
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"

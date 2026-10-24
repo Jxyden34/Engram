@@ -1,6 +1,6 @@
 from typing import Any, Literal
 from uuid import UUID
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -46,6 +46,28 @@ class SearchRequest(BaseModel):
     memory_type: str | None = None
     include_documents: bool = True
     include_historical: bool = False
+    include_archived: bool = False
+
+
+class ArchiveRequest(BaseModel):
+    archived: bool
+    expected_updated_at: datetime
+    reason: str = Field(min_length=3, max_length=1000)
+
+
+class PinRequest(BaseModel):
+    pinned: bool
+    expected_updated_at: datetime
+
+
+class ClusterDraftRequest(BaseModel):
+    memory_ids: list[UUID] = Field(min_length=3,max_length=10)
+
+
+class ClusterApproveRequest(BaseModel):
+    title: str = Field(min_length=1,max_length=300)
+    content: str = Field(min_length=1,max_length=10000)
+    source_versions: dict[UUID,str] = Field(min_length=3,max_length=10)
 
 
 class AskRequest(BaseModel):
@@ -83,6 +105,26 @@ class ContextRequest(BaseModel):
 class ReflectRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     budget: Literal['quick', 'standard', 'deep'] = 'standard'
+    include_documents: bool = False
+    reasoning: bool = False
+    as_of: datetime | None = None
+
+    @model_validator(mode='after')
+    def historical_scope(self):
+        if self.as_of:
+            if self.as_of.tzinfo is None:
+                raise ValueError('Point-in-time answers need an explicit timezone')
+            self.as_of = self.as_of.astimezone(timezone.utc)
+            if self.as_of > datetime.now(timezone.utc):
+                raise ValueError('Choose a point in the past')
+            if self.include_documents:
+                raise ValueError('Document version history is unavailable; point-in-time answers use memories only')
+        return self
+
+
+class ReflectionQueries(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    queries: list[str] = Field(max_length=2)
 
 
 class ReflectionCitation(BaseModel):
@@ -97,15 +139,39 @@ class ReflectionClaim(BaseModel):
     citations: list[ReflectionCitation] = Field(min_length=1, max_length=3)
 
 
+class KnowledgeGap(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    kind: Literal['missing', 'conflicting']
+    description: str = Field(min_length=1, max_length=500)
+    next_question: str = Field(min_length=1, max_length=500)
+    citations: list[ReflectionCitation] = Field(default_factory=list, max_length=3)
+
+    @model_validator(mode='after')
+    def supported_conflict(self):
+        if not self.description.strip() or not self.next_question.strip():
+            raise ValueError('Describe the gap and a useful next question')
+        if self.kind == 'conflicting' and len({c.source for c in self.citations}) < 2:
+            raise ValueError('A conflict requires quotations from two distinct sources')
+        return self
+
+
 class ReflectionAnswer(BaseModel):
     model_config = ConfigDict(extra='forbid')
     claims: list[ReflectionClaim] = Field(max_length=6)
     insufficient: bool
+    gaps: list[KnowledgeGap] = Field(default_factory=list, max_length=3)
 
 
 class BriefSource(BaseModel):
-    id: UUID
+    id: UUID | int
+    kind: Literal['memory', 'document_chunk'] = 'memory'
     version: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+    @model_validator(mode='after')
+    def source_identity(self):
+        if (self.kind == 'memory' and not isinstance(self.id, UUID)) or (self.kind == 'document_chunk' and (type(self.id) is not int or self.id < 1)):
+            raise ValueError('Invalid source ID for source kind')
+        return self
 
 
 class BriefCreate(ReflectRequest):
@@ -113,6 +179,8 @@ class BriefCreate(ReflectRequest):
     project_revision: str = Field(pattern=r'^[a-f0-9]{32}$')
     sources: list[BriefSource] = Field(min_length=1, max_length=20)
     claims: list[ReflectionClaim] = Field(min_length=1, max_length=6)
+    refresh_of: UUID | None = None
+    gaps: list[KnowledgeGap] = Field(default_factory=list, max_length=3)
 
 
 class ConflictCompareRequest(BaseModel):

@@ -11,6 +11,24 @@ def test_query_planner_keeps_history_and_relationships_distinct():
     assert intelligence.plan_query("What is current on Atlas?")["intent"] == "current"
 
 
+def test_decay_is_bounded_explainable_and_preserves_history():
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    source = {'updated_at':now-timedelta(days=1200),'importance':2,'confidence':.3,'source_trust':.4,
+              'access_count':0,'semantic_score':.9,'lexical_score':.8,'memory_score':.6}
+    untouched = dict(source)
+    cold = intelligence.rank_row(source, 0, 'current')
+    recent = intelligence.rank_row({**source,'updated_at':now}, 0, 'current')
+    used = intelligence.rank_row({**source,'last_accessed_at':now,'access_count':10}, 0, 'current')
+    historical = intelligence.rank_row(source, 0, 'history')
+    assert .65 <= cold['decay_factor'] < used['decay_factor'] < 1
+    assert cold['retrieval_score'] < used['retrieval_score'] < recent['retrieval_score']
+    assert 'never retrieved' in cold['decay_reasons']
+    assert recent['decay_factor'] == historical['decay_factor'] == 1
+    assert any('priority reduced' in reason for reason in cold['match_reasons'])
+    assert source == untouched, 'Ranking must never rewrite or delete source data'
+
+
 def test_context_is_bounded_and_preserves_source_labels(monkeypatch):
     row = {"id": uuid4(), "title": "Router", "content": "A" * 3000, "result_type": "memory",
            "source_type": "manual", "source_ref": "notebook", "temporal_state": "current",
