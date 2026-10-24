@@ -226,18 +226,3 @@ See [SECURITY.md](SECURITY.md).
 Engram is **source-available and free for personal, noncommercial self-hosting**.
 Commercial, workplace and managed-hosting use require separate written permission.
 See [LICENSE](LICENSE) and the [usage guide](docs/LICENSING.md).
-
-
-## v2.1 Ingestion Mesh
-
-See [GitHub Connector](docs/GITHUB-CONNECTOR.md) and [Browser Capture](docs/BROWSER-CAPTURE.md).
-
-
-## v2.2 Identity & MCP
-
-See [OAuth and MCP Identity](docs/OAUTH-MCP.md).
-
-
-## v2.3 Disaster Recovery
-
-See [Disaster Recovery](docs/DISASTER-RECOVERY.md).
