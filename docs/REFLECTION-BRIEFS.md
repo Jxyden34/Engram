@@ -1,12 +1,13 @@
-# Reflection and project briefs — v2.8 development
+# Reflection and project briefs — v2.8.0
 
 Reflect brings together current memories to answer a question with multiple
 supporting excerpts. Saved project briefs are reviewed snapshots of these answers,
 inspired by Hindsight's Reflect and mental models. Engram remains the memory store;
 the feature uses its hybrid retriever, local Ollama and project isolation.
 
-The runtime version stays **2.7.0** during development. This change does not publish
-a release, change native update channels, or deploy to production.
+The server feature track was qualified through **2.8.0-pre.13** for stable **v2.8.0**;
+native mobile update channels retain separate qualification. See
+[prerelease qualification](V2.8-PRERELEASES.md) for the stable-promotion gate.
 
 ## Use
 
@@ -56,19 +57,18 @@ content into the audit event. The new table has forced row-level security.
 Every generated claim must have one to three citations. Quotes must be exact,
 12–400 character substrings of the numbered evidence. Invalid output returns 502;
 unavailable model returns 503; memories changing during generation return 409.
-An empty evidence set abstains without invoking the model. Historical and future
-memories are excluded. Reflect does not search documents or other projects.
+An empty evidence set abstains without invoking answer generation. Current mode excludes historical and future memories. Optional document evidence requires document:read. Point-in-time mode uses recorded memory versions with lexical retrieval and excludes document history. All retrieval stays within the active project.
 
 Exact quotes establish traceability, not proof that a generated interpretation is
 correct. Review whether each excerpt supports the conclusion. Retrieved candidates
 may be irrelevant, budgets may miss evidence, and conflicting facts still need
 human review. Saved briefs are not injected back into retrieval or automatically
 treated as verified facts. Automatic observations, background refresh, autonomous
-query expansion and lifecycle decay/archival are outside this increment.
+unbounded query expansion remain outside this release. Standard/deep modes can explicitly request one/two bounded follow-up searches. See [lifecycle controls](MEMORY-LIFECYCLE.md) for consolidation, archival, pinning and undo.
 
 ## Migration and rollout
 
-Back up PostgreSQL before applying `db/migrations/013_project_briefs.sql` with
+Back up PostgreSQL before applying migrations 013–017 in order with
 `psql -v ON_ERROR_STOP=1`, after migrations 009–012 and before the updated API/web.
 Fresh Docker installations and CI initialize it automatically. Migration 013 is
 idempotent and adds only a table, index, RLS policy and grants; existing memories

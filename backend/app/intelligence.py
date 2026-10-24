@@ -35,6 +35,33 @@ def _matches(query: str, name: str) -> bool:
     return len(name) >= 3 and bool(re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", query))
 
 
+def decay_priority(row: dict[str, Any], intent: str) -> tuple[float, list[str]]:
+    """Conservative read-time priority decay; never changes stored facts or history queries."""
+    now = datetime.now(timezone.utc)
+    updated = row.get('updated_at')
+    if row.get('pinned') or intent == 'history' or not updated:
+        return 1.0, []
+    age_days = max(0, (now-updated).total_seconds()/86400)
+    if age_days <= 180:
+        return 1.0, []
+    quality = sum((max(0, min(1, float(row.get(key) if row.get(key) is not None else default))))
+                  for key, default in [('confidence', 1), ('source_trust', 1)])
+    quality = (quality+max(0, min(1, float(row.get('importance') or 5)/10)))/3
+    last_used = row.get('last_accessed_at')
+    recently_used = last_used and (now-last_used).total_seconds() < 180*86400
+    penalty = min(.35, ((age_days-180)/730)*(.10+.25*(1-quality))*(.25 if recently_used else 1))
+    if penalty < .001:
+        return 1.0, []
+    reasons = ['older evidence']
+    if not row.get('access_count'):
+        reasons.append('never retrieved')
+    elif not recently_used:
+        reasons.append('not retrieved recently')
+    if quality < .6:
+        reasons.append('limited confidence, importance or source trust')
+    return round(1-penalty, 4), reasons
+
+
 def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, Any]:
     semantic = max(0.0, min(1.0, float(row.get("semantic_score") or 0)))
     lexical = max(0.0, min(1.0, float(row.get("lexical_score") or 0)))
@@ -44,7 +71,11 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
     temporal = 1.0 if (intent == "history" and historical) or (intent != "history" and not historical) else 0.0
     weights = (0.46, 0.24, 0.12, 0.13, 0.05)
     score = sum(a * b for a, b in zip((semantic, lexical, graph, quality, temporal), weights))
+    decay, decay_reasons = decay_priority(row, intent)
+    score *= decay
     reasons = []
+    if row.get('pinned'):
+        reasons.append('pinned: protected from age decay')
     if semantic >= 0.55:
         reasons.append("semantic match")
     if lexical > 0:
@@ -55,6 +86,8 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
         reasons.append("high-quality source")
     if historical:
         reasons.append("historical fact")
+    if decay_reasons:
+        reasons.append(f"priority reduced {round((1-decay)*100)}%: {', '.join(decay_reasons)}")
     item = dict(row)
     item.update(
         semantic_score=semantic,
@@ -62,6 +95,8 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
         graph_score=graph,
         memory_score=quality,
         retrieval_score=round(score, 4),
+        decay_factor=decay,
+        decay_reasons=decay_reasons,
         match_reasons=reasons,
         temporal_state="historical" if historical else "current",
         result_type="memory",
@@ -70,9 +105,11 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
 
 
 def search_memories(query: str, limit: int, memory_type: str | None = None, include_historical: bool = False,
-                    *, since=None, until=None, infer_history: bool = True) -> list[dict]:
+                    *, since=None, until=None, infer_history: bool = True, include_archived: bool = False) -> list[dict]:
     plan = plan_query(query)
     history = "" if include_historical or (infer_history and plan["include_historical"]) else "AND (valid_to IS NULL OR valid_to > now())"
+    if not include_archived:
+        history += ' AND archived_at IS NULL'
     dates = """
       AND (%s::date IS NULL OR updated_at >= (%s::date::timestamp AT TIME ZONE 'UTC'))
       AND (%s::date IS NULL OR updated_at < ((%s::date + 1)::timestamp AT TIME ZONE 'UTC'))
@@ -171,11 +208,11 @@ def candidate_conflicts(limit: int = 20) -> list[dict]:
                  b.id AS second_id,b.title AS second_title,b.content AS second_content,
                  1-(a.embedding<=>b.embedding) AS similarity
           FROM (SELECT id,title,content,embedding FROM memories
-                WHERE deleted_at IS NULL AND (valid_to IS NULL OR valid_to>now()) AND embedding IS NOT NULL
+                WHERE deleted_at IS NULL AND archived_at IS NULL AND (valid_to IS NULL OR valid_to>now()) AND embedding IS NOT NULL
                 ORDER BY updated_at DESC LIMIT 200) a
           CROSS JOIN LATERAL (
             SELECT id,title,content,embedding FROM memories
-            WHERE id<>a.id AND deleted_at IS NULL AND (valid_to IS NULL OR valid_to>now()) AND embedding IS NOT NULL
+            WHERE id<>a.id AND deleted_at IS NULL AND archived_at IS NULL AND (valid_to IS NULL OR valid_to>now()) AND embedding IS NOT NULL
             ORDER BY embedding<=>a.embedding LIMIT 3
           ) b
           WHERE a.id::text < b.id::text AND a.content<>b.content AND 1-(a.embedding<=>b.embedding)>=0.72
@@ -207,7 +244,7 @@ def resolve_conflict(first_id: str, second_id: str, current_id: str, actor: str,
         rows = conn.execute(f"SELECT {MEMORY_FIELDS},deleted_at FROM memories WHERE id=ANY(%s::uuid[]) FOR UPDATE",
                             ([first_id, second_id],)).fetchall()
         now = datetime.now(timezone.utc)
-        if len(rows) != 2 or any(row["deleted_at"] or (row["valid_from"] and row["valid_from"] > now)
+        if len(rows) != 2 or any(row["deleted_at"] or row['archived_at'] or (row["valid_from"] and row["valid_from"] > now)
                                  or (row["valid_to"] and row["valid_to"] <= now) for row in rows):
             raise HTTPException(status_code=409, detail="Both memories must exist and be current")
         loser = next(row for row in rows if str(row["id"]) == older_id)

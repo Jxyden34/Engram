@@ -201,7 +201,7 @@ def run_dream(identifier: str):
                 ids = [s['id'] for s in parent['sources']]
                 rows = conn.execute('SELECT * FROM memories WHERE id=ANY(%s::uuid[]) ORDER BY id', (ids,)).fetchall()
             else:
-                rows = conn.execute("""SELECT * FROM memories WHERE deleted_at IS NULL
+                rows = conn.execute("""SELECT * FROM memories WHERE deleted_at IS NULL AND archived_at IS NULL
                     AND (valid_from IS NULL OR valid_from<=now()) AND (valid_to IS NULL OR valid_to>now())
                     ORDER BY md5(id::text || %s) LIMIT 8""", (identifier,)).fetchall()
         sources = [{'id': str(r['id']), 'title': r['title'], 'content': r['content'][:1000],

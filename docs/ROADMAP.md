@@ -22,7 +22,7 @@ licence status. Personal Community is free for noncommercial use; Commercial is 
 separate build that requires activation. An owner dashboard turns manual payment
 confirmation into automatic key issuance and SMTP email. Online checkout is deferred.
 See [the development feature guide](DEVELOPMENT-PREVIEWS.md) for the individually versioned additions.
-See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable remains v2.7.0;
+See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable is v2.8.0;
 existing native releases retain their preview channels; v3.7 source uses a separate runtime and channel.
 
 ### Built on the draft development branch
@@ -84,7 +84,7 @@ companion distribution keeps its preview channel and recorded device gates.
 
 | Track | Current position | Scope |
 | --- | --- | --- |
-| Stable server | **v2.7.0** | Projects, filtered Ask, Memory Agent, Memory Intelligence and all stable security/dependency maintenance. |
+| Stable server | **v2.8.0** | Reflection, project briefs, reviewed consolidation, archival, pinning, audited undo and the existing projects/Agent features. |
 | Native companion | **v2.7.0-alpha1 preview** | Companion source is on `main`; build 8 and native iOS speech still need device qualification. Installed-app runtime and update channels are unchanged. |
 
 v2.7.0 returns to the 2.x numbering by user approval after v6.5.0. Earlier
@@ -584,12 +584,11 @@ project boundaries.
 
 ---
 
-## v2.8 — Memory Lifecycle 🟢
+## v2.8 — Memory Lifecycle ✅
 
 ### Hindsight-inspired reflection and project briefs
 
-Implemented during the earlier v2.8 development track and carried into the v3.7
-beta; stable remains v2.7.0. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
+Stable v2.8.0 delivers the qualified memory lifecycle and reflection increments. See [Reflection and project briefs](REFLECTION-BRIEFS.md).
 
 - Bounded, current-project Reflect answers with quick/standard/deep evidence budgets.
 - Multiple exact source excerpts per claim, checked before displaying an answer.
@@ -600,9 +599,11 @@ beta; stable remains v2.7.0. See [Reflection and project briefs](REFLECTION-BRIE
 - Existing local Ollama and PostgreSQL/RLS remain the implementation; no Hindsight
   runtime or new model dependency is required.
 
-This first increment does not implement autonomous reflection loops, automatic
-observations, background brief refresh, decay or archival. Those remain future
-lifecycle work below.
+The dedicated v2.8 prerelease track adds reviewed consolidation, explainable decay,
+reversible searchable archival and explicit brief refresh for review. See
+[the feature increments](MEMORY-LIFECYCLE.md) and [qualification/promotion gate](V2.8-PRERELEASES.md).
+Stable qualification includes migration/restore checks and cumulative tests. Autonomous
+reflection loops, automatic observations and background brief refresh remain future work.
 
 ### Decay
 
@@ -617,7 +618,8 @@ Reduce retrieval priority for memories that are:
 
 ### Consolidation
 
-Merge repetitive memory clusters into stronger summaries while keeping originals traceable.
+Create human-reviewed pairwise summaries with checked quotations and provenance
+links, preserving original memories. Reviewed groups of 3–10 memories are also supported.
 
 ### Archival
 
@@ -789,7 +791,7 @@ Features:
 6. 🟡 Gmail read-only connector qualification, then calendar and cloud-storage
    connectors.
 7. 🟡 Universal search and the explicit cross-project search/audit model.
-8. 🔵 Memory consolidation, decay and archival.
+8. ✅ v2.8 reflection, briefs, consolidation, decay, archival, pinning and audited undo.
 9. 🔵 Managed-service readiness: onboarding, usage visibility, team governance
    and operational commitments.
 10. 🔵 v3.7 autonomous maintenance and notification capabilities.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.7.0-dev-beta.9 — unreleased
+
+- Add Dream Lab: project-scoped, evidence-linked offline inventions using trusted interactive building blocks, disposable browser sandboxes, experiment reports, keep/evolve/destroy and opt-in nightly generation. Apply migration 019.
+- Carry forward stable v2.8 reflection, consolidation, archival, pinning and audited undo alongside the commercial previews. Existing beta databases must also apply the named v2.8 lifecycle migrations 014_memory_archival through 017_lifecycle_undo.
+
 ## 3.7.0-dev-beta.8 — unreleased
 
 - Add a full Linux host setup command with prerequisite installation, an interactive deployment wizard, generated secrets, administrator creation, optional model downloads and HTTPS configuration.
@@ -40,6 +45,32 @@
 - Add bounded Reflect answers with quick/standard/deep evidence budgets and checked, multi-source quotations.
 - Add explicitly saved project briefs with source fingerprints, project isolation, freshness checks and manual rebuild/review. Source memories remain unchanged.
 - Add migration 013 for saved briefs; see [rollout and limitations](docs/REFLECTION-BRIEFS.md).
+## 2.8.0 — 2026-10-24
+
+- Add bounded local-Ollama Reflect across project memories and optional document evidence, with exact source quotations, evidence budgets, bounded follow-up retrieval and knowledge-gap questions.
+- Save reviewed project briefs, compare revisions and explicitly refresh them without rewriting earlier snapshots. Changed or inaccessible evidence hides stale generated text.
+- Add historical answers from recorded memory versions and validity; document history is excluded.
+- Add pairwise and 3–10-memory reviewed consolidation with source provenance, conservative confidence and stale-approval rejection; originals remain unchanged.
+- Add explainable retrieval decay, reversible searchable archival and pin/unpin controls that protect important memories from age penalties.
+- Add seven-day lifecycle history and reasoned undo for archive/restore and newly recorded reviewed consolidations. Undo archives only a generated summary, preserves history and audit, rejects newer changes and is idempotent.
+- Retain current dependency fixes and the updated Silo Docker digest. Native mobile and Gmail keep their separate preview/qualification status; v3 commercial/team work is excluded.
+
+Upgrade from v2.7.0: back up PostgreSQL and object storage, retain images and host configuration, stop API/worker/scheduler, apply migrations **013–017 in order**, then rebuild/recreate the application services. See [v2.8 rollout and rollback](docs/V2.8-RELEASE.md).
+
+
+## v2.8.0 prerelease track — 2026-10-23
+
+- **pre.1:** bounded Reflect, checked multi-source quotations and explicitly saved project briefs; migration 013.
+- **pre.2:** source-cited, human-reviewed consolidation with provenance links and conservative confidence/trust.
+- **pre.3:** bounded, explainable retrieval decay; no content deletion or background rewriting.
+- **pre.4:** reversible searchable archival with stale-edit protection; migration 014.
+- **pre.5:** explicit brief refresh for review, preserving previous snapshots and linking refreshed briefs to them.
+
+Each increment is a separate cumulative GitHub prerelease. Stable remains v2.7.0;
+promote to stable v2.8.0 only after validation and the user's explicit instruction.
+No production deployment or native channel change is included. See
+[prerelease qualification](docs/V2.8-PRERELEASES.md) and
+[lifecycle behavior/rollback](docs/MEMORY-LIFECYCLE.md).
 
 ## 2.7.0 - 2026-10-08
 

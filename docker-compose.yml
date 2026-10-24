@@ -20,6 +20,10 @@ services:
       - ./db/migrations/017_setup.sql:/docker-entrypoint-initdb.d/017-setup.sql:ro
       - ./db/migrations/018_reminders.sql:/docker-entrypoint-initdb.d/018-reminders.sql:ro
       - ./db/migrations/019_dream_lab.sql:/docker-entrypoint-initdb.d/019-dream-lab.sql:ro
+      - ./db/migrations/014_memory_archival.sql:/docker-entrypoint-initdb.d/014-memory-archival.sql:ro
+      - ./db/migrations/015_cluster_review.sql:/docker-entrypoint-initdb.d/015-cluster-review.sql:ro
+      - ./db/migrations/016_memory_pinning.sql:/docker-entrypoint-initdb.d/016-memory-pinning.sql:ro
+      - ./db/migrations/017_lifecycle_undo.sql:/docker-entrypoint-initdb.d/017-lifecycle-undo.sql:ro
     networks: [backend]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -49,7 +53,7 @@ services:
 
   minio:
     # Maintained MinIO-compatible Silo release; keep its multi-arch manifest pinned.
-    image: docker.io/pgsty/silo@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46
+    image: docker.io/pgsty/silo@sha256:2636fc4155d9a7e41ff58cdb65ddd13ba9304e67184e13c25bc5cb34016269d7
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:

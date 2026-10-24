@@ -42,14 +42,14 @@ Built for technically comfortable personal users running Linux and Docker Compos
 The [deployment guide](docs/DEPLOYMENT.md) recommends 4 CPU cores and 8 GB RAM
 (16 GB+ preferred), plus storage for your data, models and backups.
 
-Engram 2.7 adds projects, Memory Agent and filtered Ask. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
+Engram 2.8 adds source-cited reflection, reviewed project briefs, memory lifecycle controls, pinning and audited undo. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
 
-**Current stable release:** `v2.7.0`
+**Current stable release:** `v2.8.0`
 **Development beta:** `v3.7.0-dev-beta.9` — [Dream Lab, workspaces, licensing and deployment](docs/DEVELOPMENT-PREVIEWS.md).
 **Mobile preview:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
-The v2.7.0 release promotes the projects and Memory Agent preview to `main`
+The v2.7.0 release promoted the projects and Memory Agent preview to `main`
 and returns to the 2.x release numbering after v6.5.0. It retains the stable
 security updates, dependency maintenance and Memory Intelligence features.
 See the [changelog](CHANGELOG.md).
@@ -240,18 +240,3 @@ The v3.7 Personal Community build is source-available and free for personal, non
 Commercial build and owner licensing service use [commercial terms](LICENSE-COMMERCIAL).
 These changes are on the v3.7 development branch; existing releases retain their licence notices.
 See [LICENSE](LICENSE) and the [usage guide](docs/LICENSING.md).
-
-
-## v2.1 Ingestion Mesh
-
-See [GitHub Connector](docs/GITHUB-CONNECTOR.md) and [Browser Capture](docs/BROWSER-CAPTURE.md).
-
-
-## v2.2 Identity & MCP
-
-See [OAuth and MCP Identity](docs/OAUTH-MCP.md).
-
-
-## v2.3 Disaster Recovery
-
-See [Disaster Recovery](docs/DISASTER-RECOVERY.md).

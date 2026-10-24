@@ -66,6 +66,12 @@ apply it through Compose's database initialization. It adds two project-isolated
 tables and does not rewrite memories. Keep the migration when rolling application
 images back; old images ignore these tables. Disable nightly generation before rollback.
 
+This branch also carries stable v2.8 forward. Existing commercial beta databases
+must apply `014_memory_archival.sql`, `015_cluster_review.sql`,
+`016_memory_pinning.sql` and `017_lifecycle_undo.sql` in that order before the new
+images. These coexist with the differently named commercial migrations at the
+same historical numbers; apply all files, not one file per number.
+
 ## Next qualification gates
 
 - Real-model prototype quality across several populated project types.
