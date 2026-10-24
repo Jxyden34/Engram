@@ -576,7 +576,13 @@ Move cold memories into archival state while keeping them searchable.
 
 ---
 
-## v2.9 — Observability 🔵
+## v2.9 — Observability 🟢
+
+The first development increment adds an administrator dashboard for project-scoped
+API/model timing, ingestion, candidate review and connector totals, with separately
+labelled deployment-wide queue and service readiness. It uses bounded Redis aggregates
+and existing PostgreSQL/RLS; no new monitoring stack is required. This is development
+work, not a v2.9 release or deployment. See [measurement boundaries and follow-ups](OBSERVABILITY.md).
 
 Metrics for:
 

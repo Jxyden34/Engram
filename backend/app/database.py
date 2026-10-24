@@ -34,8 +34,9 @@ def project_job(fn):
     return wrapped
 
 
-def connect():
-    conn = psycopg.connect(settings().database_url, row_factory=dict_row)
+def connect(*, timeout=None):
+    conn = psycopg.connect(settings().database_url, row_factory=dict_row,
+                           **({'connect_timeout':timeout} if timeout else {}))
     conn.execute("SET ROLE engram_runtime")
     conn.execute("SELECT set_config('engram.project_id', %s, false)", (current_project_id(),))
     return conn
