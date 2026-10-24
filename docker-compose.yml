@@ -45,7 +45,7 @@ services:
 
   minio:
     # Maintained MinIO-compatible Silo release; keep its multi-arch manifest pinned.
-    image: docker.io/pgsty/silo@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46
+    image: docker.io/pgsty/silo@sha256:2636fc4155d9a7e41ff58cdb65ddd13ba9304e67184e13c25bc5cb34016269d7
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
