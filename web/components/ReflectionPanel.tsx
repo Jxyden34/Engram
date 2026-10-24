@@ -5,9 +5,10 @@ import Link from "next/link";
 import { api, dateText } from "@/lib/api";
 
 type Budget = "quick" | "standard" | "deep";
+type Gap = {kind:'missing'|'conflicting';description:string;next_question:string;citations:{source:number;quote:string}[]};
 type Claim = { text: string; citations: { source: number; quote: string }[] };
 type Source = { number: number; id: string; kind?: "memory" | "document_chunk"; document_id?: string | null; title: string; version?: string; content?: string; status?: string };
-type Answer = { as_of?:string|null;temporal_basis?:string; reasoning?:boolean; reasoning_status?:string; search_queries?:string[]; question: string; budget: Budget; include_documents?: boolean; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string; changes?: {available:boolean;added?:string[];removed?:string[];unchanged?:number;redacted?:number;sources?:{title:string;state:string}[];basis?:string} | null };
+type Answer = { gaps?:Gap[]; as_of?:string|null;temporal_basis?:string; reasoning?:boolean; reasoning_status?:string; search_queries?:string[]; question: string; budget: Budget; include_documents?: boolean; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string; changes?: {available:boolean;added?:string[];removed?:string[];unchanged?:number;redacted?:number;sources?:{title:string;state:string}[];basis?:string} | null };
 type Brief = { id: string; title: string; created_at: string };
 
 export default function ReflectionPanel() {
@@ -50,7 +51,7 @@ export default function ReflectionPanel() {
         sources: answer.sources.map(({ id, version,kind }) => ({ id, version,kind:kind||'memory' })), claims: answer.claims,
         include_documents:!!answer.include_documents,
         reasoning:!!answer.reasoning,
-        as_of:answer.as_of||null,
+        as_of:answer.as_of||null, gaps:answer.gaps||[],
         refresh_of: answer.refresh_of || null,
       }) });
       await loadBriefs(); setSelected(saved); setNotice("Brief saved. Your original memories are unchanged.");
@@ -123,6 +124,7 @@ export default function ReflectionPanel() {
       </details>}
       {answer.status === "needs_review" && <p role="status" className="errorBox">Project memories have changed. {answer.evidence_changed ? "Supporting evidence changed or became unavailable, so the old answer is hidden." : "New or changed memories may affect this brief."} Rebuild and review before relying on it.</p>}
       {answer.insufficient && <p>No supported answer was found in the retrieved evidence. Try a more specific question or use Search.</p>}
+      {!!answer.gaps?.length && <section><h3>Knowledge gaps</h3><p className="meta">These gaps concern the retrieved evidence.</p>{answer.gaps.map((gap,i)=><div key={i}><strong>{gap.kind==='conflicting'?'Conflicting evidence':'Missing evidence'}</strong><p>{gap.description}</p>{gap.citations.map((citation,j)=><blockquote key={j}>{citation.quote} <Link href={sourceLink(answer.sources[citation.source-1])}>Source {citation.source}</Link></blockquote>)}<p>{gap.next_question}</p><button className="ghostButton" disabled={busy} onClick={()=>{setQuestion(gap.next_question);setAnswer(null);setSelected(null);}}>Use this question</button></div>)}</section>}
       {answer.changes && <details open><summary>What changed?</summary>
         {!answer.changes.available ? <p>The previous brief is no longer available.</p> : <>
           <p className="meta">{answer.changes.basis}</p>

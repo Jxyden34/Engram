@@ -414,3 +414,30 @@ def test_point_in_time_rejects_ambiguous_or_unversioned_evidence(options):
     from app.schemas import ReflectRequest
     with pytest.raises(ValidationError):
         ReflectRequest(question='Past facts?',**options)
+
+
+def test_knowledge_gaps_validate_quotes_and_withhold_stale_snapshots(corpus):
+    from app.schemas import KnowledgeGap
+    projects,source=corpus
+    gap={'kind':'missing','description':'No recovery deadline is recorded.','next_question':'What is the recovery deadline?',
+         'citations':[{'source':1,'quote':'The project uses local Ollama'}]}
+    model={**MODEL,'gaps':[gap]}
+    with project_scope(projects[0]),patch.object(reflection.intelligence,'search_memories',return_value=[source]),patch.object(reflection,'_ollama_json',return_value=model):
+        result=reflection.reflect('Recovery deadline?','quick')
+        assert result['gaps']==[gap]
+        body=save_body(result).model_copy(update={'gaps':[KnowledgeGap.model_validate(gap)]})
+        saved=reflection.save_brief(body,'test')
+        assert reflection.get_brief(str(saved['id']))['gaps']==[gap]
+        with connect() as conn:
+            conn.execute('UPDATE memories SET updated_at=now() WHERE id=%s',(source['id'],));conn.commit()
+        assert reflection.get_brief(str(saved['id']))['gaps']==[]
+    with project_scope(projects[0]),patch.object(reflection.intelligence,'search_memories',return_value=[source]),patch.object(reflection,'_ollama_json',return_value={**MODEL,'gaps':[{**gap,'citations':[{'source':1,'quote':'This quotation is invented'}]}]}):
+        with pytest.raises(HTTPException) as invalid:
+            reflection.reflect('Recovery deadline?','quick')
+        assert invalid.value.status_code==502
+    from app.schemas import KnowledgeGap
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        KnowledgeGap.model_validate({**gap,'kind':'conflicting'})
+    with project_scope(projects[1]),patch.object(reflection.intelligence,'search_memories',return_value=[]):
+        assert reflection.reflect('Recovery deadline?','quick')['gaps'][0]['kind']=='missing'

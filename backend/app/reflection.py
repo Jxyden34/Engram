@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from app import intelligence
 from app.chatgpt_import import _ollama_json
 from app.database import connect, current_project_id
-from app.schemas import BriefCreate, ReflectionAnswer, ReflectionQueries
+from app.schemas import BriefCreate, ReflectionAnswer, ReflectionQueries, ReflectionClaim
 
 BUDGETS = {'quick': (6, 4000), 'standard': (12, 9000), 'deep': (20, 16000)}
 SYSTEM = """Synthesize an answer from the supplied project evidence only.
@@ -23,6 +23,10 @@ and citations (one to three objects with source: numbered source and quote: exac
 combining facts. Preserve uncertainty, dates and disagreements. Do not resolve a
 disagreement by guessing. Never output credentials or secrets. If evidence cannot
 answer the question, return {"claims":[],"insufficient":true}.
+Also return gaps: up to three objects with kind (missing or conflicting), description,
+next_question and citations. Missing means not established in retrieved evidence,
+not absent from the world. A conflict needs exact quotes from two distinct sources.
+Use an empty gaps list when no material gap is apparent.
 This is a bounded synthesis, not an exhaustive review of the project."""
 
 
@@ -148,6 +152,18 @@ def _checked_claims(claims, sources):
     return [claim.model_dump() for claim in claims]
 
 
+def _checked_gaps(gaps, sources):
+    for gap in gaps:
+        if gap.citations:
+            _checked_claims([ReflectionClaim(text=gap.description, citations=gap.citations)], sources)
+    return [gap.model_dump() for gap in gaps]
+
+
+def _missing_gap():
+    return {'kind':'missing','description':'The retrieved evidence does not establish an answer.',
+            'next_question':'Which source records the facts needed to answer this question?', 'citations':[]}
+
+
 def _retrieve(question,limit,include_documents,as_of=None):
     if as_of:
         with connect() as conn:
@@ -233,7 +249,7 @@ def reflect(question: str, budget: str, *, include_documents=False, reasoning=Fa
               'as_of':as_of.isoformat() if as_of else None,
               'temporal_basis':'Recorded memory versions and validity at the requested time; lexical retrieval only. Deleted/archived records are excluded.' if as_of else 'Current evidence'}
     if not sources:
-        return {**result, 'claims': [], 'insufficient': True}
+        return {**result, 'claims': [], 'insufficient': True, 'gaps':[_missing_gap()]}
     try:
         data = _ollama_json(SYSTEM + (' Cite every selected source at least once; preserve disagreements instead of guessing a unified fact.' if source_ids else ''), json.dumps({'question': question, 'as_of':result['as_of'],'sources': sources}),
                             timeout=90.0, max_tokens=2000, format_schema=ReflectionAnswer.model_json_schema())
@@ -256,7 +272,9 @@ def reflect(question: str, budget: str, *, include_documents=False, reasoning=Fa
             loaded = _load_sources(conn,sources,as_of=as_of)
             if len(loaded)!=len(sources) or any(_version(loaded[_key(source)])!=source['version'] for source in sources):
                 raise HTTPException(status_code=409,detail='Historical evidence changed or became unavailable')
-    return {**result, 'claims': claims, 'insufficient': answer.insufficient}
+    gaps = _checked_gaps(answer.gaps, sources)
+    return {**result, 'claims': claims, 'insufficient': answer.insufficient,
+            'gaps':gaps or ([_missing_gap()] if answer.insufficient else [])}
 
 
 def save_brief(body: BriefCreate, actor: str, *, purpose='brief') -> dict:
@@ -286,6 +304,7 @@ def save_brief(body: BriefCreate, actor: str, *, purpose='brief') -> dict:
             raise HTTPException(status_code=409, detail='Source memories changed or are unavailable. Rebuild the brief.')
         sources = [by_id[key] for key in ids]
         claims = _checked_claims(body.claims, sources)
+        gaps = _checked_gaps(body.gaps, sources)
         snapshot = {'question': body.question.strip(), 'budget': body.budget,
                     'project_revision': body.project_revision,
                     'sources': [source.model_dump(mode='json') for source in body.sources], 'claims': claims,
@@ -293,6 +312,7 @@ def save_brief(body: BriefCreate, actor: str, *, purpose='brief') -> dict:
         snapshot['include_documents'] = body.include_documents
         snapshot['reasoning'] = body.reasoning
         snapshot['purpose'] = purpose
+        snapshot['gaps'] = gaps
         snapshot['as_of'] = body.as_of.isoformat() if body.as_of else None
         row = conn.execute('''INSERT INTO project_briefs(title,snapshot,created_by)
             VALUES (%s,%s,%s) RETURNING id,title,created_at''',
@@ -354,6 +374,7 @@ def get_brief(brief_id: str, *, allow_documents=False) -> dict:
     return {'id': str(row['id']), 'title': row['title'], 'created_at': row['created_at'],
             'project_id': current_project_id(), 'question': snapshot['question'], 'budget': snapshot['budget'],
             'sources': sources, 'claims': [] if changed else snapshot['claims'],
+            'gaps': [] if changed else snapshot.get('gaps',[]),
             'status': 'needs_review' if stale else 'current', 'evidence_changed': changed,
             'refresh_of': snapshot.get('refresh_of'),'include_documents':bool(snapshot.get('include_documents')),
             'reasoning':bool(snapshot.get('reasoning')),'changes':changes,'as_of':snapshot.get('as_of')}

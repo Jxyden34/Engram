@@ -15,7 +15,7 @@ def create_draft(memory_ids,actor):
     result = reflection.reflect('Propose a concise cluster summary from these selected facts. Preserve every important distinction, date and uncertainty.',
                                 'deep',source_ids=ids)
     cited = {citation['source'] for claim in result['claims'] for citation in claim['citations']}
-    if result['insufficient'] or cited != set(range(1,len(result['sources'])+1)):
+    if result['insufficient'] or any(gap['kind']=='conflicting' for gap in result.get('gaps',[])) or cited != set(range(1,len(result['sources'])+1)):
         raise HTTPException(status_code=502,detail='The draft did not cite every source. Try a smaller, more closely related group.')
     body = BriefCreate(title='Cluster consolidation draft',question=result['question'],budget='deep',
                        project_revision=result['project_revision'],claims=result['claims'],

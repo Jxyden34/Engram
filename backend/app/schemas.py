@@ -134,10 +134,27 @@ class ReflectionClaim(BaseModel):
     citations: list[ReflectionCitation] = Field(min_length=1, max_length=3)
 
 
+class KnowledgeGap(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    kind: Literal['missing', 'conflicting']
+    description: str = Field(min_length=1, max_length=500)
+    next_question: str = Field(min_length=1, max_length=500)
+    citations: list[ReflectionCitation] = Field(default_factory=list, max_length=3)
+
+    @model_validator(mode='after')
+    def supported_conflict(self):
+        if not self.description.strip() or not self.next_question.strip():
+            raise ValueError('Describe the gap and a useful next question')
+        if self.kind == 'conflicting' and len({c.source for c in self.citations}) < 2:
+            raise ValueError('A conflict requires quotations from two distinct sources')
+        return self
+
+
 class ReflectionAnswer(BaseModel):
     model_config = ConfigDict(extra='forbid')
     claims: list[ReflectionClaim] = Field(max_length=6)
     insufficient: bool
+    gaps: list[KnowledgeGap] = Field(default_factory=list, max_length=3)
 
 
 class BriefSource(BaseModel):
@@ -158,6 +175,7 @@ class BriefCreate(ReflectRequest):
     sources: list[BriefSource] = Field(min_length=1, max_length=20)
     claims: list[ReflectionClaim] = Field(min_length=1, max_length=6)
     refresh_of: UUID | None = None
+    gaps: list[KnowledgeGap] = Field(default_factory=list, max_length=3)
 
 
 class ConflictCompareRequest(BaseModel):

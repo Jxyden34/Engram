@@ -141,3 +141,7 @@ restore deleted information. Incomplete legacy snapshots without timestamps cann
 establish past knowledge. This reconstructs recorded history, not everything the
 user knew outside Engram. Documents have no immutable version history here, so
 document evidence and point-in-time mode cannot be combined. No new migration.
+
+### pre.11 — Knowledge gaps
+Reflect can report missing evidence or conflicts with checked quotations and a next question. Conflicts require two distinct cited sources. Stale supporting evidence hides saved gaps together with claims; gap questions run only when requested.
+
