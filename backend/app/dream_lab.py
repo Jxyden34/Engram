@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 from psycopg.types.json import Jsonb
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, Field, ConfigDict, ValidationError, model_validator
 
 from app.chatgpt_import import _ollama_json
 from app.database import connect, current_project_id, project_job, project_scope
@@ -116,6 +116,29 @@ not a live dashboard. Never include credentials, tokens or private keys. When ev
 keep the useful parts and implement the user's direction within these building blocks."""
 
 
+def generate(sources, direction, previous=None):
+    context = {'direction': direction, 'previous': previous,
+               'sources': [dict(s, number=i+1) for i, s in enumerate(sources)]}
+    # One bounded repair attempt helps small local models satisfy the numeric/schema constraints.
+    for attempt in range(2):
+        try:
+            raw = _ollama_json(SYSTEM, json.dumps(context), timeout=90.0, max_tokens=4500,
+                               format_schema=Artifact.model_json_schema())
+            artifact = Artifact.model_validate(raw)
+            for citation in artifact.inspiration:
+                if citation.source > len(sources) or citation.quote not in sources[citation.source-1]['content']:
+                    raise ValueError('Each inspiration must quote an exact excerpt from its numbered source.')
+            return artifact
+        except (ValidationError, ValueError) as exc:
+            if attempt:
+                raise
+            context['repair_errors'] = ([{'field': e['loc'], 'problem': e['msg']}
+                                         for e in exc.errors(include_input=False)]
+                                        if isinstance(exc, ValidationError) else
+                                        ['Return valid JSON and exact source quotations.'])
+            context['repair_instruction'] = 'Regenerate a complete prototype fixing these constraints. For every number widget set minimum <= value <= maximum.'
+
+
 def signed_in(request: Request, write=False):
     p = require(request, 'memory:write' if write else 'memory:read')
     if not p.user_id or p.auth_type not in {'session', 'mobile'}:
@@ -135,7 +158,9 @@ def visible(conn, row, detail=False):
     valid = source_status(conn, row['sources'])
     result = {k: row[k] for k in ('id', 'parent_id', 'status', 'direction', 'error_message', 'created_at', 'completed_at')}
     result['needs_review'] = not valid
-    result['title'] = row['artifact']['title'] if row['artifact'] and valid else 'Dream needs review' if not valid else 'Dream in progress'
+    result['title'] = (row['artifact']['title'] if row['artifact'] and valid else
+                       'Dream needs review' if not valid else
+                       'Dream could not be built' if row['status'] == 'failed' else 'Dream in progress')
     if detail:
         result.update(artifact=row['artifact'] if valid else None,
                       sources=row['sources'] if valid else [], report=row['report'] if valid else [])
@@ -191,8 +216,10 @@ def run_dream(identifier: str):
         if not run:
             return
         conn.commit()
+    stage = 'licence'
     try:
         require_commercial_license()
+        stage = 'sources'
         with connect() as conn:
             parent = conn.execute('SELECT * FROM dream_runs WHERE id=%s', (run['parent_id'],)).fetchone() if run['parent_id'] else None
             if run['parent_id'] and (not parent or not source_status(conn, parent['sources'])):
@@ -211,14 +238,8 @@ def run_dream(identifier: str):
         # Persist provenance before generation so a failed run can be diagnosed without model text.
         with connect() as conn:
             conn.execute('UPDATE dream_runs SET sources=%s WHERE id=%s', (Jsonb(sources), identifier)); conn.commit()
-        raw = _ollama_json(SYSTEM, json.dumps({'direction': run['direction'],
-            'previous': parent['artifact'] if parent else None,
-            'sources': [dict(s, number=i+1) for i, s in enumerate(sources)]}),
-            timeout=180.0, max_tokens=4500, format_schema=Artifact.model_json_schema())
-        artifact = Artifact.model_validate(raw)
-        for citation in artifact.inspiration:
-            if citation.source > len(sources) or citation.quote not in sources[citation.source-1]['content']:
-                raise ValueError('Unverifiable inspiration')
+        stage = 'generation'
+        artifact = generate(sources, run['direction'], parent['artifact'] if parent else None)
         values = {w.id: w.value for w in artifact.widgets if w.kind == 'number'}
         report = ['Prototype schema and size limits passed.', 'Inspiration quotations match at least two selected memories.',
                   'Only trusted offline building blocks are used; generated code is never executed.',
@@ -226,6 +247,7 @@ def run_dream(identifier: str):
         for w in artifact.widgets:
             if w.kind == 'metric':
                 report.append(f'Baseline calculation: {w.title} = {baseline(w, values):.4g} {w.unit}')
+        stage = 'publication'
         with connect() as conn:
             if not source_status(conn, sources):
                 raise ValueError('Sources changed during generation')
@@ -234,10 +256,13 @@ def run_dream(identifier: str):
             conn.commit()
     except Exception:
         # Provider errors may contain source text or configuration; never expose them.
+        message = {'licence': 'Commercial licence verification failed. Check activation and the worker public-key mount.',
+                   'sources': 'Dream Lab needs at least two current memories, and evolution needs unchanged parent sources.',
+                   'generation': 'The chat model could not produce a checked prototype after bounded generation. Check the model and try again.',
+                   'publication': 'Sources changed while the prototype was being built. Generate a fresh dream.'}[stage]
         with connect() as conn:
             conn.execute("""UPDATE dream_runs SET status='failed',completed_at=now(),
-                error_message='Could not build a checked prototype. Ensure there are two current memories and a working chat model, then try again.'
-                WHERE id=%s AND status='running'""", (identifier,)); conn.commit()
+                error_message=%s WHERE id=%s AND status='running'""", (message, identifier)); conn.commit()
 
 
 def next_night(hour: int):

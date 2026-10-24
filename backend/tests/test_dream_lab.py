@@ -47,6 +47,22 @@ def test_dream_schedule_always_uses_next_future_utc_hour():
         assert (date-before).total_seconds() <= 86401
 
 
+def test_small_model_gets_one_bounded_repair_attempt(monkeypatch):
+    import json
+    requests = []
+    def model(system, user, **kwargs):
+        requests.append((json.loads(user), kwargs))
+        data = artifact()
+        if len(requests) == 1: data['widgets'][0]['value'] = 11
+        return data
+    monkeypatch.setattr(dreams, '_ollama_json', model)
+    sources = [{'content': c} for c in CONTENT]
+    result = dreams.generate(sources, 'Invent something')
+    assert result.widgets[0].value == 2 and len(requests) == 2
+    assert requests[1][0]['repair_errors']
+    assert all(r[1]['timeout'] == 90.0 for r in requests)
+
+
 @pytest.fixture
 def corpus():
     with connect() as conn:

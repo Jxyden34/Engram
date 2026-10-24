@@ -53,7 +53,8 @@ withhold the old prototype and quotations; generate a fresh dream to continue.
 
 No new service or container runtime is required. This keeps the disposable 2 GB
 beta VM viable while its existing Ollama host handles model inference. The model
-call has a three-minute timeout and a 4,500-token output budget; RQ jobs have a
+call has a 90-second timeout and a 4,500-token output budget, with at most one
+repair attempt for invalid JSON/schema/evidence (three minutes total). RQ jobs have a
 five-minute timeout. A subsequent submission clears abandoned runs after 15 minutes.
 Stopping or destroying a running dream prevents publication, but an already-started
 Ollama request may consume compute until its timeout.
