@@ -116,7 +116,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.8.0-pre.9",
+    version="2.8.0-pre.10",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -238,7 +238,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.9"}
+    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.10"}
 
 
 def _check_login(body: LoginRequest):
@@ -593,7 +593,7 @@ def reflect_memories(body: ReflectRequest, request: Request):
     if body.include_documents:
         require(request,'document:read')
     check_rate(request, 'reflect', 3, 60)
-    return reflection.reflect(body.question, body.budget,include_documents=body.include_documents,reasoning=body.reasoning)
+    return reflection.reflect(body.question, body.budget,include_documents=body.include_documents,reasoning=body.reasoning,as_of=body.as_of)
 
 
 @app.get('/api/v1/intelligence/clusters')

@@ -56,6 +56,7 @@ def save_body(result):
                        project_revision=result['project_revision'], claims=result['claims'],
                        include_documents=bool(result.get('include_documents')),
                        reasoning=bool(result.get('reasoning')),
+                       as_of=result.get('as_of'),
                        sources=[{'id': s['id'], 'version': s['version'],'kind':s.get('kind','memory')} for s in result['sources']])
 
 
@@ -376,3 +377,40 @@ def test_cluster_review_preserves_sources_provenance_and_retry_state(corpus):
             with pytest.raises(HTTPException) as missing:
                 action()
             assert missing.value.status_code==404
+
+
+def test_point_in_time_uses_recorded_version_not_current_or_future_facts(corpus):
+    from datetime import datetime,timezone
+    from psycopg.types.json import Jsonb
+    projects,source=corpus
+    point=datetime(2022,1,1,tzinfo=timezone.utc)
+    with project_scope(projects[0]):
+        with connect() as conn:
+            current=dict(conn.execute("UPDATE memories SET title='Atlas',content='Atlas server runs on beta today.',created_at='2019-01-01',updated_at='2025-01-01',valid_from='2019-01-01' WHERE id=%s RETURNING *",(source['id'],)).fetchone())
+            old={key:value for key,value in current.items() if key!='embedding'}
+            old.update(content='Atlas server runs on alpha.',updated_at='2020-01-01T00:00:00+00:00')
+            conn.execute("INSERT INTO memory_versions(memory_id,version_no,snapshot,actor,created_at) VALUES (%s,1,%s,'test','2024-01-01')",
+                         (source['id'],Jsonb(old,dumps=lambda value:__import__('json').dumps(value,default=str))))
+            conn.execute("INSERT INTO memories(title,content,created_by,updated_by,created_at,updated_at,valid_from) VALUES ('Atlas future','Atlas future knowledge','test','test','2023-01-01','2023-01-01','2023-01-01')")
+            conn.commit()
+        model={'claims':[{'text':'Atlas used alpha.','citations':[{'source':1,'quote':'server runs on alpha'}]}],'insufficient':False}
+        with patch.object(reflection,'_ollama_json',return_value=model),patch.object(reflection.intelligence,'search_memories') as present_search:
+            result=reflection.reflect('Atlas server','quick',as_of=point)
+        present_search.assert_not_called()
+        assert len(result['sources'])==1 and result['sources'][0]['content']=='Atlas server runs on alpha.'
+        saved=reflection.save_brief(save_body(result),'test')
+        assert reflection.get_brief(str(saved['id']))['as_of']==point.isoformat()
+        with connect() as conn:
+            conn.execute('UPDATE memories SET deleted_at=now() WHERE id=%s',(source['id'],));conn.commit()
+        assert reflection.get_brief(str(saved['id']))['claims']==[]
+    with project_scope(projects[1]),patch.object(reflection,'_ollama_json') as llm:
+        assert reflection.reflect('Atlas server','quick',as_of=point)['sources']==[]
+    llm.assert_not_called()
+
+
+@pytest.mark.parametrize('options',[{'as_of':'2022-01-01T00:00:00'},{'as_of':'2022-01-01T00:00:00Z','include_documents':True}])
+def test_point_in_time_rejects_ambiguous_or_unversioned_evidence(options):
+    from pydantic import ValidationError
+    from app.schemas import ReflectRequest
+    with pytest.raises(ValidationError):
+        ReflectRequest(question='Past facts?',**options)

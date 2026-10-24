@@ -125,3 +125,19 @@ project briefs and never enter retrieval as facts until human approval. Showing
 100 current memories bounds the picker; use search on the Memories page to inspect
 larger collections. Apply migration `015_cluster_review.sql` after 014 before this
 API; fresh installations and CI mount it automatically.
+
+## Point-in-time answers — pre.10
+
+Choose **What did I know then?** in Reflect. Engram reconstructs each eligible
+memory from the first pre-change snapshot after that instant, or its unchanged
+stored state. Creation/update times and factual validity must cover the requested
+point. Current wording and future embeddings never substitute for historical
+evidence; point-in-time retrieval uses lexical matching of versioned text.
+
+Explicit timezone offsets are required by the API. The web picker uses local time
+and sends UTC. Saved briefs retain their point in time and refresh against that
+same point. Deleted/archived records remain unavailable; this feature does not
+restore deleted information. Incomplete legacy snapshots without timestamps cannot
+establish past knowledge. This reconstructs recorded history, not everything the
+user knew outside Engram. Documents have no immutable version history here, so
+document evidence and point-in-time mode cannot be combined. No new migration.

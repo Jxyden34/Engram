@@ -1,6 +1,6 @@
 from typing import Any, Literal
 from uuid import UUID
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -102,6 +102,19 @@ class ReflectRequest(BaseModel):
     budget: Literal['quick', 'standard', 'deep'] = 'standard'
     include_documents: bool = False
     reasoning: bool = False
+    as_of: datetime | None = None
+
+    @model_validator(mode='after')
+    def historical_scope(self):
+        if self.as_of:
+            if self.as_of.tzinfo is None:
+                raise ValueError('Point-in-time answers need an explicit timezone')
+            self.as_of = self.as_of.astimezone(timezone.utc)
+            if self.as_of > datetime.now(timezone.utc):
+                raise ValueError('Choose a point in the past')
+            if self.include_documents:
+                raise ValueError('Document version history is unavailable; point-in-time answers use memories only')
+        return self
 
 
 class ReflectionQueries(BaseModel):

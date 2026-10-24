@@ -7,7 +7,7 @@ import { api, dateText } from "@/lib/api";
 type Budget = "quick" | "standard" | "deep";
 type Claim = { text: string; citations: { source: number; quote: string }[] };
 type Source = { number: number; id: string; kind?: "memory" | "document_chunk"; document_id?: string | null; title: string; version?: string; content?: string; status?: string };
-type Answer = { reasoning?:boolean; reasoning_status?:string; search_queries?:string[]; question: string; budget: Budget; include_documents?: boolean; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string; changes?: {available:boolean;added?:string[];removed?:string[];unchanged?:number;redacted?:number;sources?:{title:string;state:string}[];basis?:string} | null };
+type Answer = { as_of?:string|null;temporal_basis?:string; reasoning?:boolean; reasoning_status?:string; search_queries?:string[]; question: string; budget: Budget; include_documents?: boolean; project_revision?: string; claims: Claim[]; sources: Source[]; insufficient?: boolean; evidence_chars?: number; status?: string; evidence_changed?: boolean; title?: string; refresh_of?: string | null; refresh_title?: string; changes?: {available:boolean;added?:string[];removed?:string[];unchanged?:number;redacted?:number;sources?:{title:string;state:string}[];basis?:string} | null };
 type Brief = { id: string; title: string; created_at: string };
 
 export default function ReflectionPanel() {
@@ -15,6 +15,7 @@ export default function ReflectionPanel() {
   const [budget, setBudget] = useState<Budget>("standard");
   const [includeDocuments, setIncludeDocuments] = useState(false);
   const [reasoning,setReasoning] = useState(false);
+  const [asOf,setAsOf] = useState('');
   const sourceLink = (source: Source) => source.kind === 'document_chunk' ? `/documents#document-${source.document_id}` : `/memories/${source.id}`;
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [title, setTitle] = useState("");
@@ -33,7 +34,7 @@ export default function ReflectionPanel() {
     e.preventDefault();
     setBusy(true); setError(""); setNotice(""); setAnswer(null); setSelected(null);
     try {
-      setAnswer(await api<Answer>("/api/v1/intelligence/reflect", { method: "POST", body: JSON.stringify({ question, budget,include_documents:includeDocuments,reasoning }) }));
+      setAnswer(await api<Answer>("/api/v1/intelligence/reflect", { method: "POST", body: JSON.stringify({ question, budget,include_documents:includeDocuments,reasoning,as_of:asOf?new Date(asOf).toISOString():null }) }));
       setTitle(question.slice(0, 120));
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
@@ -49,6 +50,7 @@ export default function ReflectionPanel() {
         sources: answer.sources.map(({ id, version,kind }) => ({ id, version,kind:kind||'memory' })), claims: answer.claims,
         include_documents:!!answer.include_documents,
         reasoning:!!answer.reasoning,
+        as_of:answer.as_of||null,
         refresh_of: answer.refresh_of || null,
       }) });
       await loadBriefs(); setSelected(saved); setNotice("Brief saved. Your original memories are unchanged.");
@@ -63,6 +65,7 @@ export default function ReflectionPanel() {
       setAnswer(next); setSelected({ ...brief, title: next.title || brief.title }); setQuestion(next.question); setBudget(next.budget);
       setIncludeDocuments(!!next.include_documents);
       setReasoning(!!next.reasoning);
+      setAsOf(next.as_of ? new Date(new Date(next.as_of).getTime()-new Date(next.as_of).getTimezoneOffset()*60000).toISOString().slice(0,16) : "");
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -86,6 +89,7 @@ export default function ReflectionPanel() {
       setQuestion(next.question); setBudget(next.budget);
       setIncludeDocuments(!!next.include_documents);
       setReasoning(!!next.reasoning);
+      setAsOf(next.as_of ? new Date(new Date(next.as_of).getTime()-new Date(next.as_of).getTimezoneOffset()*60000).toISOString().slice(0,16) : "");
       setNotice("Fresh preview ready. Review the evidence and save a new brief; the previous snapshot is unchanged.");
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
@@ -103,7 +107,8 @@ export default function ReflectionPanel() {
           <option value="standard">Standard · up to 12 sources</option>
           <option value="deep">Deep · up to 20 sources</option>
         </select></div>
-      <label><input type="checkbox" checked={includeDocuments} onChange={e=>setIncludeDocuments(e.target.checked)} /> Include document evidence</label>
+      <div className="field"><label htmlFor="reflection-asof">What did I know then? (optional, local time)</label><input id="reflection-asof" type="datetime-local" className="input" value={asOf} onChange={e=>{setAsOf(e.target.value);if(e.target.value)setIncludeDocuments(false);}}/></div>
+      <label><input type="checkbox" checked={includeDocuments} disabled={!!asOf} onChange={e=>setIncludeDocuments(e.target.checked)} /> Include document evidence</label>
       <label><input type="checkbox" checked={reasoning} onChange={e=>setReasoning(e.target.checked)} /> Allow bounded follow-up searches</label>
       <button className="button primary" disabled={busy || !question.trim()}>{busy ? "Working…" : "Reflect"}</button>
     </form>
@@ -111,6 +116,7 @@ export default function ReflectionPanel() {
     {notice && <div className="successBox" role="status">{notice}</div>}
     {answer && <div aria-live="polite">
       <h3>{selected?.title || "Review this answer"}</h3>
+      {answer.as_of&&<p className="meta">Point-in-time answer · {dateText(answer.as_of)}. Uses recorded memory versions, not current document text.</p>}
       <p className="meta">{answer.sources.length} retrieved sources · {answer.budget} budget. Quotes are checked against source text; review whether they support each conclusion.</p>
       {answer.search_queries && <details><summary>Retrieval steps · {answer.search_queries.length} searches</summary>
         <p className="meta">{answer.reasoning_status?.replaceAll('_',' ')}</p>{answer.search_queries.map((query,i)=><p key={i}>{i+1}. {query}</p>)}
