@@ -4,10 +4,15 @@ import { FormEvent, useState } from "react";
 import { api } from "@/lib/api";
 
 export default function ArchiveMemoryControl({ memory, onChange }: {
-  memory: { id: string; archived_at?: string | null; updated_at: string }; onChange: () => void;
+  memory: { id: string; archived_at?: string | null; updated_at: string; pinned?: boolean }; onChange: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  async function pin() {
+    setBusy(true); setError('');
+    try { await api(`/api/v1/memories/${memory.id}/pin`,{method:'POST',body:JSON.stringify({pinned:!memory.pinned,expected_updated_at:memory.updated_at})}); onChange(); }
+    catch(e:any){setError(e.message);} finally{setBusy(false);}
+  }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const reason = String(new FormData(e.currentTarget).get("reason") || "");
@@ -21,6 +26,9 @@ export default function ArchiveMemoryControl({ memory, onChange }: {
     finally { setBusy(false); }
   }
   return <section className="panel">
+    <h2>{memory.pinned?'Pinned memory':'Protect retrieval priority'}</h2>
+    <p className="meta">Pinned memories keep their retrieval priority as they age. Archival, validity and project access still apply.</p>
+    <button className="button" disabled={busy} onClick={pin}>{memory.pinned?'Unpin memory':'Pin memory'}</button>
     <h2>{memory.archived_at ? "Archived memory" : "Archive this memory"}</h2>
     <p className="meta">Archiving excludes this memory from default search and AI context. Its content and history stay available; you can restore it here.</p>
     <form onSubmit={submit} className="row">

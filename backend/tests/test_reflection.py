@@ -441,3 +441,25 @@ def test_knowledge_gaps_validate_quotes_and_withhold_stale_snapshots(corpus):
         KnowledgeGap.model_validate({**gap,'kind':'conflicting'})
     with project_scope(projects[1]),patch.object(reflection.intelligence,'search_memories',return_value=[]):
         assert reflection.reflect('Recovery deadline?','quick')['gaps'][0]['kind']=='missing'
+
+def test_pin_protects_ranking_with_scoped_audited_stale_safe_updates(corpus):
+    from datetime import datetime,timezone,timedelta
+    from app import memories,intelligence
+    projects,source=corpus
+    with project_scope(projects[0]):
+        pinned=memories.set_pinned(str(source['id']),True,source['updated_at'],'test')
+        old={**pinned,'updated_at':datetime.now(timezone.utc)-timedelta(days=1800)}
+        assert intelligence.decay_priority(old,'current')==(1.0,[])
+        assert memories._score(old)==memories._score({**old,'updated_at':datetime.now(timezone.utc)})
+        with connect() as conn:
+            score=conn.execute(f'SELECT {memories.MEMORY_SCORE_SQL} AS score FROM memories WHERE id=%s',(source['id'],)).fetchone()['score']
+            assert float(score)>0
+            assert conn.execute("SELECT count(*) AS n FROM audit_log WHERE action='memory.pinned'").fetchone()['n']==1
+        with pytest.raises(HTTPException) as stale:
+            memories.set_pinned(str(source['id']),False,source['updated_at'],'test')
+        assert stale.value.status_code==409
+        assert not memories.set_pinned(str(source['id']),False,pinned['updated_at'],'test')['pinned']
+    with project_scope(projects[1]):
+        with pytest.raises(HTTPException) as hidden:
+            memories.set_pinned(str(source['id']),True,pinned['updated_at'],'test')
+        assert hidden.value.status_code==404

@@ -43,6 +43,7 @@ from app.rate_limit import check_rate
 from app.schemas import (
     ApiKeyCreate,
     ArchiveRequest,
+    PinRequest,
     ClusterDraftRequest,
     ClusterApproveRequest,
     CandidateUpdate,
@@ -116,7 +117,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.8.0-pre.11",
+    version="2.8.0-pre.12",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -238,7 +239,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.11"}
+    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.12"}
 
 
 def _check_login(body: LoginRequest):
@@ -552,6 +553,12 @@ def ask_memories(body: AskRequest, request: Request):
     require(request, "memory:read")
     check_rate(request, "ask", 6, 60)
     return ask.answer(body.question, body.memory_type, body.since, body.until)
+
+
+@app.post('/api/v1/memories/{memory_id}/pin')
+def memory_pin(memory_id: UUID, body: PinRequest, request: Request):
+    p = require(request,'memory:write')
+    return memories.set_pinned(str(memory_id),body.pinned,body.expected_updated_at,p.actor)
 
 
 @app.post('/api/v1/memories/{memory_id}/archive')

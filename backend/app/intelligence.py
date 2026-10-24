@@ -39,7 +39,7 @@ def decay_priority(row: dict[str, Any], intent: str) -> tuple[float, list[str]]:
     """Conservative read-time priority decay; never changes stored facts or history queries."""
     now = datetime.now(timezone.utc)
     updated = row.get('updated_at')
-    if intent == 'history' or not updated:
+    if row.get('pinned') or intent == 'history' or not updated:
         return 1.0, []
     age_days = max(0, (now-updated).total_seconds()/86400)
     if age_days <= 180:
@@ -74,6 +74,8 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
     decay, decay_reasons = decay_priority(row, intent)
     score *= decay
     reasons = []
+    if row.get('pinned'):
+        reasons.append('pinned: protected from age decay')
     if semantic >= 0.55:
         reasons.append("semantic match")
     if lexical > 0:

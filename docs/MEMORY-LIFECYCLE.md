@@ -145,3 +145,7 @@ document evidence and point-in-time mode cannot be combined. No new migration.
 ### pre.11 — Knowledge gaps
 Reflect can report missing evidence or conflicts with checked quotations and a next question. Conflicts require two distinct cited sources. Stale supporting evidence hides saved gaps together with claims; gap questions run only when requested.
 
+
+### pre.12 — Protect important memories
+Explicit pin/unpin on memory details removes age penalties in both SQL quality scores and hybrid ranking. It does not bypass validity, archival, deletion, access or query relevance. Changes require memory:write and a current timestamp, retain a version and atomic audit event. Apply migration 016.
+

@@ -8,13 +8,13 @@ from app.util import json_text
 MEMORY_FIELDS = """
 id, owner_id, title, content, memory_type, importance, confidence, tags,
 source_type, source_ref, metadata, created_by, updated_by, created_at, updated_at,
-valid_from, valid_to, supersedes_memory_id, source_trust, access_count, last_accessed_at, archived_at
+valid_from, valid_to, supersedes_memory_id, source_trust, access_count, last_accessed_at, archived_at, pinned
 """
 
 MEMORY_SCORE_SQL = """
 LEAST(1.50, GREATEST(0.0,
   (importance::float / 10.0) * confidence::float * source_trust::float
-  * GREATEST(0.35, 1.0 / (1.0 + GREATEST(EXTRACT(EPOCH FROM (now() - updated_at)),0) / 31557600.0))
+  * CASE WHEN pinned THEN 1.0 ELSE GREATEST(0.35, 1.0 / (1.0 + GREATEST(EXTRACT(EPOCH FROM (now() - updated_at)),0) / 31557600.0)) END
   * LEAST(1.20, 1.0 + ln(1.0 + access_count::float) * 0.05)
   * CASE WHEN valid_to IS NOT NULL AND valid_to <= now() THEN 0.45 ELSE 1.0 END
 ))
@@ -35,7 +35,7 @@ def _score(row: dict[str, Any]) -> float:
     if updated:
         if updated.tzinfo is None: updated=updated.replace(tzinfo=timezone.utc)
         age=max((datetime.now(timezone.utc)-updated).total_seconds(),0)/31557600.0
-    freshness=max(0.35,1/(1+age))
+    freshness=1.0 if row.get('pinned') else max(0.35,1/(1+age))
     usage=min(1.20,1+log(1+float(row.get("access_count") or 0))*0.05)
     temporal=0.45 if row.get("valid_to") else 1.0
     return round(min(1.5,max(0.0,importance*confidence*trust*freshness*usage*temporal)),4)
@@ -148,6 +148,24 @@ def search(query: str,limit: int,memory_type: str|None,include_historical: bool=
     for row in rows:
         item=dict(row); item["semantic_score"]=float(item["semantic_score"] or 0); item["lexical_score"]=float(item["lexical_score"] or 0); item["memory_score"]=float(item["memory_score"] or 0); item["result_type"]="memory"; out.append(item)
     return out
+def set_pinned(memory_id: str, pinned: bool, expected_updated_at, actor: str):
+    with connect() as conn:
+        old = conn.execute(f'SELECT {MEMORY_FIELDS} FROM memories WHERE id=%s AND deleted_at IS NULL FOR UPDATE',(memory_id,)).fetchone()
+        if not old:
+            raise HTTPException(status_code=404,detail='Memory not found')
+        if old['updated_at'] != expected_updated_at:
+            raise HTTPException(status_code=409,detail='Memory changed. Reload before changing its pin.')
+        if old['pinned'] == pinned:
+            return dict(old)
+        reason = 'Pinned to protect retrieval priority' if pinned else 'Removed retrieval priority pin'
+        _save_version(conn,memory_id,memory_snapshot(dict(old)),actor,reason)
+        row=conn.execute(f'UPDATE memories SET pinned=%s,updated_by=%s,updated_at=now() WHERE id=%s RETURNING {MEMORY_FIELDS}',(pinned,actor,memory_id)).fetchone()
+        conn.execute("INSERT INTO audit_log(actor,action,entity_type,entity_id,reason) VALUES (%s,%s,'memory',%s,%s)",
+                     (actor,'memory.pinned' if pinned else 'memory.unpinned',memory_id,reason))
+        conn.commit()
+    return dict(row)
+
+
 def set_archived(memory_id: str, archived: bool, expected_updated_at, actor: str, reason: str):
     with connect() as conn:
         old = conn.execute(f'SELECT {MEMORY_FIELDS} FROM memories WHERE id=%s AND deleted_at IS NULL FOR UPDATE', (memory_id,)).fetchone()

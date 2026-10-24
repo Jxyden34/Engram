@@ -84,7 +84,7 @@ export default function MemoriesPage() {
                       </>
                     ) : (
                       <Link href={`/memories/${m.id}`}>
-                        <strong>{m.title}</strong>
+                        <strong>{m.title}</strong> {m.pinned&&<span className="badge">Pinned</span>}
                         <div className="meta" style={{ maxWidth: 660, marginTop: 5 }}>{m.content.slice(0, 150)}{m.content.length > 150 ? "…" : ""}</div>
                       </Link>
                     )}

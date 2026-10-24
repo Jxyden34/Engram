@@ -55,6 +55,11 @@ class ArchiveRequest(BaseModel):
     reason: str = Field(min_length=3, max_length=1000)
 
 
+class PinRequest(BaseModel):
+    pinned: bool
+    expected_updated_at: datetime
+
+
 class ClusterDraftRequest(BaseModel):
     memory_ids: list[UUID] = Field(min_length=3,max_length=10)
 

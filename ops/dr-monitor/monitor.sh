@@ -607,7 +607,7 @@ auto_replication_due() {
   [ "$(( now - last_epoch ))" -ge "$due" ]
 }
 
-log "starting version=2.8.0-pre.11"
+log "starting version=2.8.0-pre.12"
 
 while true; do
   process_requests || log "queue processing failed"
