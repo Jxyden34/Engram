@@ -195,6 +195,15 @@ def test_brief_api_enforces_scopes_and_bound_projects(corpus):
     archive_body = {'archived':True,'expected_updated_at':source['updated_at'].isoformat(),'reason':'Archive API check'}
     assert client.post(archive_path,headers=read_headers,json=archive_body).status_code == 403
     assert client.post(archive_path,headers=headers,json=archive_body).status_code == 200
+    actions=client.get('/api/v1/lifecycle/actions',headers=read_headers).json()
+    undo_path=f"/api/v1/lifecycle/actions/{actions[0]['id']}/undo"
+    assert client.post(undo_path,headers=read_headers,json={'reason':'Undo API check'}).status_code==403
+    assert client.post(undo_path,headers=headers,json={'reason':'Undo API check'}).status_code==200
+    current=client.get(f"/api/v1/memories/{source['id']}",headers=headers).json()
+    pin_path=f"/api/v1/memories/{source['id']}/pin"
+    pin_body={'pinned':True,'expected_updated_at':current['updated_at']}
+    assert client.post(pin_path,headers=read_headers,json=pin_body).status_code==403
+    assert client.post(pin_path,headers=headers,json=pin_body).json()['pinned']
 
 
 def test_archival_is_searchable_reversible_and_invalidates_briefs(corpus):
@@ -372,6 +381,10 @@ def test_cluster_review_preserves_sources_provenance_and_retry_state(corpus):
         with pytest.raises(HTTPException) as changed:
             consolidation.approve(stale['id'],body,'reviewer')
         assert changed.value.status_code==409
+        action=next(item for item in memories.recent_lifecycle() if item['kind']=='consolidation')
+        memories.undo_lifecycle(str(action['id']),'reviewer','Undo reviewed consolidation')
+        assert memories.get(saved['result_memory_id'],touch=False)['archived_at']
+        assert [memories.get(str(key),touch=False)['content'] for key in ids]==texts
     with project_scope(projects[1]):
         for action in (lambda:consolidation.get_draft(drafted['id']),lambda:consolidation.create_draft(ids,'test')):
             with pytest.raises(HTTPException) as missing:
@@ -463,3 +476,30 @@ def test_pin_protects_ranking_with_scoped_audited_stale_safe_updates(corpus):
         with pytest.raises(HTTPException) as hidden:
             memories.set_pinned(str(source['id']),True,pinned['updated_at'],'test')
         assert hidden.value.status_code==404
+
+
+def test_lifecycle_undo_is_scoped_atomic_idempotent_and_rejects_newer_edits(corpus):
+    from app import memories
+    projects,source=corpus
+    with project_scope(projects[0]):
+        archived=memories.set_archived(str(source['id']),True,source['updated_at'],'reviewer','Cold memory')
+        action=memories.recent_lifecycle()[0]
+        assert action['can_undo'] and action['kind']=='archive'
+    with project_scope(projects[1]):
+        assert memories.recent_lifecycle()==[]
+        with pytest.raises(HTTPException) as hidden:
+            memories.undo_lifecycle(str(action['id']),'other','Wrong project')
+        assert hidden.value.status_code==404
+    with project_scope(projects[0]):
+        assert memories.undo_lifecycle(str(action['id']),'reviewer','Accidental archive')['status']=='undone'
+        assert memories.undo_lifecycle(str(action['id']),'reviewer','Retry')['status']=='already_undone'
+        restored=memories.get(str(source['id']),touch=False)
+        assert restored['archived_at'] is None and restored['content']==source['content']
+        archived=memories.set_archived(str(source['id']),True,restored['updated_at'],'reviewer','Cold memory again')
+        action=memories.recent_lifecycle()[0]
+        memories.set_pinned(str(source['id']),True,archived['updated_at'],'reviewer')
+        with pytest.raises(HTTPException) as stale:
+            memories.undo_lifecycle(str(action['id']),'reviewer','Must retain newer pin')
+        assert stale.value.status_code==409
+        with connect() as conn:
+            assert conn.execute("SELECT count(*) AS n FROM audit_log WHERE action='memory.lifecycle.undone'").fetchone()['n']==1

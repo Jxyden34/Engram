@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import ClusterConsolidation from '@/components/ClusterConsolidation';
+import LifecycleHistory from '@/components/LifecycleHistory';
 import { api, dateText } from "@/lib/api";
 
 type Draft = { safe_to_merge: boolean; title?: string; content?: string; reason: string; source_memory_ids: string[]; source_updated_at: string[]; quotes?: { source: number; quote: string }[] };
@@ -84,6 +85,7 @@ export default function AgentPage() {
   return <>
     <Topbar eyebrow="Human reviewed maintenance" title="Memory Agent" />
     <ClusterConsolidation />
+    <LifecycleHistory />
     <p className="meta">Scans for likely duplicates, import conflicts, stale facts, low confidence and missing provenance. It never changes memories.</p>
     <button className="button primary" disabled={busy} onClick={scan}>{busy ? "Scanning…" : "Scan this project"}</button>
     {error && <div className="errorBox">{error}</div>}{notice && <div className="successBox">{notice}</div>}

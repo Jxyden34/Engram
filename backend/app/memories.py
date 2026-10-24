@@ -178,8 +178,57 @@ def set_archived(memory_id: str, archived: bool, expected_updated_at, actor: str
         _save_version(conn,memory_id,memory_snapshot(dict(old)),actor,reason)
         row = conn.execute(f'''UPDATE memories SET archived_at=CASE WHEN %s THEN now() ELSE NULL END,
             updated_at=now(),updated_by=%s WHERE id=%s RETURNING {MEMORY_FIELDS}''', (archived,actor,memory_id)).fetchone()
+        _record_lifecycle(conn,row,'archive' if archived else 'restore',actor,reason,old['archived_at'])
         conn.commit()
     return dict(row)
+
+
+def _record_lifecycle(conn, row, kind, actor, reason, previous_archived_at=None):
+    action = conn.execute('''INSERT INTO memory_lifecycle_actions(memory_id,kind,previous_archived_at,expected_updated_at,actor,reason)
+        VALUES (%s,%s,%s,%s,%s,%s) RETURNING id''',
+        (row['id'],kind,previous_archived_at,row['updated_at'],actor,reason)).fetchone()
+    conn.execute("INSERT INTO audit_log(actor,action,entity_type,entity_id,reason,new_data) VALUES (%s,%s,'memory',%s,%s,%s::jsonb)",
+                 (actor,'memory.lifecycle.'+kind,str(row['id']),reason,json_text({'action_id':str(action['id'])})))
+
+
+def record_consolidation(conn, memory_id, actor):
+    row=conn.execute('SELECT id,updated_at FROM memories WHERE id=%s',(memory_id,)).fetchone()
+    _record_lifecycle(conn,row,'consolidation',actor,'Human-reviewed consolidation saved; originals retained')
+
+
+def recent_lifecycle(memory_id=None):
+    with connect() as conn:
+        return [dict(row) for row in conn.execute('''SELECT a.id,a.memory_id,a.kind,a.actor,a.reason,a.created_at,
+            a.undone_at,a.undone_by,a.undo_reason,m.title,
+            (a.undone_at IS NULL AND m.deleted_at IS NULL AND m.updated_at=a.expected_updated_at) AS can_undo
+            FROM memory_lifecycle_actions a JOIN memories m ON m.id=a.memory_id
+            WHERE a.created_at>now()-interval '7 days' AND m.deleted_at IS NULL
+            AND (%s::uuid IS NULL OR a.memory_id=%s::uuid)
+            ORDER BY a.created_at DESC,a.id LIMIT 50''',(memory_id,memory_id)).fetchall()]
+
+
+def undo_lifecycle(action_id, actor, reason):
+    with connect() as conn:
+        action=conn.execute('SELECT *,created_at>now()-interval \'7 days\' AS recent FROM memory_lifecycle_actions WHERE id=%s FOR UPDATE',(action_id,)).fetchone()
+        if not action:
+            raise HTTPException(status_code=404,detail='Lifecycle action not found')
+        if action['undone_at']:
+            return {'status':'already_undone','memory_id':str(action['memory_id'])}
+        if not action['recent']:
+            raise HTTPException(status_code=409,detail='Quick undo is available for seven days; review the memory manually.')
+        memory=conn.execute(f'SELECT {MEMORY_FIELDS} FROM memories WHERE id=%s AND deleted_at IS NULL FOR UPDATE',(action['memory_id'],)).fetchone()
+        if not memory or memory['updated_at']!=action['expected_updated_at']:
+            raise HTTPException(status_code=409,detail='Memory changed after this action. Review it manually instead of overwriting newer changes.')
+        _save_version(conn,str(memory['id']),memory_snapshot(dict(memory)),actor,'Undo '+action['kind']+': '+reason)
+        # Consolidations retain originals; reversal archives only the generated summary.
+        conn.execute('''UPDATE memories SET archived_at=CASE WHEN %s='consolidation' THEN now() ELSE %s END,
+            updated_at=now(),updated_by=%s WHERE id=%s''',
+            (action['kind'],action['previous_archived_at'],actor,memory['id']))
+        conn.execute('UPDATE memory_lifecycle_actions SET undone_at=now(),undone_by=%s,undo_reason=%s WHERE id=%s',(actor,reason,action_id))
+        conn.execute("INSERT INTO audit_log(actor,action,entity_type,entity_id,reason,new_data) VALUES (%s,'memory.lifecycle.undone','memory',%s,%s,%s::jsonb)",
+                     (actor,str(memory['id']),reason,json_text({'action_id':str(action_id),'kind':action['kind']})))
+        conn.commit()
+    return {'status':'undone','memory_id':str(memory['id'])}
 
 
 def request_delete(memory_id: str, actor: str, reason: str):

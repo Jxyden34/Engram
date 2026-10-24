@@ -69,6 +69,7 @@ def approve(draft_id:str,body:ClusterApproveRequest,actor:str):
                          (created['id'],source_id,actor))
         conn.execute("UPDATE project_briefs SET snapshot=snapshot || %s WHERE id=%s",
                      (Jsonb({'result_memory_id':str(created['id']),'reviewed_by':actor}),draft_id))
+        memories.record_consolidation(conn,created['id'],actor)
         conn.commit()
     memories._queue_enrichment(str(created['id']),actor)
     return {'status':'accepted','result_memory_id':str(created['id'])}

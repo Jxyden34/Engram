@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="2.8.0-pre.12",
+    version="2.8.0-pre.13",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -239,7 +239,7 @@ async def security_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.12"}
+    return {"status": "ok", "service": "engram", "version": "2.8.0-pre.13"}
 
 
 def _check_login(body: LoginRequest):
@@ -565,8 +565,19 @@ def memory_pin(memory_id: UUID, body: PinRequest, request: Request):
 def memory_archive(memory_id: UUID, body: ArchiveRequest, request: Request):
     p = require(request,'memory:write')
     row = memories.set_archived(str(memory_id),body.archived,body.expected_updated_at,p.actor,body.reason)
-    log(p.actor,'memory.archived' if body.archived else 'memory.unarchived','memory',str(memory_id),request,body.reason)
     return row
+
+
+@app.get('/api/v1/lifecycle/actions')
+def lifecycle_actions(request: Request, memory_id: UUID | None = None):
+    require(request,'memory:read')
+    return memories.recent_lifecycle(str(memory_id) if memory_id else None)
+
+
+@app.post('/api/v1/lifecycle/actions/{action_id}/undo')
+def lifecycle_undo(action_id: UUID, body: DeleteRequest, request: Request):
+    p = require(request,'memory:write')
+    return memories.undo_lifecycle(str(action_id),p.actor,body.reason)
 
 
 @app.post("/api/v1/search")

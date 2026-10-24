@@ -149,3 +149,7 @@ Reflect can report missing evidence or conflicts with checked quotations and a n
 ### pre.12 — Protect important memories
 Explicit pin/unpin on memory details removes age penalties in both SQL quality scores and hybrid ranking. It does not bypass validity, archival, deletion, access or query relevance. Changes require memory:write and a current timestamp, retain a version and atomic audit event. Apply migration 016.
 
+
+### pre.13 — Undo recent lifecycle actions
+Memory details and Agent show up to 50 project-scoped actions from seven days. A reason is required. Archive/restore undo reinstates the prior archive timestamp; pairwise and cluster consolidation undo archives only the newly generated summary and retains all source records and provenance. Atomic row locks and updated-at checks reject newer edits; repeat undo is idempotent. Versions, original actions and reversal audit events remain. Apply migration 017; only actions recorded after upgrade are undoable.
+

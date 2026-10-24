@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { api } from "@/lib/api";
+import LifecycleHistory from './LifecycleHistory';
 
 export default function ArchiveMemoryControl({ memory, onChange }: {
   memory: { id: string; archived_at?: string | null; updated_at: string; pinned?: boolean }; onChange: () => void;
@@ -25,7 +26,7 @@ export default function ArchiveMemoryControl({ memory, onChange }: {
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
   }
-  return <section className="panel">
+  return <><section className="panel">
     <h2>{memory.pinned?'Pinned memory':'Protect retrieval priority'}</h2>
     <p className="meta">Pinned memories keep their retrieval priority as they age. Archival, validity and project access still apply.</p>
     <button className="button" disabled={busy} onClick={pin}>{memory.pinned?'Unpin memory':'Pin memory'}</button>
@@ -37,5 +38,5 @@ export default function ArchiveMemoryControl({ memory, onChange }: {
       <button className="button" disabled={busy}>{busy ? "Saving…" : memory.archived_at ? "Restore memory" : "Archive memory"}</button>
     </form>
     {error && <p className="errorBox" role="alert">{error}</p>}
-  </section>;
+  </section><LifecycleHistory memoryId={memory.id} revision={memory.updated_at} onChange={onChange}/></>;
 }

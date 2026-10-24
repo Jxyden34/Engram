@@ -17,6 +17,7 @@ services:
       - ./db/migrations/014_memory_archival.sql:/docker-entrypoint-initdb.d/014-memory-archival.sql:ro
       - ./db/migrations/015_cluster_review.sql:/docker-entrypoint-initdb.d/015-cluster-review.sql:ro
       - ./db/migrations/016_memory_pinning.sql:/docker-entrypoint-initdb.d/016-memory-pinning.sql:ro
+      - ./db/migrations/017_lifecycle_undo.sql:/docker-entrypoint-initdb.d/017-lifecycle-undo.sql:ro
     networks: [backend]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]

@@ -219,6 +219,7 @@ def approve(proposal_id: str, actor: str, payload: dict) -> dict:
                 conn.execute("""INSERT INTO memory_relations(from_memory_id,to_memory_id,relation_type,created_by)
                     VALUES (%s,%s,'derived_from',%s) ON CONFLICT DO NOTHING""", (result['id'],source_id,actor))
             conn.execute('UPDATE agent_proposals SET result_memory_id=%s WHERE id=%s', (result['id'], proposal_id))
+            memories.record_consolidation(conn,result['id'],actor)
         elif payload.get('title') or payload.get('content'):
             raise HTTPException(status_code=422, detail='This finding supports acknowledgement only')
         row = conn.execute("""UPDATE agent_proposals SET status='accepted',reviewed_at=now(),reviewed_by=%s
