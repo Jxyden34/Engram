@@ -39,6 +39,15 @@ def test_dreams_only_accept_bounded_connected_data():
         with pytest.raises(ValidationError): dreams.Artifact.model_validate(data)
 
 
+def test_omitted_initial_values_follow_the_declared_input_range():
+    # Real local models legitimately omit optional fields from the output schema.
+    for low, high, expected in [(1,10,1),(-10,-1,-1),(-10,10,0)]:
+        item = dreams.Widget(id='servers', kind='number', title='Count', minimum=low, maximum=high)
+        assert item.value == expected
+    with pytest.raises(ValidationError):
+        dreams.Widget(id='servers', kind='number', title='Count', minimum=1, maximum=10, value=0)
+
+
 def test_dream_schedule_always_uses_next_future_utc_hour():
     before = datetime.now(timezone.utc)
     for hour in range(24):

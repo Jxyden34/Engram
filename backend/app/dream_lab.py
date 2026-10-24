@@ -40,6 +40,17 @@ class Widget(StrictModel):
     constant: float = Field(default=0, ge=-1_000_000, le=1_000_000)
     divide_by: float = Field(default=1, gt=0, le=1_000_000)
 
+    @model_validator(mode='before')
+    @classmethod
+    def initial_input(cls, data):
+        # An omitted optional initial value must respect the declared input range.
+        if isinstance(data, dict) and data.get('kind') == 'number' and 'value' not in data:
+            low, high = data.get('minimum', 0), data.get('maximum', 100)
+            if (isinstance(low, (int, float)) and isinstance(high, (int, float))
+                    and math.isfinite(low) and math.isfinite(high) and low <= high):
+                return {**data, 'value': min(high, max(low, 0))}
+        return data
+
     @model_validator(mode='after')
     def bounded(self):
         if any(not item.strip() or len(item) > 300 for item in self.items):
@@ -109,6 +120,8 @@ Create a novel combination, not a summary. Do not invent factual source claims.
 You can compose number inputs, calculated metrics, interactive checklists, searchable
 boards and text panels. No HTML, JavaScript, shell commands, URLs or external services.
 For metric widgets: (constant + sum(input value * coefficient)) / divide_by.
+Keep units consistent. Use divide_by=1 unless a conversion is explicitly needed.
+Example number: {"id":"servers","kind":"number","title":"Server count","value":1,"minimum":1,"maximum":10}.
 Terms reference number widget IDs only. Choose sensible ranges including the initial value.
 Values not explicitly supported by evidence are illustrative assumptions: label them.
 Provide concrete human test steps and honest limitations. It is an offline prototype,
