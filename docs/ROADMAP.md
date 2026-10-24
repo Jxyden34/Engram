@@ -14,16 +14,56 @@ This roadmap tracks the evolution of Engram from a secure personal memory store 
 - 🔵 Later
 - 🧪 Experimental
 
-## v3.7.0-dev-beta.8 — Personal and Commercial workspaces 🧪
+## v3.7 — Personal, Commercial and Dream Lab 🧪
 
-The active development version is `3.7.0-dev-beta.8`. This track adds
+The active development version is `3.7.0-dev-beta.9`. This track adds
 signed, installation-bound paid commercial keys, administrator activation and
 licence status. Personal Community is free for noncommercial use; Commercial is a
 separate build that requires activation. An owner dashboard turns manual payment
 confirmation into automatic key issuance and SMTP email. Online checkout is deferred.
-See [the development feature guide](DEVELOPMENT-PREVIEWS.md) for the seven individually versioned additions.
+See [the development feature guide](DEVELOPMENT-PREVIEWS.md) for the individually versioned additions.
 See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable remains v2.7.0;
 existing native releases retain their preview channels; v3.7 source uses a separate runtime and channel.
+
+### Built on the draft development branch
+
+These are implemented previews, not a stable release or a promise of production qualification.
+
+| Dev version | Addition | Current boundary |
+| --- | --- | --- |
+| beta.1 | Personal/Commercial split, paid keys and owner email issuance | Manual payment confirmation; no checkout provider. |
+| beta.2 | Team workspaces | Project roles, invitations and access checks. |
+| beta.3 | Company branding | Commercial workspace identity. |
+| beta.4 | Licence renewal | Offline signed-key renewal; original key retains its existing expiry. |
+| beta.5 | Project handover packs | Bounded, source-linked project exports. |
+| beta.6 | Guided first-run setup | Account, licence and local model configuration. |
+| beta.7 | Memory reminders | In-app reminders; no OS push. |
+| beta.8 | Host deployment installer | Fresh Ubuntu/Debian wizard; short `/install.sh` endpoint. |
+| beta.9 | **Dream Lab** | Evidence-linked offline inventions, disposable browser previews, keep/evolve/destroy and opt-in nightly generation. |
+
+### Dream Lab: current scope
+
+Dream Lab combines memories into something interactive using trusted building
+blocks: calculators, checklists and searchable boards. Model-generated data is
+validated before a sandbox renders it. It does not execute generated server code,
+connect services, change source memories or promote prototypes automatically.
+See [Dream Lab](DREAM-LAB.md) for limits, migration and testing boundaries.
+
+### Next v3.7 work, in order
+
+1. **Qualify beta.9:** real-model usefulness, isolation, browser interaction,
+   stale evidence, worker recovery, overnight operation and 2 GB VM stability.
+2. **User-directed prototype export/promotion:** agree how a kept dream becomes
+   something maintainable; retain review, sources and rollback. No automatic deployment.
+3. **Native Dream Lab review:** show inspiration, reports and review controls on
+   iPhone/Android, with separate build/runtime and physical-device qualification.
+4. **Preproduction gate:** repeat fresh-host installation, edition/key behaviour,
+   database upgrade and restore checks. Keep the commercial draft until qualified.
+
+Later feature additions each receive their own development version. No version is
+allocated to the next items until scope is agreed. Gmail remains unqualified;
+payment-provider setup remains deferred. Stable/mobile tracks below retain their
+independent qualification requirements.
 
 ## Alpha1 — mobile review and filtered Ask 🧪
 

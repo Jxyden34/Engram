@@ -14,6 +14,7 @@ const links = [
   ["/documents", "Documents", "▱"],
   ["/projects", "Projects", "▦"],
   ["/agent", "Memory Agent", "✧"],
+  ["/dreams", "Dream Lab", "☾"],
   ["/imports", "Memory Inbox", "✦"],
   ["/connectors", "Connectors", "⇄"],
   ["/knowledge", "Knowledge Graph", "◎"],

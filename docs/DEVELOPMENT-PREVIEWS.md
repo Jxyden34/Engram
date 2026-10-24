@@ -1,7 +1,7 @@
 # Engram 3.7 development features
 
 Each feature has its own version and commit. The current source version is
-`3.7.0-dev-beta.8`. Stable production remains unchanged; these are draft previews.
+`3.7.0-dev-beta.9`. Stable production remains unchanged; these are draft previews.
 
 | Version | Feature | Edition | Where |
 | --- | --- | --- | --- |
@@ -12,6 +12,9 @@ Each feature has its own version and commit. The current source version is
 | 3.7.0-dev-beta.6 | Guided first-run setup | Commercial | `/setup` |
 | 3.7.0-dev-beta.7 | Memory reminders | Personal and Commercial | Reminders and each memory's detail page |
 | 3.7.0-dev-beta.8 | Host deployment installer | Personal and Commercial | Terminal setup wizard |
+| 3.7.0-dev-beta.9 | Dream Lab | Personal and Commercial | `/dreams`: offline prototypes, inspiration, checks, keep/evolve/destroy and nightly generation |
+
+See [Dream Lab](DREAM-LAB.md) for its building blocks, sandbox, limits and migration 019.
 
 ## One-command host deployment
 

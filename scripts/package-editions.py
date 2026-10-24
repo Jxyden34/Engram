@@ -49,9 +49,9 @@ def package(output: Path):
 
 This is a source/build package, not a prebuilt Docker image. Install Docker Engine
 and the Compose plugin on a Linux host. Read docs/DEPLOYMENT.md for environment,
-storage and network setup. Existing installations must apply migrations through 018.
+storage and network setup. Existing installations must apply migrations through 019.
 Use docs/PROJECTS-AGENT.md for the project migrations and docs/REFLECTION-BRIEFS.md
-for migration 013. Apply migrations 014 through 018 with psql before starting an updated API on an
+for migration 013. Apply migrations 014 through 019 with psql before starting an updated API on an
 existing database. See docs/DEVELOPMENT-PREVIEWS.md. New databases apply these on first boot.
 
 For guided host deployment, run `sudo python3 install.py`. The steps below are the manual alternative.

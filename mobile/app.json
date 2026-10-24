@@ -23,13 +23,13 @@
       "predictiveBackGestureEnabled": false
     },
     "extra": {
-      "release": "3.7.0-dev-beta.8",
+      "release": "3.7.0-dev-beta.9",
       "eas": {
         "projectId": "4bfa32da-3316-4752-aa52-605ded14d3c2"
       }
     },
     "owner": "jxyden34",
-    "runtimeVersion": "3.7.0-dev-beta.8-native1",
+    "runtimeVersion": "3.7.0-dev-beta.9-native1",
     "updates": {
       "url": "https://u.expo.dev/4bfa32da-3316-4752-aa52-605ded14d3c2"
     },
