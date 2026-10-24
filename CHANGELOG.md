@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.8.0 — 2026-10-24
+
+- Add bounded local-Ollama Reflect across project memories and optional document evidence, with exact source quotations, evidence budgets, bounded follow-up retrieval and knowledge-gap questions.
+- Save reviewed project briefs, compare revisions and explicitly refresh them without rewriting earlier snapshots. Changed or inaccessible evidence hides stale generated text.
+- Add historical answers from recorded memory versions and validity; document history is excluded.
+- Add pairwise and 3–10-memory reviewed consolidation with source provenance, conservative confidence and stale-approval rejection; originals remain unchanged.
+- Add explainable retrieval decay, reversible searchable archival and pin/unpin controls that protect important memories from age penalties.
+- Add seven-day lifecycle history and reasoned undo for archive/restore and newly recorded reviewed consolidations. Undo archives only a generated summary, preserves history and audit, rejects newer changes and is idempotent.
+- Retain current dependency fixes and the updated Silo Docker digest. Native mobile and Gmail keep their separate preview/qualification status; v3 commercial/team work is excluded.
+
+Upgrade from v2.7.0: back up PostgreSQL and object storage, retain images and host configuration, stop API/worker/scheduler, apply migrations **013–017 in order**, then rebuild/recreate the application services. See [v2.8 rollout and rollback](docs/V2.8-RELEASE.md).
+
+
 ## v2.8.0 prerelease track — 2026-10-23
 
 - **pre.1:** bounded Reflect, checked multi-source quotations and explicitly saved project briefs; migration 013.
