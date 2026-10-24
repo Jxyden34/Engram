@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
+import ClusterConsolidation from '@/components/ClusterConsolidation';
 import { api, dateText } from "@/lib/api";
 
-type Draft = { safe_to_merge: boolean; title?: string; content?: string; reason: string };
+type Draft = { safe_to_merge: boolean; title?: string; content?: string; reason: string; source_memory_ids: string[]; source_updated_at: string[]; quotes?: { source: number; quote: string }[] };
 type Proposal = { id: string; proposal_type: string; memory_id: string; memory_title: string; related_memory_id?: string; related_title?: string; reason: string; created_at: string; evidence?: { draft?: Draft }; draft_stale?: boolean };
 type ScanRun = { id: string; trigger_type: string; status: string; result?: { total: number }; error_message?: string; created_at: string };
 type Schedule = { enabled: boolean; interval_hours: number; next_scan_at?: string | null };
@@ -64,8 +65,25 @@ export default function AgentPage() {
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
   }
+  async function approve(p: Proposal, e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const draft = p.evidence?.draft;
+    if (!draft || p.draft_stale) return;
+    const fields = new FormData(e.currentTarget);
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await api(`/api/v1/agent/proposals/${p.id}/approve`, { method: "POST", body: JSON.stringify({
+        source_updated_at: Object.fromEntries(draft.source_memory_ids.map((id, i) => [id, draft.source_updated_at[i]])),
+        title: fields.get("title"), content: fields.get("content"),
+      }) });
+      setNotice("Reviewed summary saved with source links. Both original memories are unchanged.");
+      await load();
+    } catch (e: any) { setError(e.message); }
+    finally { setBusy(false); }
+  }
   return <>
     <Topbar eyebrow="Human reviewed maintenance" title="Memory Agent" />
+    <ClusterConsolidation />
     <p className="meta">Scans for likely duplicates, import conflicts, stale facts, low confidence and missing provenance. It never changes memories.</p>
     <button className="button primary" disabled={busy} onClick={scan}>{busy ? "Scanning…" : "Scan this project"}</button>
     {error && <div className="errorBox">{error}</div>}{notice && <div className="successBox">{notice}</div>}
@@ -104,11 +122,22 @@ export default function AgentPage() {
           <strong>{p.evidence.draft.safe_to_merge ? p.evidence.draft.title : "Keep these separate"}</strong>
           <p className="meta">AI suggestion for review. Check the source memories before using it.</p>
           {p.draft_stale && <p className="errorBox">A source memory changed since this draft. Generate it again before using it.</p>}
-          {p.evidence.draft.content && <p style={{ whiteSpace: "pre-wrap" }}>{p.evidence.draft.content}</p>}
+          {p.evidence.draft.quotes?.map(quote => <blockquote key={quote.source}>
+            <p>{quote.quote}</p><Link href={`/memories/${p.evidence!.draft!.source_memory_ids[quote.source - 1]}`}>Source {quote.source}</Link>
+          </blockquote>)}
+          {p.evidence.draft.safe_to_merge && p.evidence.draft.quotes?.length === 2 && !p.draft_stale && <form
+            key={JSON.stringify([p.evidence.draft.source_updated_at,p.evidence.draft.content])} onSubmit={e => approve(p, e)}>
+            <div className="field"><label htmlFor={`summary-title-${p.id}`}>Reviewed summary title</label>
+              <input id={`summary-title-${p.id}`} className="input" name="title" defaultValue={p.evidence.draft.title} required maxLength={300} /></div>
+            <div className="field"><label htmlFor={`summary-content-${p.id}`}>Reviewed summary</label>
+              <textarea id={`summary-content-${p.id}`} className="textarea" name="content" defaultValue={p.evidence.draft.content} required maxLength={10000} /></div>
+            <label><input type="checkbox" required /> I checked both sources and reviewed this summary.</label>
+            <button className="button primary" disabled={busy}>Save reviewed consolidation</button>
+          </form>}
           <p>{p.evidence.draft.reason}</p>
           {p.evidence.draft.content && !p.draft_stale && <button className="ghostButton" onClick={() => navigator.clipboard.writeText(`${p.evidence?.draft?.title}\n\n${p.evidence?.draft?.content}`).then(() => setNotice("Draft copied for review.")).catch(() => setError("Could not copy draft."))}>Copy draft</button>}
         </div>}
-        <button className="ghostButton" onClick={() => dismiss(p.id)}>Dismiss</button>
+        <button className="ghostButton" disabled={busy} onClick={() => dismiss(p.id)}>Dismiss</button>
       </div>)}
     </section>
   </>;

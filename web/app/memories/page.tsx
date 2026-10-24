@@ -11,11 +11,12 @@ export default function MemoriesPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [error, setError] = useState("");
   const [historical, setHistorical] = useState(false);
+  const [archived, setArchived] = useState(false);
 
   function load() {
-    api<any[]>(`/api/v1/memories?limit=100&include_historical=${historical}`).then(setItems).catch((e) => setError(e.message));
+    api<any[]>(`/api/v1/memories?limit=100&include_historical=${historical}&include_archived=${archived}`).then(setItems).catch((e) => setError(e.message));
   }
-  useEffect(load, [historical]);
+  useEffect(() => { setResults(null); load(); }, [historical, archived]);
 
   async function doSearch(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -24,7 +25,7 @@ export default function MemoriesPage() {
     try {
       setResults(await api("/api/v1/search", {
         method: "POST",
-        body: JSON.stringify({ query, limit: 20, include_documents: true }),
+        body: JSON.stringify({ query, limit: 20, include_documents: true, include_historical: historical, include_archived: archived }),
       }));
     } catch (e: any) { setError(e.message); }
   }
@@ -61,7 +62,7 @@ export default function MemoriesPage() {
           <button className="button" type="submit">Search</button>
           {results && <button className="ghostButton" type="button" onClick={() => setResults(null)}>Clear</button>}
         </form>
-        <div className="row"><button className="ghostButton" onClick={() => setHistorical(!historical)}>{historical ? "Hide history" : "Show history"}</button><button className="button primary" onClick={() => setShowAdd(true)}>+ New memory</button></div>
+        <div className="row"><button className="ghostButton" onClick={() => setArchived(!archived)}>{archived ? "Hide archived" : "Include archived"}</button><button className="ghostButton" onClick={() => setHistorical(!historical)}>{historical ? "Hide history" : "Show history"}</button><button className="button primary" onClick={() => setShowAdd(true)}>+ New memory</button></div>
       </div>
       {error && <div className="errorBox">{error}</div>}
       <section className="panel">
@@ -71,7 +72,7 @@ export default function MemoriesPage() {
         </div>
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Title / source</th><th>Type</th><th>Score</th><th>Importance</th><th>Changed</th></tr></thead>
+            <thead><tr><th>Title / source</th><th>Type</th><th>Score</th><th>Importance</th><th>Changed</th><th>Archive</th></tr></thead>
             <tbody>
               {visible.map((m: any, index) => (
                 <tr key={`${m.result_type || "memory"}-${m.id}-${index}`}>
@@ -92,6 +93,7 @@ export default function MemoriesPage() {
                   <td>{m.result_type === "document_chunk" ? "—" : Number(m.memory_score || 0).toFixed(3)}</td>
                   <td>{m.importance ? `${m.importance}/10` : "—"}</td>
                   <td className="meta">{m.updated_at ? dateText(m.updated_at) : `chunk ${m.chunk_index}`}</td>
+                  <td>{m.archived_at ? <span className="badge">Archived</span> : "—"}</td>
                 </tr>
               ))}
             </tbody>

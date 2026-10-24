@@ -12,7 +12,7 @@ mcp_principal: ContextVar[Principal | None] = ContextVar("mcp_principal", defaul
 
 mcp = MCPServer(
     "Personal Engram",
-    version="2.7.0",
+    version="2.8.0-pre.9",
     instructions=(
         "Search and maintain the user's private self-hosted Engram. "
         "Use search before creating duplicate memories. "
@@ -31,10 +31,10 @@ def principal(scope: str) -> Principal:
 
 
 @mcp.tool()
-def memory_search(query: str, limit: int = 10, memory_type: str | None = None) -> list[dict]:
+def memory_search(query: str, limit: int = 10, memory_type: str | None = None, include_archived: bool = False) -> list[dict]:
     """Search active memories by semantic meaning and text."""
     principal("memory:read")
-    return intelligence.search_memories(query, max(1, min(limit, 50)), memory_type)
+    return intelligence.search_memories(query, max(1, min(limit, 50)), memory_type, include_archived=include_archived)
 
 
 @mcp.tool()

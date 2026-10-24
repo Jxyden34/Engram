@@ -549,9 +549,11 @@ separate release is explicitly approved. See [Reflection and project briefs](REF
 - Existing local Ollama and PostgreSQL/RLS remain the implementation; no Hindsight
   runtime or new model dependency is required.
 
-This first increment does not implement autonomous reflection loops, automatic
-observations, background brief refresh, decay or archival. Those remain future
-lifecycle work below.
+The dedicated v2.8 prerelease track adds reviewed consolidation, explainable decay,
+reversible searchable archival and explicit brief refresh for review. See
+[the feature increments](MEMORY-LIFECYCLE.md) and [qualification/promotion gate](V2.8-PRERELEASES.md).
+These are prerelease implementations, not stable qualification. Autonomous
+reflection loops, automatic observations and background brief refresh remain future work.
 
 ### Decay
 
@@ -566,7 +568,8 @@ Reduce retrieval priority for memories that are:
 
 ### Consolidation
 
-Merge repetitive memory clusters into stronger summaries while keeping originals traceable.
+Create human-reviewed pairwise summaries with checked quotations and provenance
+links, preserving original memories. Broader cluster consolidation remains future work.
 
 ### Archival
 

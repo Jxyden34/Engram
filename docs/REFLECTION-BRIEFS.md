@@ -5,8 +5,9 @@ supporting excerpts. Saved project briefs are reviewed snapshots of these answer
 inspired by Hindsight's Reflect and mental models. Engram remains the memory store;
 the feature uses its hybrid retriever, local Ollama and project isolation.
 
-The runtime version stays **2.7.0** during development. This change does not publish
-a release, change native update channels, or deploy to production.
+The server prerelease track begins at **2.8.0-pre.1**. Stable remains v2.7.0;
+native update channels and production deployment are unchanged. See
+[prerelease qualification](V2.8-PRERELEASES.md) for the stable-promotion gate.
 
 ## Use
 
