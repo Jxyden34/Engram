@@ -41,6 +41,7 @@ def test_dreams_only_accept_bounded_connected_data():
                    lambda a: a['widgets'][0].update(value=20),
                    lambda a: a['inspiration'][1].update(source=1),
                    lambda a: a['widgets'][1].update(divide_by=0),
+                   lambda a: a['widgets'][1].update(terms=[]),
                    lambda a: a.update(widgets=[a['widgets'][0], {'id':'note','kind':'text','title':'Explanation'}]),
                    lambda a: a['widgets'][1].update(id='servers')]:
         data = artifact(); mutate(data)

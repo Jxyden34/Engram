@@ -60,6 +60,8 @@ class Widget(StrictModel):
             raise ValueError('Input value must lie within its range')
         if self.kind in {'checklist', 'board'} and not self.items:
             raise ValueError('Interactive lists need items')
+        if self.kind == 'metric' and not self.terms:
+            raise ValueError('Calculated metrics must link to numeric inputs through terms')
         return self
 
 
@@ -114,8 +116,18 @@ class MetricWidget(Widget):
     terms: list[Term] = Field(min_length=1, max_length=8)
 
 
+class NumberWidget(Widget):
+    kind: Literal['number']
+
+
+class TextWidget(Widget):
+    kind: Literal['text']
+    description: str = Field(min_length=1, max_length=800)
+
+
 class GeneratedPrototype(PrototypeText):
-    widgets: list[Widget] = Field(min_length=1, max_length=11)
+    widgets: list[Annotated[NumberWidget | TextWidget | ChecklistWidget | BoardWidget | MetricWidget,
+                            Field(discriminator='kind')]] = Field(min_length=1, max_length=11)
     interaction: Annotated[ChecklistWidget | BoardWidget | MetricWidget, Field(discriminator='kind')]
     inspiration: list[SourceReference] = Field(min_length=2, max_length=6)
 
@@ -163,6 +175,7 @@ number inputs, text panels and any extra controls in widgets; use distinct IDs.
 For metric widgets: (constant + sum(input value * coefficient)) / divide_by.
 Keep units consistent. Use divide_by=1 unless a conversion is explicitly needed.
 Example number: {"id":"servers","kind":"number","title":"Server count","value":1,"minimum":1,"maximum":10}.
+Example metric: {"id":"cost","kind":"metric","title":"Monthly cost","terms":[{"input_id":"servers","coefficient":20}],"divide_by":1,"unit":"GBP/month"}.
 Terms reference number widget IDs only. Choose sensible ranges including the initial value.
 Values not explicitly supported by evidence are illustrative assumptions: label them.
 Provide concrete human test steps and honest limitations. It is an offline prototype,
