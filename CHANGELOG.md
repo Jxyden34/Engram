@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0 — 2026-10-25
+
+- Add compiled setup wizards with bundled prebuilt application images for Windows x64, Linux x64/ARM64 and Intel/Apple Silicon macOS. Docker remains required; no Python installation or local application build is needed.
+- Add guided fresh installation with private configuration, independent secrets, administrator creation, health verification and safeguards for existing deployments and remote Docker contexts.
+- Move the Ubuntu/Debian one-line installer out of the commercial draft. It downloads a released v3 native package and checks its SHA256 before setup.
+- Add native build/self-test/package CI, fresh x64/ARM64 Linux installation checks, Windows SDK MSIX validation, and signed, verified Linux Sigstore build provenance.
+- Prepare Windows Store MSIX packages using preview identity values until Partner Center is configured. Store signing requires acceptance; direct Windows ZIPs and macOS DMGs remain unsigned previews pending desktop device qualification and platform signing.
+- Include the administrator observability dashboard for project activity, bounded latency metrics, queue counts and service readiness, plus dark scrollbar styling.
+- Align server health, OpenAPI, MCP, web package and DR monitor versions to 3.0.0. Native mobile and Gmail retain their separate preview status; commercial/team draft features are excluded.
+
+Upgrade from v2.8.0: back up the database, object storage, application images and host configuration, then rebuild/recreate the application services and update the gateway's `/install.sh` mount. No additional schema migration is required when migrations 013–017 are already applied. Existing deployments must use the upgrade procedure, not the fresh-install wizard. See [upgrading](docs/UPGRADING.md) and [native packages](docs/V3-INSTALLERS.md).
+
 ## 2.8.0 — 2026-10-24
 
 - Add bounded local-Ollama Reflect across project memories and optional document evidence, with exact source quotations, evidence budgets, bounded follow-up retrieval and knowledge-gap questions.

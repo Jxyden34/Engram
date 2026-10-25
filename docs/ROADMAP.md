@@ -643,6 +643,14 @@ not a promise of a hosted service date.
 
 ## v3.0 — Memory Agent
 
+### Native installation packages
+
+The v3.0 distribution track adds compiled Windows/Linux/macOS setup packages,
+prebuilt application images, the host installer moved from draft PR #85 and a
+native build/qualification/release-artifact pipeline. This is development work;
+stable/version promotion and platform signing/device qualification remain separate.
+See [native installation packages](V3-INSTALLERS.md).
+
 A controlled autonomous maintenance agent.
 
 Responsibilities:

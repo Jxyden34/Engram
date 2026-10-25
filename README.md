@@ -32,9 +32,13 @@ The [deployment guide](docs/DEPLOYMENT.md) recommends 4 CPU cores and 8 GB RAM
 
 Engram 2.8 adds source-cited reflection, reviewed project briefs, memory lifecycle controls, pinning and audited undo. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
 
-**Current stable release:** `v2.8.0`
+**Current server release:** `v3.0.0`
 **Mobile preview:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
+
+**v3.0 distribution:** [Native Windows, Linux and macOS setup packages](docs/V3-INSTALLERS.md),
+Windows Store packaging and Linux build-provenance verification. Desktop packages
+retain the signing and device-qualification limits documented below.
 
 The v2.7.0 release promoted the projects and Memory Agent preview to `main`
 and returns to the 2.x release numbering after v6.5.0. It retains the stable
@@ -70,6 +74,7 @@ the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 - Client ID Metadata Documents and Protected Resource Metadata
 - Automated disaster-recovery restore testing
 - Backup integrity, retention and off-site replication monitoring
+- Administrator observability dashboard for project activity, latency and service readiness
 - MinIO source-document storage
 - Redis/RQ background workers
 - Caddy local gateway
@@ -148,6 +153,46 @@ Health check:
 curl http://127.0.0.1:8080/health
 ```
 
+## Native installers — v3.0
+
+The setup wizard bundles prebuilt Engram application images, generates private
+configuration and independent secrets, creates your administrator and opens the login
+page after checking health. You do not need Python or a local application build.
+Docker must already be installed and running; third-party service images and optional
+AI models download during setup. Existing installations are preserved.
+
+| Platform | Package | Status |
+| --- | --- | --- |
+| Windows x64 | ZIP with a compiled setup EXE | Direct download remains unsigned; requires Docker Desktop with Linux containers |
+| Windows Store x64 | MSIX plus Store identity metadata | Unsigned submission candidate with a preview identity until Partner Center is configured |
+| Linux x64 / ARM64 | Separate tar.gz archives | Signed Sigstore build provenance and verification bundles; requires Docker Engine and Compose 2.24.4+ |
+| macOS Intel / Apple Silicon | Separate DMG installers | Unsigned previews; requires Docker Desktop; Apple signing/notarization pending |
+
+Get release packages from [GitHub Releases](https://github.com/Jxyden34/Engram/releases).
+Development builds remain available from the **v3 Installer Packages** workflow run
+linked from [installer PR #98](https://github.com/Jxyden34/Engram/pull/98). The pipeline exercises
+fresh Linux installations, compiles and self-tests five native packages, validates
+the MSIX with Microsoft's SDK and verifies Linux provenance. Desktop Docker setup
+still needs device qualification; CI checks do not establish Store acceptance.
+
+For Windows Store distribution, register a free individual developer account and
+provide Partner Center's three identity values. Microsoft signs accepted Store
+submissions; the direct-download EXE remains unsigned. On Linux, download the archive
+and matching `.sigstore.json` bundle and follow the recorded GitHub CLI verification
+command before running the installer.
+
+See the [installer guide](docs/V3-INSTALLERS.md) for requirements, Store variables,
+Linux verification and the Ubuntu/Debian one-line bootstrap. A matching v3 tag attaches
+the packages, checksums and Linux provenance to a draft GitHub release for review
+before publication. After v3.0.0 is published, new Linux hosts can use:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/v3.0.0/install.sh | sudo bash
+```
+
+This requires an interactive terminal and a published package. Existing deployments
+must follow the [upgrade guide](docs/UPGRADING.md), not the fresh-install wizard.
+
 ## Cloudflare Tunnel
 
 Engram intentionally does **not** include a `cloudflared` container.
@@ -194,6 +239,7 @@ docker-compose.yml    production stack
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Deployment](docs/DEPLOYMENT.md)
+- [Native installers, Windows Store setup and Linux verification](docs/V3-INSTALLERS.md)
 - [Upgrading](docs/UPGRADING.md)
 - [Backup and restore](docs/BACKUP-RESTORE.md)
 - [Operations](docs/OPERATIONS.md)

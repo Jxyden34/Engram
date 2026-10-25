@@ -1,0 +1,179 @@
+name: v3 Installer Packages
+
+on:
+  push:
+    tags: ['v3.*']
+  pull_request:
+    paths: ['install.py', 'install.sh', 'scripts/*installer*', '.github/workflows/installers.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  payload:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, architecture: amd64}
+          - {runner: ubuntu-24.04-arm, architecture: arm64}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: '3.13'}
+      - name: Build application images and runtime payload
+        run: python scripts/build-installer-payload.py --architecture '${{ matrix.architecture }}'
+      - name: Exercise a fresh installation without local source builds
+        env:
+          ENGRAM_INSTALL_ADMIN_USER: installer-test
+          ENGRAM_INSTALL_ADMIN_PASSWORD: installer-test-password-not-production
+        run: |
+          python install.py --directory /tmp/engram-installer-smoke --mode local --host localhost --port 18080 --non-interactive --skip-models
+          curl --fail --silent http://127.0.0.1:18080/health
+          curl --fail --silent http://127.0.0.1:18080/install.sh -o /tmp/installed-bootstrap.sh
+          cmp install.sh /tmp/installed-bootstrap.sh
+          bash -n /tmp/installed-bootstrap.sh
+      - name: Remove isolated test data
+        if: always()
+        run: |
+          if test -f /tmp/engram-installer-smoke/docker-compose.install.yml; then
+            docker compose --project-directory /tmp/engram-installer-smoke -f /tmp/engram-installer-smoke/docker-compose.yml -f /tmp/engram-installer-smoke/docker-compose.install.yml down --volumes
+          fi
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: installer-payload-${{ matrix.architecture }}
+          path: dist/payload/
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 1
+
+  native:
+    needs: payload
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: windows-2025, architecture: amd64, python: x64, label: windows}
+          - {runner: ubuntu-22.04, architecture: amd64, python: x64, label: linux}
+          - {runner: ubuntu-22.04-arm, architecture: arm64, python: arm64, label: linux-arm}
+          - {runner: macos-15-intel, architecture: amd64, python: x64, label: macos-intel}
+          - {runner: macos-14, architecture: arm64, python: arm64, label: macos-apple}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          architecture: ${{ matrix.python }}
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: installer-payload-${{ matrix.architecture }}
+          path: dist/payload
+      - name: Install native build tooling
+        run: python -m pip install pyinstaller==6.22.3
+      - name: Compile, execute native self-test and package
+        env:
+          MS_STORE_IDENTITY_NAME: ${{ vars.MS_STORE_IDENTITY_NAME }}
+          MS_STORE_PUBLISHER: ${{ vars.MS_STORE_PUBLISHER }}
+          MS_STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.MS_STORE_PUBLISHER_DISPLAY_NAME }}
+          MS_STORE_VERSION: ${{ vars.MS_STORE_VERSION }}
+        run: python scripts/package-installer.py
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: installer-package-${{ matrix.label }}
+          path: |
+            dist/packages/*.zip
+            dist/packages/*.tar.gz
+            dist/packages/*.dmg
+            dist/packages/*.msix
+            dist/packages/*-store-identity.json
+            dist/packages/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  linux-provenance:
+    needs: native
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: installer-package-linux*
+          merge-multiple: true
+          path: dist/linux
+      - name: Sign Linux archive provenance with GitHub's public Sigstore identity
+        uses: actions/attest@v4.2.2
+        id: attest
+        with:
+          subject-path: dist/linux/*.tar.gz
+      - name: Verify signed archives and prepare portable verification bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p dist/provenance
+          for archive in dist/linux/*.tar.gz; do
+            bundle="dist/provenance/$(basename "$archive").sigstore.json"
+            cp "$BUNDLE_PATH" "$bundle"
+            gh attestation verify "$archive" --bundle "$bundle" --repo "$EXPECTED_REPOSITORY" \
+              --signer-workflow "$EXPECTED_REPOSITORY/.github/workflows/installers.yml" \
+              --source-ref "$GITHUB_REF" --source-digest "$GITHUB_SHA" --deny-self-hosted-runners
+          done
+          cat >dist/provenance/VERIFY-LINUX.txt <<EOF
+          These signed Sigstore bundles attest the Linux archives built by:
+          Repository: $EXPECTED_REPOSITORY
+          Workflow: .github/workflows/installers.yml
+          Source ref: $GITHUB_REF
+          Source digest: $GITHUB_SHA
+
+          Download the archive and its .sigstore.json bundle. With GitHub CLI:
+          gh attestation verify ARCHIVE.tar.gz --bundle ARCHIVE.tar.gz.sigstore.json --repo $EXPECTED_REPOSITORY --signer-workflow $EXPECTED_REPOSITORY/.github/workflows/installers.yml --source-ref $GITHUB_REF --source-digest $GITHUB_SHA --deny-self-hosted-runners
+
+          Check the source ref and digest against the release or PR you intended to use.
+          Provenance authenticates build origin and contents; it does not install a trusted Linux code-signing certificate.
+          EOF
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: installer-package-linux-provenance
+          path: dist/provenance/
+          if-no-files-found: error
+          retention-days: 7
+
+  release-assets:
+    if: startsWith(github.ref, 'refs/tags/v3.')
+    needs: [native, linux-provenance]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify explicit release version
+        run: test "$GITHUB_REF_NAME" = "v$(tr -d '\r\n' < VERSION)"
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: installer-package-*
+          merge-multiple: true
+          path: dist/packages
+      - name: Attach packages and checksums to a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "Engram $GITHUB_REF_NAME" --notes "Native Windows, Linux and macOS installer packages. Review the qualification and signing status before publishing."
+          fi
+          gh release upload "$GITHUB_REF_NAME" dist/packages/* --clobber
