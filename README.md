@@ -36,6 +36,10 @@ Engram 2.8 adds source-cited reflection, reviewed project briefs, memory lifecyc
 **Mobile preview:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
+**v3.0 development:** [Native Windows, Linux and macOS setup packages](docs/V3-INSTALLERS.md),
+Windows Store packaging and Linux build-provenance verification. These are development
+artifacts; the stable release remains `v2.8.0`.
+
 The v2.7.0 release promoted the projects and Memory Agent preview to `main`
 and returns to the 2.x release numbering after v6.5.0. It retains the stable
 security updates, dependency maintenance and Memory Intelligence features.
@@ -148,6 +152,38 @@ Health check:
 curl http://127.0.0.1:8080/health
 ```
 
+## Native installers — v3.0 development
+
+The setup wizard bundles prebuilt Engram application images, generates private
+configuration and independent secrets, creates your administrator and opens the login
+page after checking health. You do not need Python or a local application build.
+Docker must already be installed and running; third-party service images and optional
+AI models download during setup. Existing installations are preserved.
+
+| Platform | Development package | Status |
+| --- | --- | --- |
+| Windows x64 | ZIP with a compiled setup EXE | Direct download remains unsigned; requires Docker Desktop with Linux containers |
+| Windows Store x64 | MSIX plus Store identity metadata | Unsigned submission candidate with a preview identity until Partner Center is configured |
+| Linux x64 / ARM64 | Separate tar.gz archives | Signed Sigstore build provenance and verification bundles; requires Docker Engine and Compose 2.24.4+ |
+| macOS Intel / Apple Silicon | Separate DMG installers | Unsigned previews; requires Docker Desktop; Apple signing/notarization pending |
+
+Get development packages from the **v3 Installer Packages** workflow run linked from
+[installer PR #98](https://github.com/Jxyden34/Engram/pull/98). The pipeline exercises
+fresh Linux installations, compiles and self-tests five native packages, validates
+the MSIX with Microsoft's SDK and verifies Linux provenance. Desktop Docker setup
+still needs device qualification; CI checks do not establish Store acceptance.
+
+For Windows Store distribution, register a free individual developer account and
+provide Partner Center's three identity values. Microsoft signs accepted Store
+submissions; the direct-download EXE remains unsigned. On Linux, download the archive
+and matching `.sigstore.json` bundle and follow the recorded GitHub CLI verification
+command before running the installer.
+
+See the [installer guide](docs/V3-INSTALLERS.md) for requirements, Store variables,
+Linux verification and the future one-line bootstrap. A matching v3 tag attaches the
+packages, checksums and Linux provenance to a draft GitHub release for review.
+The one-line installer requires a published v3 release, which does not exist yet.
+
 ## Cloudflare Tunnel
 
 Engram intentionally does **not** include a `cloudflared` container.
@@ -194,6 +230,7 @@ docker-compose.yml    production stack
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Deployment](docs/DEPLOYMENT.md)
+- [Native installers, Windows Store setup and Linux verification](docs/V3-INSTALLERS.md)
 - [Upgrading](docs/UPGRADING.md)
 - [Backup and restore](docs/BACKUP-RESTORE.md)
 - [Operations](docs/OPERATIONS.md)
