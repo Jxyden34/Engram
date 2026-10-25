@@ -2,6 +2,7 @@ from pathlib import Path
 import hashlib
 import json
 import runpy
+import subprocess
 from unittest.mock import patch
 
 import pytest
@@ -53,3 +54,16 @@ def test_image_archive_checksum_and_runtime_compose_without_builds(tmp_path):
 def test_remote_docker_context_is_refused():
     with patch('shutil.which',return_value='/usr/bin/docker'),patch.dict('os.environ',{'DOCKER_HOST':'ssh://remote-host','DOCKER_CONTEXT':''}):
         with pytest.raises(ValueError,match='remote Docker host'):installer['require_local_docker']()
+
+
+def test_dmg_retries_only_transient_busy_errors():
+    native=runpy.run_path(str(ROOT/'scripts/package-installer.py'))
+    busy=subprocess.CompletedProcess(['hdiutil'],1,'','hdiutil: create failed - Resource busy')
+    good=subprocess.CompletedProcess(['hdiutil'],0,'created','')
+    with patch('subprocess.run',side_effect=[busy,good]) as run,patch('time.sleep') as sleep:
+        native['create_dmg'](['hdiutil','create'])
+        assert run.call_count==2
+        sleep.assert_called_once_with(2)
+    with patch('subprocess.run',return_value=subprocess.CompletedProcess(['hdiutil'],1,'','Invalid argument')) as run:
+        with pytest.raises(subprocess.CalledProcessError):native['create_dmg'](['hdiutil','create'])
+        assert run.call_count==1

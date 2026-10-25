@@ -10,9 +10,22 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 import zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
+
+
+def create_dmg(command):
+    # macOS disk-image/Spotlight locks are transient; never retry other packaging errors.
+    for attempt in range(4):
+        result=subprocess.run(command,capture_output=True,text=True)
+        print(result.stdout or '',end='')
+        print(result.stderr or '',end='',file=sys.stderr)
+        if result.returncode==0:return
+        if 'Resource busy' not in (result.stdout or '')+(result.stderr or '') or attempt==3:
+            result.check_returncode()
+        time.sleep(2**(attempt+1))
 
 
 def main():
@@ -58,7 +71,7 @@ def main():
         command.write_text('#!/bin/sh\nDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec "$DIR/runtime/EngramInstaller"\n')
         command.chmod(0o755)
         target=output/(name+'.dmg')
-        subprocess.run(['hdiutil','create','-volname','Engram Installer','-srcfolder',str(folder),'-format','UDZO','-ov',str(target)],check=True)
+        create_dmg(['hdiutil','create','-volname','Engram Installer','-srcfolder',str(folder),'-format','UDZO','-ov',str(target)])
     with target.open('rb') as handle:digest=hashlib.file_digest(handle,'sha256').hexdigest()
     target.with_name(target.name+'.sha256').write_text(digest+'  '+target.name+'\n',encoding='utf-8')
     print('Created native package:',target)
