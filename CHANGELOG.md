@@ -8,6 +8,7 @@
 - Group memory visibility, editing, pin/archive and document-source controls. Keep archive reasons and undo history available through explicit disclosures, with pending/disabled states preserved.
 - Improve responsive toolbars, panel spacing, readable secondary text and keyboard focus. Replace the outdated settings version badge with its actual PKCE capability.
 - Align server, MCP, web, DR and native package versions to 3.0.1; derive the default MSIX version from the release version. No schema migration is required. Desktop signing/qualification limits and native mobile preview status remain unchanged.
+- Fix S3 initializer argument parsing for passwords beginning with `-`; exercise this credential shape in Docker CI and retain failed storage logs before installer-test cleanup.
 
 ## 3.0.0 — 2026-10-25
 

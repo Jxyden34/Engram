@@ -205,7 +205,11 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Prepare example environment
-        run: cp .env.example .env
+        run: |
+          cp .env.example .env
+          # Exercise option-like credentials through the real S3 initializer.
+          sed -i 's/^MINIO_ROOT_PASSWORD=.*/MINIO_ROOT_PASSWORD=-engram-ci-storage-secret/' .env
+          sed -i 's/^MINIO_SECRET_KEY=.*/MINIO_SECRET_KEY=-engram-ci-storage-secret/' .env
 
       - name: Validate compose
         run: docker compose config >/dev/null
