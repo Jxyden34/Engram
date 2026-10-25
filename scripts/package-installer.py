@@ -65,8 +65,8 @@ def main():
         shutil.copytree(runtime,contents/'Resources/runtime',symlinks=True)
         with (contents/'Info.plist').open('wb') as handle:
             plistlib.dump({'CFBundleName':'Engram Installer','CFBundleIdentifier':'tech.hindley.engram.installer',
-                          'CFBundleExecutable':'launch','CFBundlePackageType':'APPL','CFBundleVersion':'1',
-                          'CFBundleShortVersionString':'3.0','NSHighResolutionCapable':True},handle)
+                          'CFBundleExecutable':'launch','CFBundlePackageType':'APPL','CFBundleVersion':build['source_version'],
+                          'CFBundleShortVersionString':build['source_version'],'NSHighResolutionCapable':True},handle)
         launcher=contents/'MacOS/launch'
         launcher.write_text('#!/bin/sh\nDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec open -a Terminal "$DIR/../Resources/install.command"\n')
         launcher.chmod(0o755)
