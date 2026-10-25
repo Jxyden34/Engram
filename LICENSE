@@ -31,6 +31,8 @@ support obligation is implied by making the source publicly visible.
 This license applies to Engram code owned by Jayden Hindley distributed with
 this notice. The same personal-use permission is also granted for that code
 in the official Engram v2.7.0 release, despite its earlier restrictive notice.
+Separately marked commercial components in backend/app/commercial/, backend/owner/
+and backend/scripts/commercial_license.py use LICENSE-COMMERCIAL instead.
 Third-party code and dependencies remain subject to their respective licenses.
 You must preserve their notices and comply with their terms.
 

@@ -1,3 +1,4 @@
+from app.preferences import chat_model as selected_chat_model
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -62,7 +63,7 @@ def queue_memory_enrichment(memory_id: str, actor: str = "system:knowledge"):
               error_message=NULL,queued_at=now()
             RETURNING *
             """,
-            (memory_id, memory["updated_at"], settings().chat_model),
+            (memory_id, memory["updated_at"], selected_chat_model()),
         ).fetchone()
         conn.commit()
     queue().enqueue("app.knowledge.enrich_memory_job", memory_id, actor, job_timeout="30m",
@@ -212,7 +213,7 @@ Content:\n{memory['content']}""")
                   entity_count=%s,relation_count=%s,event_count=%s,completed_at=now(),error_message=NULL
                 WHERE memory_id=%s
                 """,
-                (memory["updated_at"], settings().chat_model, len(entity_map), relation_count, event_count, memory_id),
+                (memory["updated_at"], selected_chat_model(), len(entity_map), relation_count, event_count, memory_id),
             )
             conn.commit()
     except Exception as exc:

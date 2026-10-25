@@ -16,19 +16,22 @@ export default function SettingsPage() {
   const [newToken, setNewToken] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [license, setLicense] = useState<any>(null);
 
   async function load() {
     try {
-      const [keyRows, clients, grantRows, summary] = await Promise.all([
+      const [keyRows, clients, grantRows, summary, entitlement] = await Promise.all([
         api<any[]>("/api/v1/keys"),
         api<any[]>("/api/v1/oauth/clients"),
         api<any[]>("/api/v1/oauth/grants"),
         api<any>("/api/v1/oauth/summary"),
+        api<any>("/api/v1/license"),
       ]);
       setKeys(keyRows);
       setOauthClients(clients);
       setGrants(grantRows);
       setOauthSummary(summary);
+      setLicense(entitlement);
     } catch (e: any) {
       setError(e.message);
     }
@@ -126,6 +129,8 @@ export default function SettingsPage() {
 
       {error && <div className="errorBox">{error}</div>}
       {notice && <div className="successBox">{notice}</div>}
+
+      {license && <section className="panel"><div className="panelHead"><h2>Licence</h2><span className="badge">{license.edition} / {license.state}</span></div><p>Manage your edition and activation key.</p><a className="button" href="/licence">Open Licence</a></section>}
 
       <div className="split">
         <section className="panel" style={{ marginTop: 0 }}>

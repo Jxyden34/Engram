@@ -10,6 +10,15 @@ from app.security import Principal
 
 
 def list_projects(principal: Principal) -> list[dict]:
+    from app.edition import get_edition
+    if get_edition() == 'commercial' and principal.auth_type in {'session','mobile'}:
+        with connect() as conn:
+            rows=conn.execute('''SELECT p.id,p.slug,p.name,p.created_at,m.role FROM projects p
+                LEFT JOIN project_members m ON m.project_id=p.id AND m.user_id=%s
+                WHERE %s OR m.user_id IS NOT NULL OR (p.id=%s AND NOT %s)
+                ORDER BY p.created_at,p.name''',
+                (principal.user_id,principal.is_admin,DEFAULT_PROJECT_ID,principal.team_only)).fetchall()
+        return [dict(row) for row in rows]
     with connect() as conn:
         rows = conn.execute(
             """SELECT p.id, p.slug, p.name, p.created_at
@@ -26,12 +35,26 @@ def resolve_project(principal: Principal, requested_id: str | None) -> str:
         bound = principal.project_id or DEFAULT_PROJECT_ID
         if requested_id and requested_id != bound:
             raise HTTPException(status_code=403, detail="Credential is bound to another project")
+        from app.edition import get_edition
+        if get_edition()=='commercial' and principal.user_id:
+            from app.commercial.workspaces import role
+            member_role=role(principal,bound)
+            if member_role is None: raise HTTPException(403,'Project access was removed')
+            if member_role=='viewer': principal.scopes.intersection_update({'memory:read','document:read','mcp:use'})
         return bound
     selected = requested_id or DEFAULT_PROJECT_ID
     try:
         UUID(selected)
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid project ID") from None
+    from app.edition import get_edition
+    if get_edition()=='commercial':
+        from app.commercial.workspaces import role
+        if not role(principal,selected): raise HTTPException(404,'Project not found')
+        with connect() as conn:
+            if not conn.execute('SELECT id FROM projects WHERE id=%s',(selected,)).fetchone():
+                raise HTTPException(404,'Project not found')
+        return selected
     with connect() as conn:
         row = conn.execute(
             "SELECT id FROM projects WHERE id=%s AND (%s OR id=%s)",

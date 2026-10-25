@@ -1,5 +1,50 @@
 # Changelog
 
+## 3.7.0-dev-beta.9 — unreleased
+
+- Add Dream Lab: project-scoped, evidence-linked offline inventions using trusted interactive building blocks, disposable browser sandboxes, experiment reports, keep/evolve/destroy and opt-in nightly generation. Apply migration 019.
+- Carry forward stable v2.8 reflection, consolidation, archival, pinning and audited undo alongside the commercial previews. Existing beta databases must also apply the named v2.8 lifecycle migrations 014_memory_archival through 017_lifecycle_undo.
+
+## 3.7.0-dev-beta.8 — unreleased
+
+- Host installation has moved out of this commercial/business preview into the separate v3.0 native distribution track (PR #98).
+
+## 3.7.0-dev-beta.7 — unreleased
+
+- Add private in-app memory reminders in Personal and Commercial with local-time scheduling, due banners, snoozing and completion. Apply migration 018.
+
+## 3.7.0-dev-beta.6 — unreleased
+
+- Add the Commercial first-run wizard with token-protected initial admin creation, licence activation, shared model selection and first-project creation. Apply migration 017.
+
+## 3.7.0-dev-beta.5 — unreleased
+
+- Add Commercial project handover exports with current memories, decisions, outstanding questions, checked saved briefs and source references in Markdown or JSON.
+
+## 3.7.0-dev-beta.4 — unreleased
+
+- Add Commercial expiry warnings, renewal requests, owner-confirmed replacement keys and deduplicated expiry emails. Payment remains manual.
+
+## 3.7.0-dev-beta.3 — unreleased
+
+- Add instance-wide Commercial company branding, a PNG logo and branded sign-in. Apply migration 016.
+
+## 3.7.0-dev-beta.2 — unreleased
+
+- Add Commercial team workspaces with project roles, one-use invitations and membership-aware credential access. Apply migration 015 before upgrading.
+
+## 3.7.0-dev-beta.1 — unreleased
+
+- Add offline Ed25519 commercial licence keys bound to an installation and expiry date, an owner-only issuer CLI, and administrator activation/status in Settings.
+- Split Personal Community (free for noncommercial use) and Commercial builds. Commercial requires a valid key for product API/MCP access; health, login and activation remain available. Community images omit proprietary code; both customer builds omit the issuer CLI.
+- Add a responsive activation screen and separate owner licence manager. Manually confirming payment issues one key and automatically emails it from the configured SMTP mailbox, with durable retries and same-key resending.
+- Add migration 014. Checkout, payment processing and online revocation are not included. Existing releases retain their licence notices.
+
+### Earlier development carried forward
+
+- Add bounded Reflect answers with quick/standard/deep evidence budgets and checked, multi-source quotations.
+- Add explicitly saved project briefs with source fingerprints, project isolation, freshness checks and manual rebuild/review. Source memories remain unchanged.
+- Add migration 013 for saved briefs; see [rollout and limitations](docs/REFLECTION-BRIEFS.md).
 ## 2.8.0 — 2026-10-24
 
 - Add bounded local-Ollama Reflect across project memories and optional document evidence, with exact source quotations, evidence budgets, bounded follow-up retrieval and knowledge-gap questions.

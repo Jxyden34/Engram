@@ -4,6 +4,7 @@ from mcp.server import MCPServer
 
 from app import memories
 from app import intelligence
+from app import licensing
 from app.documents import search_chunks
 from app.security import Principal
 
@@ -12,7 +13,7 @@ mcp_principal: ContextVar[Principal | None] = ContextVar("mcp_principal", defaul
 
 mcp = MCPServer(
     "Personal Engram",
-    version="2.8.0",
+    version="3.7.0-dev-beta.9",
     instructions=(
         "Search and maintain the user's private self-hosted Engram. "
         "Use search before creating duplicate memories. "
@@ -27,6 +28,8 @@ def principal(scope: str) -> Principal:
         raise PermissionError("Unauthenticated MCP request")
     if scope not in value.scopes:
         raise PermissionError(f"Missing scope: {scope}")
+    if scope in {"memory:write", "memory:delete_request"}:
+        licensing.require_commercial_license()
     return value
 
 

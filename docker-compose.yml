@@ -14,6 +14,12 @@ services:
       - ./db/migrations/011_agent_schedules.sql:/docker-entrypoint-initdb.d/011-agent-schedules.sql:ro
       - ./db/migrations/012_agent_review.sql:/docker-entrypoint-initdb.d/012-agent-review.sql:ro
       - ./db/migrations/013_project_briefs.sql:/docker-entrypoint-initdb.d/013-project-briefs.sql:ro
+      - ./db/migrations/014_commercial_license.sql:/docker-entrypoint-initdb.d/014-commercial-license.sql:ro
+      - ./db/migrations/015_team_workspaces.sql:/docker-entrypoint-initdb.d/015-team-workspaces.sql:ro
+      - ./db/migrations/016_branding.sql:/docker-entrypoint-initdb.d/016-branding.sql:ro
+      - ./db/migrations/017_setup.sql:/docker-entrypoint-initdb.d/017-setup.sql:ro
+      - ./db/migrations/018_reminders.sql:/docker-entrypoint-initdb.d/018-reminders.sql:ro
+      - ./db/migrations/019_dream_lab.sql:/docker-entrypoint-initdb.d/019-dream-lab.sql:ro
       - ./db/migrations/014_memory_archival.sql:/docker-entrypoint-initdb.d/014-memory-archival.sql:ro
       - ./db/migrations/015_cluster_review.sql:/docker-entrypoint-initdb.d/015-cluster-review.sql:ro
       - ./db/migrations/016_memory_pinning.sql:/docker-entrypoint-initdb.d/016-memory-pinning.sql:ro
@@ -119,6 +125,8 @@ services:
     build: ./backend
     restart: unless-stopped
     env_file: .env
+    volumes:
+      - ./secrets:/run/secrets:ro
     command: ["python", "-m", "app.connector_scheduler"]
     depends_on:
       db:
