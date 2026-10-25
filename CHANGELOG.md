@@ -7,7 +7,7 @@
 
 ## 3.7.0-dev-beta.8 — unreleased
 
-- Add a full Linux host setup command with prerequisite installation, an interactive deployment wizard, generated secrets, administrator creation, optional model downloads and HTTPS configuration.
+- Host installation has moved out of this commercial/business preview into the separate v3.0 native distribution track (PR #98).
 
 ## 3.7.0-dev-beta.7 — unreleased
 
