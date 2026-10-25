@@ -3,7 +3,7 @@ import json
 import math
 import httpx
 from datetime import datetime, timedelta, timezone
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
@@ -71,12 +71,15 @@ class Inspiration(SourceReference):
     quote: str = Field(min_length=12, max_length=400)
 
 
-class Prototype(StrictModel):
+class PrototypeText(StrictModel):
     title: str = Field(min_length=1, max_length=120)
     premise: str = Field(min_length=1, max_length=1000)
-    widgets: list[Widget] = Field(min_length=2, max_length=12)
     how_to_test: list[str] = Field(min_length=1, max_length=5)
     limitations: str = Field(min_length=1, max_length=1200)
+
+
+class Prototype(PrototypeText):
+    widgets: list[Widget] = Field(min_length=2, max_length=12)
 
     @model_validator(mode='after')
     def connected(self):
@@ -96,7 +99,24 @@ class Prototype(StrictModel):
         return self
 
 
-class GeneratedPrototype(Prototype):
+class ChecklistWidget(Widget):
+    kind: Literal['checklist']
+    items: list[str] = Field(min_length=1, max_length=20)
+
+
+class BoardWidget(Widget):
+    kind: Literal['board']
+    items: list[str] = Field(min_length=1, max_length=20)
+
+
+class MetricWidget(Widget):
+    kind: Literal['metric']
+    terms: list[Term] = Field(min_length=1, max_length=8)
+
+
+class GeneratedPrototype(PrototypeText):
+    widgets: list[Widget] = Field(min_length=1, max_length=11)
+    interaction: Annotated[ChecklistWidget | BoardWidget | MetricWidget, Field(discriminator='kind')]
     inspiration: list[SourceReference] = Field(min_length=2, max_length=6)
 
 
@@ -138,6 +158,8 @@ boards and text panels. No HTML, JavaScript, shell commands, URLs or external se
 Include at least one functional interaction: a checklist or board with items, or
 a metric with terms referencing number inputs. Inputs and explanatory text alone
 are not a working tool. For calculations include both the number and metric widgets.
+Put the main working tool in the required interaction field. Put its supporting
+number inputs, text panels and any extra controls in widgets; use distinct IDs.
 For metric widgets: (constant + sum(input value * coefficient)) / divide_by.
 Keep units consistent. Use divide_by=1 unless a conversion is explicitly needed.
 Example number: {"id":"servers","kind":"number","title":"Server count","value":1,"minimum":1,"maximum":10}.
@@ -160,7 +182,9 @@ def generate(sources, direction, previous=None):
             if any(c.source > len(sources) for c in prototype.inspiration):
                 raise ValueError('Reference supplied source numbers only')
             # Provenance is copied from checked inputs, never fabricated or paraphrased by the model.
-            return Artifact.model_validate({**prototype.model_dump(), 'inspiration': [
+            return Artifact.model_validate({**prototype.model_dump(exclude={'interaction'}),
+                'widgets': [w.model_dump() for w in prototype.widgets]+[prototype.interaction.model_dump()],
+                'inspiration': [
                 {'source': c.source, 'quote': sources[c.source-1]['content'][:200]}
                 for c in prototype.inspiration]})
         except (ValidationError, ValueError) as exc:

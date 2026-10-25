@@ -28,6 +28,7 @@ def artifact():
 def generated():
     data = artifact()
     data['inspiration'] = [{'source': 1}, {'source': 2}]
+    data['interaction'] = data['widgets'].pop()
     return data
 
 
