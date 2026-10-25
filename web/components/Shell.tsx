@@ -17,7 +17,6 @@ const links = [
   ["/knowledge", "Knowledge Graph", "◎"],
   ["/timeline", "Timeline", "◷"],
   ["/health", "Memory Health", "♡"],
-  ["/observability", "Observability", "◴"],
   ["/disaster-recovery", "Disaster Recovery", "⛨"],
   ["/approvals", "Approvals", "◇"],
   ["/audit", "Audit trail", "⌁"],

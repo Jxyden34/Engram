@@ -12,7 +12,6 @@ from redis import Redis
 from rq import Queue
 
 from app.config import settings
-from app.observability import timed
 from app.database import connect, current_project_id, project_job
 from app.documents import get_document, minio_client
 from app.embeddings import embed, embed_literal
@@ -215,7 +214,6 @@ def _chunks(text: str, max_chars: int):
     return chunks
 
 
-@timed('ollama')
 def _ollama_json(system: str, user: str, *, timeout: float = 300.0, max_tokens: int | None = None, format_schema: dict | None = None) -> dict[str, Any]:
     cfg = settings()
     response = httpx.post(

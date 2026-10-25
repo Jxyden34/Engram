@@ -2,8 +2,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from io import BytesIO
 from uuid import UUID
-from time import perf_counter
-from starlette.concurrency import run_in_threadpool
 
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from urllib.parse import quote
@@ -23,7 +21,6 @@ from app import memory_agent
 from app import ask
 from app import reflection
 from app import consolidation
-from app import observability
 from app import document_memory_import as doc_mem
 from app.audit import log
 from app.capture import create_capture
@@ -234,14 +231,7 @@ async def security_middleware(request: Request, call_next):
 
     try:
         with project_scope(selected_project or current_project_id()):
-            started, status = perf_counter(), 500
-            try:
-                response = await call_next(request)
-                status = response.status_code
-                return response
-            finally:
-                if selected_project and path.startswith('/api/v1/') and path != '/api/v1/observability':
-                    await run_in_threadpool(observability.observe,'api',perf_counter()-started,status>=400)
+            return await call_next(request)
     finally:
         if token is not None:
             mcp_principal.reset(token)
@@ -250,14 +240,6 @@ async def security_middleware(request: Request, call_next):
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "engram", "version": "2.8.0"}
-
-
-@app.get('/api/v1/observability')
-def operational_metrics(request: Request):
-    p = require(request,'audit:read')
-    if not p.is_admin or p.auth_type != 'session':
-        raise HTTPException(status_code=403,detail='Administrator session required')
-    return observability.snapshot()
 
 
 def _check_login(body: LoginRequest):

@@ -2,10 +2,8 @@ import httpx
 from fastapi import HTTPException
 from app.config import settings
 from app.util import vector_literal
-from app.observability import timed
 
 
-@timed('embedding')
 def embed(text: str) -> list[float]:
     cfg = settings()
     try:
