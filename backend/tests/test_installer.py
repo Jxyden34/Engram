@@ -3,7 +3,9 @@ import hashlib
 import json
 import runpy
 import subprocess
+import sys
 from unittest.mock import patch
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -67,3 +69,30 @@ def test_dmg_retries_only_transient_busy_errors():
     with patch('subprocess.run',return_value=subprocess.CompletedProcess(['hdiutil'],1,'','Invalid argument')) as run:
         with pytest.raises(subprocess.CalledProcessError):native['create_dmg'](['hdiutil','create'])
         assert run.call_count==1
+
+
+def test_store_identity_requires_complete_metadata_and_store_version():
+    store=runpy.run_path(str(ROOT/'scripts/package-installer-msix.py'))
+    preview=store['identity']({'MS_STORE_VERSION':''})
+    assert preview['identity_configured'] is False and preview['version']=='3.0.0.0'
+    with pytest.raises(ValueError,match='all three'):
+        store['identity']({'MS_STORE_IDENTITY_NAME':'Reserved.Engram'})
+    for version in ['3.0.0.1','3.0.0','3.0.65536.0','3.0.x.0']:
+        with pytest.raises(ValueError,match='Store version'):store['identity']({'MS_STORE_VERSION':version})
+    info=store['identity']({'MS_STORE_IDENTITY_NAME':'Reserved.Engram','MS_STORE_PUBLISHER':'CN=A & B',
+                            'MS_STORE_PUBLISHER_DISPLAY_NAME':'A & B <Dev>'})
+    root=ET.fromstring(store['manifest'](info))
+    ns=store['NS']
+    assert root.find('{'+ns['']+'}Identity').attrib['Publisher']=='CN=A & B'
+    assert root.find('{'+ns['']+'}Properties/{'+ns['']+'}PublisherDisplayName').text=='A & B <Dev>'
+    app=root.find('{'+ns['']+'}Applications/{'+ns['']+'}Application')
+    assert app.attrib['{'+ns['uap10']+'}TrustLevel']=='mediumIL'
+    assert root.find('{'+ns['']+'}Capabilities/{'+ns['rescap']+'}Capability').attrib['Name']=='runFullTrust'
+
+
+def test_msix_uses_physical_home_folder_for_docker_mounts(tmp_path):
+    default=installer['default_directory']
+    with patch.dict(default.__globals__,{'packaged_windows':lambda:True}),patch.object(Path,'home',return_value=tmp_path):
+        assert default()==tmp_path/'Engram'
+    with patch.dict(default.__globals__,{'packaged_windows':lambda:False}),patch.object(sys,'platform','win32'),patch.dict('os.environ',{'LOCALAPPDATA':str(tmp_path/'AppData/Local')}):
+        assert default()==tmp_path/'AppData/Local/Engram'

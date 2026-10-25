@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import runpy
 import shutil
 import subprocess
 import sys
@@ -52,6 +53,8 @@ def main():
         with zipfile.ZipFile(target,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as archive:
             for path in sorted(runtime.rglob('*')):
                 if path.is_file():archive.write(path,Path('EngramInstaller')/path.relative_to(runtime))
+        store=runpy.run_path(str(ROOT/'scripts/package-installer-msix.py'))
+        store['package'](runtime,output,name)
     elif platform=='linux':
         target=output/(name+'.tar.gz')
         with tarfile.open(target,'w:gz',compresslevel=1) as archive:archive.add(runtime,arcname='EngramInstaller')

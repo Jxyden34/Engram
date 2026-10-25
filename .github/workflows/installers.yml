@@ -80,6 +80,11 @@ jobs:
       - name: Install native build tooling
         run: python -m pip install pyinstaller==6.22.3
       - name: Compile, execute native self-test and package
+        env:
+          MS_STORE_IDENTITY_NAME: ${{ vars.MS_STORE_IDENTITY_NAME }}
+          MS_STORE_PUBLISHER: ${{ vars.MS_STORE_PUBLISHER }}
+          MS_STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.MS_STORE_PUBLISHER_DISPLAY_NAME }}
+          MS_STORE_VERSION: ${{ vars.MS_STORE_VERSION }}
         run: python scripts/package-installer.py
       - uses: actions/upload-artifact@v7.0.2
         with:
@@ -88,14 +93,70 @@ jobs:
             dist/packages/*.zip
             dist/packages/*.tar.gz
             dist/packages/*.dmg
+            dist/packages/*.msix
+            dist/packages/*-store-identity.json
             dist/packages/*.sha256
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
 
+  linux-provenance:
+    needs: native
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: installer-package-linux*
+          merge-multiple: true
+          path: dist/linux
+      - name: Sign Linux archive provenance with GitHub's public Sigstore identity
+        uses: actions/attest@v4.2.2
+        id: attest
+        with:
+          subject-path: dist/linux/*.tar.gz
+      - name: Verify signed archives and prepare portable verification bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p dist/provenance
+          for archive in dist/linux/*.tar.gz; do
+            bundle="dist/provenance/$(basename "$archive").sigstore.json"
+            cp "$BUNDLE_PATH" "$bundle"
+            gh attestation verify "$archive" --bundle "$bundle" --repo "$EXPECTED_REPOSITORY" \
+              --signer-workflow "$EXPECTED_REPOSITORY/.github/workflows/installers.yml" \
+              --source-ref "$GITHUB_REF" --source-digest "$GITHUB_SHA" --deny-self-hosted-runners
+          done
+          cat >dist/provenance/VERIFY-LINUX.txt <<EOF
+          These signed Sigstore bundles attest the Linux archives built by:
+          Repository: $EXPECTED_REPOSITORY
+          Workflow: .github/workflows/installers.yml
+          Source ref: $GITHUB_REF
+          Source digest: $GITHUB_SHA
+
+          Download the archive and its .sigstore.json bundle. With GitHub CLI:
+          gh attestation verify ARCHIVE.tar.gz --bundle ARCHIVE.tar.gz.sigstore.json --repo $EXPECTED_REPOSITORY --signer-workflow $EXPECTED_REPOSITORY/.github/workflows/installers.yml --source-ref $GITHUB_REF --source-digest $GITHUB_SHA --deny-self-hosted-runners
+
+          Check the source ref and digest against the release or PR you intended to use.
+          Provenance authenticates build origin and contents; it does not install a trusted Linux code-signing certificate.
+          EOF
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: installer-package-linux-provenance
+          path: dist/provenance/
+          if-no-files-found: error
+          retention-days: 7
+
   release-assets:
     if: startsWith(github.ref, 'refs/tags/v3.')
-    needs: native
+    needs: [native, linux-provenance]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

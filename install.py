@@ -2,6 +2,7 @@
 """Engram setup wizard. Adapted from draft PR #85 for prebuilt, native packages."""
 import argparse
 import csv
+import ctypes
 import getpass
 import hashlib
 import json
@@ -88,7 +89,15 @@ def verify_payload(source):
     return build
 
 
+def packaged_windows():
+    if sys.platform!='win32':return False
+    length=ctypes.c_uint32(0)
+    return ctypes.windll.kernel32.GetCurrentPackageFullName(ctypes.byref(length),None)==122
+
+
 def default_directory():
+    # Docker runs outside MSIX; AppData redirection would hide bind-mount files from it.
+    if packaged_windows():return Path.home()/'Engram'
     if sys.platform=='win32':return Path(os.environ.get('LOCALAPPDATA',Path.home()))/'Engram'
     if sys.platform=='darwin':return Path.home()/'Library/Application Support/Engram'
     return Path('/opt/engram') if os.geteuid()==0 else Path.home()/'.local/share/engram'
