@@ -25,6 +25,12 @@ def artifact():
             'limitations': 'Illustrative numbers; no connection to real services.'}
 
 
+def generated():
+    data = artifact()
+    data['inspiration'] = [{'source': 1}, {'source': 2}]
+    return data
+
+
 def test_dreams_only_accept_bounded_connected_data():
     parsed = dreams.Artifact.model_validate(artifact())
     assert dreams.baseline(parsed.widgets[1], {'servers': 3}) == 60
@@ -61,7 +67,7 @@ def test_small_model_gets_one_bounded_repair_attempt(monkeypatch):
     requests = []
     def model(system, user, **kwargs):
         requests.append((json.loads(user), kwargs))
-        data = artifact()
+        data = generated()
         if len(requests) == 1: data['widgets'][0]['value'] = 11
         return data
     monkeypatch.setattr(dreams, '_ollama_json', model)
@@ -70,6 +76,15 @@ def test_small_model_gets_one_bounded_repair_attempt(monkeypatch):
     assert result.widgets[0].value == 2 and len(requests) == 2
     assert requests[1][0]['repair_errors']
     assert all(r[1]['timeout'] == 90.0 for r in requests)
+
+
+def test_inspiration_excerpts_are_copied_from_inputs_not_written_by_model(monkeypatch):
+    monkeypatch.setattr(dreams, '_ollama_json', lambda *a, **k: generated())
+    result = dreams.generate([{'content': c} for c in CONTENT], '')
+    assert [s.quote for s in result.inspiration] == CONTENT
+    invalid = generated(); invalid['inspiration'][1]['source'] = 3
+    monkeypatch.setattr(dreams, '_ollama_json', lambda *a, **k: invalid)
+    with pytest.raises(ValueError): dreams.generate([{'content': c} for c in CONTENT], '')
 
 
 @pytest.fixture
@@ -95,8 +110,8 @@ def corpus():
 
 
 def model_for_sources(system, user, **kwargs):
-    data = artifact(); context = __import__('json').loads(user)
-    data['inspiration'] = [{'source': i+1, 'quote': s['content'][:30]} for i, s in enumerate(context['sources'])]
+    data = generated(); context = __import__('json').loads(user)
+    data['inspiration'] = [{'source': i+1} for i, s in enumerate(context['sources'])]
     return data
 
 

@@ -34,8 +34,11 @@ no external resources, forms, popups, parent access, persistent storage or crede
 Generated strings are rendered as text. The preview uses illustrative assumptions
 where evidence does not supply numbers; check those before making decisions.
 
-The server checks schema limits, at least two distinct supporting memories, exact
-quotations, calculation references and baseline calculations. Browser control
+The server checks schema limits, references to at least two distinct input memories,
+calculation references and baseline calculations. It attaches exact input excerpts
+directly from the source snapshots; the model never writes those quotations. These
+show which memories inspired the tool, not proof that each invented feature is a
+fact supported by them. Browser control
 checks run only when the preview opens. These checks establish structure and
 interaction, not whether an invention is useful or factually correct. Follow its
 human test steps. Keeping a dream is not approval to deploy or to create new facts.
