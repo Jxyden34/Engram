@@ -74,6 +74,7 @@ the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
 - Client ID Metadata Documents and Protected Resource Metadata
 - Automated disaster-recovery restore testing
 - Backup integrity, retention and off-site replication monitoring
+- Administrator observability dashboard for project activity, latency and service readiness
 - MinIO source-document storage
 - Redis/RQ background workers
 - Caddy local gateway

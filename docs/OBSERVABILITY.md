@@ -1,8 +1,9 @@
 # v2.9 Observability — first development increment
 
-This branch starts the v2.9 roadmap. Stable remains v2.8.0; this increment does not
-publish v2.9 or deploy development code to Blackwall. No schema migration or new
-runtime dependency is required.
+This first increment of the v2.9 roadmap provides the operator dashboard. The runtime
+version remains v2.8.0 until a separate v2.9 release; deploying this increment does
+not publish a new stable version. No schema migration or new runtime dependency is
+required.
 
 ## Operator dashboard
 
