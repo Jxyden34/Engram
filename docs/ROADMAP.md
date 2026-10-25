@@ -38,7 +38,7 @@ These are implemented previews, not a stable release or a promise of production 
 | beta.5 | Project handover packs | Bounded, source-linked project exports. |
 | beta.6 | Guided first-run setup | Account, licence and local model configuration. |
 | beta.7 | Memory reminders | In-app reminders; no OS push. |
-| beta.8 | Host deployment installer | Fresh Ubuntu/Debian wizard; short `/install.sh` endpoint. |
+| beta.8 | Installer moved | Host setup and native distribution continue separately in v3.0 (PR #98). |
 | beta.9 | **Dream Lab** | Evidence-linked offline inventions, disposable browser previews, keep/evolve/destroy and opt-in nightly generation. |
 
 ### Dream Lab: current scope

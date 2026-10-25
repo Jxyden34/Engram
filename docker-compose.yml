@@ -150,7 +150,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./gateway/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./install.sh:/srv/engram/install.sh:ro
     depends_on:
       - web
       - api
