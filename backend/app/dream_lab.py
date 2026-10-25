@@ -1,6 +1,7 @@
 """Bounded, evidence-linked inventions. Models produce data, never executable code."""
 import json
 import math
+import httpx
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
@@ -267,15 +268,20 @@ def run_dream(identifier: str):
             conn.execute("""UPDATE dream_runs SET status='ready',artifact=%s,report=%s,completed_at=now()
                 WHERE id=%s AND status='running'""", (Jsonb(artifact.model_dump()), Jsonb(report), identifier))
             conn.commit()
-    except Exception:
+    except Exception as exc:
         # Provider errors may contain source text or configuration; never expose them.
+        category = type(exc).__name__
+        if isinstance(exc, httpx.HTTPStatusError):
+            category += f' HTTP {exc.response.status_code}'
+        print(f'Dream Lab stopped: stage={stage} category={category}', flush=True)
         message = {'licence': 'Commercial licence verification failed. Check activation and the worker public-key mount.',
                    'sources': 'Dream Lab needs at least two current memories, and evolution needs unchanged parent sources.',
                    'generation': 'The chat model could not produce a checked prototype after bounded generation. Check the model and try again.',
                    'publication': 'Sources changed while the prototype was being built. Generate a fresh dream.'}[stage]
         with connect() as conn:
             conn.execute("""UPDATE dream_runs SET status='failed',completed_at=now(),
-                error_message=%s WHERE id=%s AND status='running'""", (message, identifier)); conn.commit()
+                error_message=%s,report=%s WHERE id=%s AND status='running'""",
+                (message, Jsonb([f'Generation stopped during {stage} ({category}).']), identifier)); conn.commit()
 
 
 def next_night(hour: int):
