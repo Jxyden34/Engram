@@ -67,7 +67,15 @@ def main():
     (output/'BUILD.json').write_text(json.dumps({'format':1,'track':'v3.0','commit':commit,
         'source_version':(ROOT/'VERSION').read_text().strip(),'architecture':args.architecture,
         'images_sha256':digest,'images':images},indent=2)+'\n',encoding='utf-8')
-    (output/'START-HERE.txt').write_text('Engram v3.0 installer development package\n\nOpen EngramInstaller to begin guided setup. Docker Desktop (Windows/macOS) or Docker Engine and Compose (Linux) must be running. Linux hosts can use install.sh to install prerequisites. Engram application images are prebuilt and included; third-party base services and optional AI models download during installation. No Python installation or local application compilation is required.\n\nFresh installations only: existing folders, configurations and matching Docker resources are preserved. Installer previews are unsigned; operating-system trust prompts may require an explicit Open/Run action. macOS Windows Docker Desktop deployment still requires real-device qualification.\n',encoding='utf-8')
+    (output/'START-HERE.txt').write_text(
+        'Engram '+(ROOT/'VERSION').read_text().strip()+' setup package\n\n'
+        'Open EngramInstaller to begin guided setup. Docker Desktop (Windows/macOS) or Docker Engine and Compose (Linux) must be running. '
+        'Linux hosts can use install.sh to install prerequisites. Engram application images are prebuilt and included; third-party base services '
+        'and optional AI models download during installation. No Python installation or local application compilation is required.\n\n'
+        'Fresh installations only: existing folders, configurations and matching Docker resources are preserved. '
+        'Direct Windows/macOS packages remain unsigned previews pending platform signing and Docker Desktop device qualification. '
+        'Store MSIX requires Partner Center identity and Store acceptance. Linux archives have separately verifiable signed Sigstore provenance; '
+        'see docs/V3-INSTALLERS.md in the source repository.\n',encoding='utf-8')
     print('Created prebuilt payload:',output)
 
 

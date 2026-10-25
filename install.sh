@@ -16,7 +16,7 @@ if [ -z "$version" ]; then
   version=$(curl -fsSL https://api.github.com/repos/Jxyden34/Engram/releases/latest | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p')
 fi
 if [[ ! "$version" =~ ^v3\.[0-9]+\.[0-9]+([.-][a-zA-Z0-9.-]+)?$ ]]; then
-  echo 'No published v3 installer release is available. Stable v2.8 is unchanged.' >&2; exit 1
+  echo 'No published v3 installer release is available. Check the GitHub release before installing.' >&2; exit 1
 fi
 asset="engram-$version-linux-$architecture.tar.gz"
 stage=$(mktemp -d /tmp/engram-installer.XXXXXXXX)

@@ -38,7 +38,7 @@ def main():
     build=json.loads((payload/'BUILD.json').read_text())
     platform={'win32':'windows','darwin':'macos','linux':'linux'}[sys.platform]
     version=os.environ.get('GITHUB_REF_NAME','')
-    if not version.startswith('v3.'):version='v3.0-dev-'+build['commit'][:12]
+    if not version.startswith('v3.'):version='v'+build['source_version']+'-dev-'+build['commit'][:12]
     if not all(c.isalnum() or c in '.-_' for c in version):raise ValueError('Invalid package version')
     work=output/'native-build';dist=work/'dist'
     subprocess.run([sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--console',

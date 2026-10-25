@@ -1,9 +1,7 @@
 # v2.9 Observability — first development increment
 
-This first increment of the v2.9 roadmap provides the operator dashboard. The runtime
-version remains v2.8.0 until a separate v2.9 release; deploying this increment does
-not publish a new stable version. No schema migration or new runtime dependency is
-required.
+This first increment of the v2.9 roadmap provides the operator dashboard and is
+included in v3.0.0. No schema migration or new runtime dependency is required.
 
 ## Operator dashboard
 

@@ -1,8 +1,8 @@
 # v3.0 native installation packages
 
-This work moves host installation out of commercial preview PR #85 and into the
-v3.0 distribution track. It does not publish v3.0, change the stable release number
-or include the draft's commercial/business features. Stable remains v2.8.0.
+Engram v3.0.0 moves host installation out of commercial preview PR #85 and into the
+main distribution. The draft's commercial/business features are excluded. Desktop
+signing, Store acceptance and device qualification retain the limits described below.
 
 ## Packages
 
@@ -47,8 +47,8 @@ The eventual release command is:
 curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/v3.0.0/install.sh | sudo bash
 ```
 
-This URL is reserved for the future tag; use pipeline artifacts to evaluate the
-development installer. No currently published v3 stable release is implied.
+The URL requires the published v3.0.0 tag and release assets. Before publication,
+use pipeline artifacts to evaluate the development installer.
 
 ## Build pipeline
 
@@ -78,13 +78,14 @@ CI compiles and self-tests on those operating systems; Linux CI also exercises t
 container stack. Neither native self-tests nor readiness substitute for device tests.
 
 The pipeline contains no signing keys, licence issuer private keys or owner dashboard.
-All packages retain the repository licence and recorded source commit. Runtime version
-stays unchanged until a separate release/version instruction is given.
+All packages retain the repository licence and recorded source commit. The server,
+MCP, web package and DR monitor report version 3.0.0; native mobile retains its
+separate preview channel.
 
 ## Free Windows Store signing route
 
 Without an account, the build uses a clearly marked preview package identity and
-MSIX version `3.0.0.0`. These packaging values do not change Engram's runtime version.
+MSIX version `3.0.0.0`, corresponding to server version 3.0.0.
 The accompanying `*-store-identity.json` records whether real Store values were used.
 An unsigned preview MSIX cannot be installed as a publicly trusted Store application.
 
