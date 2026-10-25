@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import Modal from "@/components/Modal";
+import ActionGroup from "@/components/ActionGroup";
 import { api, dateText } from "@/lib/api";
 
 export default function MemoriesPage() {
@@ -56,13 +57,13 @@ export default function MemoriesPage() {
   return (
     <>
       <Topbar eyebrow="Knowledge objects" title="Memories" />
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
+      <div className="pageToolbar">
         <form className="searchBar" onSubmit={doSearch}>
-          <input className="input" name="q" placeholder="Search by meaning, not just words…" />
+          <input className="input" name="q" aria-label="Search memories" placeholder="Search by meaning, not just words…" />
           <button className="button" type="submit">Search</button>
           {results && <button className="ghostButton" type="button" onClick={() => setResults(null)}>Clear</button>}
         </form>
-        <div className="row"><button className="ghostButton" onClick={() => setArchived(!archived)}>{archived ? "Hide archived" : "Include archived"}</button><button className="ghostButton" onClick={() => setHistorical(!historical)}>{historical ? "Hide history" : "Show history"}</button><button className="button primary" onClick={() => setShowAdd(true)}>+ New memory</button></div>
+        <div className="toolbarActions"><ActionGroup label="Memory visibility"><button className="ghostButton" aria-pressed={archived} onClick={() => setArchived(!archived)}>Archived</button><button className="ghostButton" aria-pressed={historical} onClick={() => setHistorical(!historical)}>History</button></ActionGroup><button className="button primary" onClick={() => setShowAdd(true)}>+ New memory</button></div>
       </div>
       {error && <div className="errorBox">{error}</div>}
       <section className="panel">

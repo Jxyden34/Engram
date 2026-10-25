@@ -1,6 +1,6 @@
 # v3.0 native installation packages
 
-Engram v3.0.0 moves host installation out of commercial preview PR #85 and into the
+Engram v3.0.1 moves host installation out of commercial preview PR #85 and into the
 main distribution. The draft's commercial/business features are excluded. Desktop
 signing, Store acceptance and device qualification retain the limits described below.
 
@@ -44,10 +44,10 @@ Until a v3 release exists, the script exits before changing system packages.
 The eventual release command is:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/v3.0.0/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/v3.0.1/install.sh | sudo bash
 ```
 
-The URL requires the published v3.0.0 tag and release assets. Before publication,
+The URL requires the published v3.0.1 tag and release assets. Before publication,
 use pipeline artifacts to evaluate the development installer.
 
 ## Build pipeline
@@ -79,13 +79,13 @@ container stack. Neither native self-tests nor readiness substitute for device t
 
 The pipeline contains no signing keys, licence issuer private keys or owner dashboard.
 All packages retain the repository licence and recorded source commit. The server,
-MCP, web package and DR monitor report version 3.0.0; native mobile retains its
+MCP, web package and DR monitor report version 3.0.1; native mobile retains its
 separate preview channel.
 
 ## Free Windows Store signing route
 
 Without an account, the build uses a clearly marked preview package identity and
-MSIX version `3.0.0.0`, corresponding to server version 3.0.0.
+MSIX version `3.0.1.0`, corresponding to server version 3.0.1.
 The accompanying `*-store-identity.json` records whether real Store values were used.
 An unsigned preview MSIX cannot be installed as a publicly trusted Store application.
 
@@ -132,7 +132,7 @@ gh attestation verify ARCHIVE.tar.gz \
   --bundle ARCHIVE.tar.gz.sigstore.json \
   --repo Jxyden34/Engram \
   --signer-workflow Jxyden34/Engram/.github/workflows/installers.yml \
-  --source-ref refs/tags/v3.0.0 --source-digest FULL_COMMIT_SHA \
+  --source-ref refs/tags/v3.0.1 --source-digest FULL_COMMIT_SHA \
   --deny-self-hosted-runners
 ```
 
