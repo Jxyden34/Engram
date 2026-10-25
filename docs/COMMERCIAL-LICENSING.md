@@ -11,7 +11,7 @@ docker compose -f docker-compose.yml -f docker-compose.commercial.yml up -d
 
 Deploy only the issuer's **public** Ed25519 key in `secrets/commercial-license-public.pem`.
 Set `COMMERCIAL_LICENSE_PURCHASE_URL` to the owner's request page, for example
-`https://engram-beta.hindley.tech/licence-store/`.
+`https://engram-beta-commercial.hindley.tech/licence-store/`.
 Open `/licence`, copy the installation ID, request a key, sign in as an administrator,
 and paste the emailed key. A missing, forged, expired or differently scoped key keeps
 product API and MCP access locked with HTTP 402. Health, login and licence activation
