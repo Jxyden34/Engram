@@ -184,6 +184,12 @@ keep the useful parts and implement the user's direction within these building b
 
 
 def generate(sources, direction, previous=None):
+    if previous:
+        # Saved artifacts flatten the main interaction for rendering. Restore the
+        # generation schema before evolution so the model does not duplicate it.
+        previous = {**previous, 'widgets': previous['widgets'][:-1],
+                    'interaction': previous['widgets'][-1],
+                    'inspiration': [{'source': c['source']} for c in previous['inspiration']]}
     context = {'direction': direction, 'previous': previous,
                'sources': [dict(s, number=i+1) for i, s in enumerate(sources)]}
     # One bounded repair attempt helps small local models satisfy the numeric/schema constraints.
@@ -297,7 +303,9 @@ def run_dream(identifier: str):
                 raise ValueError('Parent sources changed')
             if parent:
                 ids = [s['id'] for s in parent['sources']]
-                rows = conn.execute('SELECT * FROM memories WHERE id=ANY(%s::uuid[]) ORDER BY id', (ids,)).fetchall()
+                by_id = {str(r['id']): r for r in conn.execute(
+                    'SELECT * FROM memories WHERE id=ANY(%s::uuid[])', (ids,)).fetchall()}
+                rows = [by_id[i] for i in ids if i in by_id]
             else:
                 rows = conn.execute("""SELECT * FROM memories WHERE deleted_at IS NULL AND archived_at IS NULL
                     AND (valid_from IS NULL OR valid_from<=now()) AND (valid_to IS NULL OR valid_to>now())

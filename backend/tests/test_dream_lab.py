@@ -90,6 +90,19 @@ def test_inspiration_excerpts_are_copied_from_inputs_not_written_by_model(monkey
     with pytest.raises(ValueError): dreams.generate([{'content': c} for c in CONTENT], '')
 
 
+def test_evolution_restores_generation_format_before_prompting(monkeypatch):
+    import json
+    previous = dreams.Artifact.model_validate(artifact()).model_dump()
+    def model(system, user, **kwargs):
+        prompt = json.loads(user)['previous']
+        assert prompt['interaction']['id'] == previous['widgets'][-1]['id']
+        assert all(w['id'] != prompt['interaction']['id'] for w in prompt['widgets'])
+        assert all(set(c) == {'source'} for c in prompt['inspiration'])
+        return generated()
+    monkeypatch.setattr(dreams, '_ollama_json', model)
+    assert dreams.generate([{'content': c} for c in CONTENT], 'Evolve it', previous)
+
+
 @pytest.fixture
 def corpus():
     with connect() as conn:
@@ -141,6 +154,7 @@ def test_dream_lifecycle_isolation_evolution_and_stale_sources(corpus, monkeypat
         child = str(dreams.queue_dream(dreams.DreamRequest(parent_id=identifier, direction='Make it simpler'), 'test')['id'])
         dreams.run_dream.__wrapped__(child)
         assert dreams.get_dream(child)['parent_id'] == result['id']
+        assert [s['id'] for s in dreams.get_dream(child)['sources']] == [s['id'] for s in result['sources']]
     with project_scope(projects[1]):
         with pytest.raises(HTTPException) as absent: dreams.get_dream(identifier)
         assert absent.value.status_code == 404
