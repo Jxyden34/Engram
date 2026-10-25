@@ -88,8 +88,8 @@ class Prototype(StrictModel):
             raise ValueError('Test steps must contain 1 to 400 characters')
         if any(t.input_id not in inputs for w in self.widgets for t in w.terms):
             raise ValueError('Calculations may reference numeric inputs only')
-        if not any(w.kind in {'number', 'checklist', 'board'} for w in self.widgets):
-            raise ValueError('Build something interactive')
+        if not any(w.kind in {'checklist', 'board'} or (w.kind == 'metric' and w.terms) for w in self.widgets):
+            raise ValueError('Include a working checklist, searchable board, or metric linked to numeric inputs')
         for w in self.widgets:
             if w.kind == 'metric':
                 baseline(w, {i.id: i.value for i in self.widgets if i.kind == 'number'})
@@ -135,6 +135,9 @@ their source numbers only. Engram attaches exact excerpts itself; do not write q
 Create a novel combination, not a summary. Do not invent factual source claims.
 You can compose number inputs, calculated metrics, interactive checklists, searchable
 boards and text panels. No HTML, JavaScript, shell commands, URLs or external services.
+Include at least one functional interaction: a checklist or board with items, or
+a metric with terms referencing number inputs. Inputs and explanatory text alone
+are not a working tool. For calculations include both the number and metric widgets.
 For metric widgets: (constant + sum(input value * coefficient)) / divide_by.
 Keep units consistent. Use divide_by=1 unless a conversion is explicitly needed.
 Example number: {"id":"servers","kind":"number","title":"Server count","value":1,"minimum":1,"maximum":10}.
