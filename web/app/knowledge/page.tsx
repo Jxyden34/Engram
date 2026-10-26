@@ -25,6 +25,7 @@ export default function KnowledgePage() {
   const [detailError, setDetailError] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [addError, setAddError] = useState("");
   const [enriching, setEnriching] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -40,7 +41,9 @@ export default function KnowledgePage() {
       api<Entity[]>("/api/v1/knowledge/entities?limit=250", { signal: controller.signal }),
     ]).then(([next, list]) => {
       if (controller.signal.aborted) return;
-      setGraph(next); setEntities(list); setLoaded(true);
+      const directory = new Map(list.map(entity => [entity.id, entity]));
+      setGraph({ ...next, nodes: next.nodes.map(node => ({ ...directory.get(node.id), ...node })) });
+      setEntities(list); setLoaded(true);
     }).catch(e => { if (!controller.signal.aborted) setError(e.message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -78,14 +81,14 @@ export default function KnowledgePage() {
 
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget);
-    setSaving(true); setError("");
+    setSaving(true); setAddError("");
     try {
       await api("/api/v1/knowledge/entities", { method: "POST", body: JSON.stringify({
         name: form.get("name"), entity_type: form.get("entity_type") || "other", description: form.get("description"),
         aliases: String(form.get("aliases") || "").split(",").map(x => x.trim()).filter(Boolean),
       }) });
       setShowAdd(false); setRevision(v => v + 1);
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setAddError(e.message); }
     finally { setSaving(false); }
   }
 
@@ -97,7 +100,7 @@ export default function KnowledgePage() {
       <p>Follow the people, projects and ideas that connect your memories.</p>
       <div className="row">
         <button className="ghostButton" disabled={loading} onClick={() => setRevision(v => v + 1)}>{loading ? "Loading…" : "Refresh"}</button>
-        <button className="ghostButton" onClick={() => setShowAdd(true)}>+ Entity</button>
+        <button className="ghostButton" onClick={() => { setAddError(""); setShowAdd(true); }}>+ Entity</button>
         <button className="button primary" disabled={enriching} onClick={enrich}>{enriching ? "Queuing…" : "Enrich memories"}</button>
       </div>
     </div>
@@ -125,7 +128,7 @@ export default function KnowledgePage() {
             {detailError ? <div className="errorBox" role="alert">{detailError}<button className="ghostButton" onClick={() => setRevision(v => v + 1)}>Retry</button></div> : !detail || detail.id !== selectedId ? <p className="meta" role="status">Loading entity…</p> : <>
               {detail.description && <p className="knowledgeDescription">{detail.description}</p>}
               {!!detail.aliases?.length && <p className="meta">Also known as {detail.aliases.join(", ")}</p>}
-              <div className="knowledgeDetailStats"><span><strong>{detail.memories.length}</strong> linked memories</span><span><strong>{detail.relations.length}</strong> relationships</span></div>
+              <div className="knowledgeDetailStats"><span><strong>{detail.memories.length}</strong> memories shown</span><span><strong>{detail.relations.length}</strong> relationships shown</span></div>
               <button className="ghostButton knowledgeFocus" disabled={!inMap} aria-pressed={focus} onClick={() => { setFocus(v => !v); setQuery(""); setType(""); }}>{focus ? "Show full map" : "Focus connections"}</button>
               {(!inMap || hiddenSelection) && <p className="meta">{!inMap ? "This entity is outside the current map sample. Increase the map size to explore more connections." : "Current filters hide this entity."}</p>}
               <h3>Relationships</h3>{!detail.relations.length && <p className="meta">No relationships yet.</p>}
@@ -141,6 +144,6 @@ export default function KnowledgePage() {
         </>}
       </aside>
     </div>
-    {showAdd && <Modal title="Create entity" onClose={() => { if (!saving) setShowAdd(false); }}><form className="formGrid" onSubmit={add}><div className="field full"><label htmlFor="entity-name">Name</label><input id="entity-name" className="input" name="name" required /></div><div className="field"><label htmlFor="entity-type">Type</label><input id="entity-type" className="input" name="entity_type" defaultValue="other" /></div><div className="field"><label htmlFor="entity-aliases">Aliases, comma separated</label><input id="entity-aliases" className="input" name="aliases" /></div><div className="field full"><label htmlFor="entity-description">Description</label><textarea id="entity-description" className="textarea" name="description" /></div><div className="field full row" style={{ justifyContent: "flex-end" }}><button className="button primary" disabled={saving}>{saving ? "Creating…" : "Create"}</button></div></form></Modal>}
+    {showAdd && <Modal title="Create entity" onClose={() => { if (!saving) setShowAdd(false); }}><form className="formGrid" onSubmit={add}>{addError && <div className="errorBox field full" role="alert">{addError}</div>}<div className="field full"><label htmlFor="entity-name">Name</label><input id="entity-name" className="input" name="name" required /></div><div className="field"><label htmlFor="entity-type">Type</label><input id="entity-type" className="input" name="entity_type" defaultValue="other" /></div><div className="field"><label htmlFor="entity-aliases">Aliases, comma separated</label><input id="entity-aliases" className="input" name="aliases" /></div><div className="field full"><label htmlFor="entity-description">Description</label><textarea id="entity-description" className="textarea" name="description" /></div><div className="field full row" style={{ justifyContent: "flex-end" }}><button className="button primary" disabled={saving}>{saving ? "Creating…" : "Create"}</button></div></form></Modal>}
   </>;
 }
