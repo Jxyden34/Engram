@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.1 — 2026-10-25
+
+- Group the main navigation into Library, Workspace, Capture & review, and System, retaining every destination. Add a mobile navigation toggle, current-page announcements and a keyboard skip link.
+- Replace Memory Health with Health & about: live server and web versions, check time, release/support links, administrator service readiness, and the existing project quality, duplicate and stale-memory checks. Partial failures remain visible without hiding unrelated information.
+- Serve the dashboard at `/system`, fixing its collision with the gateway's existing `/health` JSON monitoring endpoint.
+- Group memory visibility, editing, pin/archive and document-source controls. Keep archive reasons and undo history available through explicit disclosures, with pending/disabled states preserved.
+- Improve responsive toolbars, panel spacing, readable secondary text and keyboard focus. Replace the outdated settings version badge with its actual PKCE capability.
+- Align server, MCP, web, DR and native package versions to 3.0.1; derive the default MSIX version from the release version. No schema migration is required. Desktop signing/qualification limits and native mobile preview status remain unchanged.
+- Fix S3 initializer argument parsing for passwords beginning with `-`; exercise this credential shape in Docker CI and retain failed storage logs before installer-test cleanup.
+
 ## 3.0.0 — 2026-10-25
 
 - Add compiled setup wizards with bundled prebuilt application images for Windows x64, Linux x64/ARM64 and Intel/Apple Silicon macOS. Docker remains required; no Python installation or local application build is needed.

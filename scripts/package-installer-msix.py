@@ -27,7 +27,7 @@ def identity(environ):
     if not re.fullmatch(r'[A-Za-z0-9.-]{3,50}',name):raise ValueError('Invalid Store package identity name')
     if not publisher.startswith('CN=') or len(publisher)>8192:raise ValueError('Use the exact Publisher value from Partner Center')
     if not display or len(display)>256 or any(ord(c)<32 for c in publisher+display):raise ValueError('Invalid Store publisher display name')
-    version=environ.get('MS_STORE_VERSION') or '3.0.0.0'
+    version=environ.get('MS_STORE_VERSION') or (ROOT/'VERSION').read_text().strip()+'.0'
     parts=version.split('.')
     if len(parts)!=4 or any(not p.isascii() or not p.isdigit() or int(p)>65535 for p in parts) or parts[-1]!='0':
         raise ValueError('Store version must be four numbers, each 0–65535, with a final .0')

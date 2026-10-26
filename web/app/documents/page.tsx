@@ -200,7 +200,7 @@ export default function DocumentsPage() {
             Folders are uploaded recursively. ZIPs are safely unpacked server-side.
           </div>
 
-          <div className="row" style={{ justifyContent: "center", marginTop: 18, flexWrap: "wrap" }}>
+          <div className="actionGroup uploadActions" role="group" aria-label="Choose upload source">
             <button className="button" type="button" onClick={() => fileInput.current?.click()}>
               Choose files / ZIPs
             </button>

@@ -134,7 +134,7 @@ export default function SettingsPage() {
               <h2>MCP OAuth</h2>
               <div className="meta">Recommended for interactive AI clients.</div>
             </div>
-            <span className="badge ready">v2.2</span>
+            <span className="badge ready">PKCE</span>
           </div>
 
           <div className="meta">MCP resource</div>

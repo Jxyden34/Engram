@@ -40,6 +40,13 @@ jobs:
           curl --fail --silent http://127.0.0.1:18080/install.sh -o /tmp/installed-bootstrap.sh
           cmp install.sh /tmp/installed-bootstrap.sh
           bash -n /tmp/installed-bootstrap.sh
+      - name: Capture failed storage initialization before cleanup
+        if: failure()
+        run: |
+          if test -f /tmp/engram-installer-smoke/docker-compose.install.yml; then
+            docker compose --project-directory /tmp/engram-installer-smoke -f /tmp/engram-installer-smoke/docker-compose.yml -f /tmp/engram-installer-smoke/docker-compose.install.yml ps --all
+            docker compose --project-directory /tmp/engram-installer-smoke -f /tmp/engram-installer-smoke/docker-compose.yml -f /tmp/engram-installer-smoke/docker-compose.install.yml logs --no-color --tail 100 minio minio-init
+          fi
       - name: Remove isolated test data
         if: always()
         run: |

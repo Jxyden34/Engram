@@ -5,23 +5,31 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
-const links = [
+const groups = [
+  { title: "Library", links: [
   ["/", "Overview", "◈"],
   ["/memories", "Memories", "◎"],
-  ["/intelligence", "Intelligence", "✧"],
   ["/documents", "Documents", "▱"],
+  ["/knowledge", "Knowledge graph", "◎"],
+  ["/timeline", "Timeline", "◷"],
+  ] },
+  { title: "Workspace", links: [
+  ["/intelligence", "Intelligence", "✧"],
   ["/projects", "Projects", "▦"],
   ["/agent", "Memory Agent", "✧"],
+  ] },
+  { title: "Capture & review", links: [
   ["/imports", "Memory Inbox", "✦"],
   ["/connectors", "Connectors", "⇄"],
-  ["/knowledge", "Knowledge Graph", "◎"],
-  ["/timeline", "Timeline", "◷"],
-  ["/health", "Memory Health", "♡"],
+  ["/approvals", "Approvals", "◇"],
+  ] },
+  { title: "System", links: [
+  ["/system", "Health & about", "♡"],
   ["/observability", "Observability", "◴"],
   ["/disaster-recovery", "Disaster Recovery", "⛨"],
-  ["/approvals", "Approvals", "◇"],
   ["/audit", "Audit trail", "⌁"],
   ["/settings", "AI, API & OAuth", "⌘"],
+  ] },
 ];
 
 export default function Shell({ children }: { children: ReactNode }) {
@@ -29,8 +37,12 @@ export default function Shell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState("");
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [version, setVersion] = useState("");
 
   useEffect(() => {
+    setNavigationOpen(false);
+    api<{version:string}>("/health").then(v => setVersion(v.version)).catch(() => setVersion(""));
     setSelectedProject(window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001");
     document.cookie = `engram_project=${window.localStorage.getItem("engram_project_id") || "00000000-0000-0000-0000-000000000001"}; path=/; SameSite=Lax`;
     if (pathname !== "/login") {
@@ -52,7 +64,8 @@ export default function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="shell">
-      <aside className="sidebar">
+      <a className="skipLink" href="#main-content">Skip to content</a>
+      <aside className={`sidebar ${navigationOpen ? "navigationOpen" : ""}`}>
         <div className="brand">
           <div className="brandMark" aria-hidden="true" />
           <div>
@@ -60,6 +73,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             <span>private cognition layer</span>
           </div>
         </div>
+        <button type="button" className="ghostButton navigationToggle" aria-expanded={navigationOpen} aria-controls="sidebar-navigation" onClick={() => setNavigationOpen(!navigationOpen)}>{navigationOpen ? "Close navigation" : "Navigation"}</button>
 
         <label className="projectPicker">
           <span>Project</span>
@@ -72,30 +86,33 @@ export default function Shell({ children }: { children: ReactNode }) {
           </select>
         </label>
 
-        <nav>
-          {links.map(([href, label, icon]) => (
+        <nav id="sidebar-navigation" className="sidebarNavigation" aria-label="Main navigation">
+          {groups.map(group => <div className="navGroup" key={group.title}>
+          <div className="navGroupTitle">{group.title}</div>
+          {group.links.map(([href, label, icon]) => (
             <Link
               key={href}
               href={href}
+              aria-current={pathname === href || (href !== "/" && pathname.startsWith(href)) ? "page" : undefined}
               className={
                 pathname === href || (href !== "/" && pathname.startsWith(href))
                   ? "navLink active"
                   : "navLink"
               }
             >
-              <span className="navIcon">{icon}</span>
+              <span className="navIcon" aria-hidden="true">{icon}</span>
               {label}
             </Link>
-          ))}
+          ))}</div>)}
         </nav>
 
         <div className="sidebarFoot">
-          <div className="secureDot"><i /> Encrypted edge</div>
+          <Link className="serverVersion" href="/system">Engram <span>{version ? `v${version}` : "Server information"}</span></Link>
           <button className="ghostButton" onClick={logout}>Sign out</button>
         </div>
       </aside>
 
-      <main className="main">{children}</main>
+      <main className="main" id="main-content" tabIndex={-1}>{children}</main>
     </div>
   );
 }

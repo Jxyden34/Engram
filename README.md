@@ -32,7 +32,7 @@ The [deployment guide](docs/DEPLOYMENT.md) recommends 4 CPU cores and 8 GB RAM
 
 Engram 2.8 adds source-cited reflection, reviewed project briefs, memory lifecycle controls, pinning and audited undo. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
 
-**Current server release:** `v3.0.0`
+**Current server release:** `v3.0.1`
 **Mobile preview:** `v2.7.0-alpha1`
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
@@ -153,6 +153,8 @@ Health check:
 curl http://127.0.0.1:8080/health
 ```
 
+v3.0.1 tidies navigation into four sections, groups related controls, and replaces Memory Health with a **Health & about** hub for the live server version, web version, service readiness and project memory quality.
+
 ## Native installers — v3.0
 
 The setup wizard bundles prebuilt Engram application images, generates private
@@ -184,10 +186,10 @@ command before running the installer.
 See the [installer guide](docs/V3-INSTALLERS.md) for requirements, Store variables,
 Linux verification and the Ubuntu/Debian one-line bootstrap. A matching v3 tag attaches
 the packages, checksums and Linux provenance to a draft GitHub release for review
-before publication. After v3.0.0 is published, new Linux hosts can use:
+before publication. New Linux hosts can use:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/v3.0.0/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/v3.0.1/install.sh | sudo bash
 ```
 
 This requires an interactive terminal and a published package. Existing deployments
