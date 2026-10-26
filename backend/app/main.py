@@ -13,7 +13,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from app import memories
 from app import intelligence
-from app import health
+from app import health as health_checks
 from app import knowledge
 from app import connectors
 from app import oauth
@@ -1091,7 +1091,7 @@ def timeline_event_create(body: EventCreate, request: Request):
 @app.get("/api/v1/health/summary")
 def memory_health(request: Request):
     require(request, "memory:read")
-    return health.summary()
+    return health_checks.summary()
 
 
 @app.get("/api/v1/connectors/capabilities")
