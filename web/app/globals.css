@@ -489,3 +489,7 @@ td strong { color:#f7f8fa; }
 @media(max-width:500px){.knowledgeFilters{grid-template-columns:1fr 1fr;gap:12px 8px}.knowledgeSearch{grid-column:1/-1}.knowledgeFilters .input{font-size:12px;padding-inline:9px}.knowledgeIntro .row{gap:8px;flex-wrap:wrap}.knowledgeIntro .button,.knowledgeIntro .ghostButton{font-size:11px}.networkCanvas>svg{height:420px}.networkControls button{min-width:44px;height:44px}.networkHelp{font-size:10px;left:10px;top:10px}.networkControls{right:10px;bottom:10px}.knowledgeMapPanel .panelHead{padding:14px}.knowledgeMapPanel .panelHead h2{font-size:14px}.knowledgeMapPanel .panelHead .meta{font-size:10px}}
 .knowledgeMobileDetails{display:none}
 @media(max-width:850px){.knowledgeMobileDetails{display:block;margin:14px 18px 0;min-height:44px}.knowledgeInspector:focus{outline:2px solid var(--accent2);outline-offset:3px}}
+.knowledgeMapPanel,.knowledgeInspector{padding:0}
+.knowledgeMapPanel>.panelHead,.knowledgeInspector>.panelHead{padding:18px 20px;margin:0}
+.knowledgeInspector>.panelHead{border-bottom:1px solid var(--border)}
+.knowledgeDirectoryHint{padding-top:14px}

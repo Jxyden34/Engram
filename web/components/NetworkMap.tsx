@@ -22,9 +22,30 @@ export default function NetworkMap({ graph, positions, selectedId, query, allLab
     graph.edges.forEach(e => { if (e.from_entity_id === active) ids.add(e.to_entity_id); if (e.to_entity_id === active) ids.add(e.from_entity_id); });
     return ids;
   }, [graph.edges, active]);
-  const prominent = useMemo(() => new Set([...graph.nodes].sort((a, b) => (b.relation_count || 0) + b.memory_count - (a.relation_count || 0) - a.memory_count).slice(0, 10).map(n => n.id)), [graph.nodes]);
   const hasActive = graph.nodes.some(n => n.id === active);
-  const labelledEdges = new Set(graph.edges.filter(e => e.from_entity_id === active || e.to_entity_id === active).sort((a, b) => b.confidence - a.confidence).slice(0, 6).map(e => e.id));
+  const labelledNodes = useMemo(() => {
+    const boxes: { x: number; y: number; width: number }[] = [];
+    const ids = new Set<string>();
+    const ranked = [...graph.nodes].sort((a, b) => Number(b.id === active) - Number(a.id === active) || (b.relation_count || 0) + b.memory_count - (a.relation_count || 0) - a.memory_count);
+    for (const node of ranked) {
+      if (hasActive && !neighbours.has(node.id)) continue;
+      const p = positions.get(node.id); if (!p) continue;
+      const box = { x: p.x, y: p.y + nodeRadius(node) + 18, width: Math.min(24, node.name.length) * 6 + 12 };
+      if (boxes.some(b => Math.abs(b.y - box.y) < 18 && Math.abs(b.x - box.x) < (b.width + box.width) / 2)) continue;
+      ids.add(node.id); boxes.push(box);
+      if (ids.size >= 10) break;
+    }
+    return ids;
+  }, [graph.nodes, positions, active, hasActive, neighbours]);
+  const labelledEdges = new Set<string>();
+  const labelledPairs = new Set<string>();
+  for (const edge of [...graph.edges].sort((a, b) => b.confidence - a.confidence)) {
+    if (edge.from_entity_id !== active && edge.to_entity_id !== active) continue;
+    const pair = [edge.from_entity_id, edge.to_entity_id].sort().join('/');
+    if (labelledPairs.has(pair)) continue;
+    labelledPairs.add(pair); labelledEdges.add(edge.id);
+    if (labelledEdges.size >= 6) break;
+  }
   function fit() { setZoom(1); setPan({ x: 0, y: 0 }); }
   // Filtering retains node coordinates but fits the newly visible neighbourhood.
   const scope = graph.nodes.map(n => n.id).join(",");
@@ -77,7 +98,7 @@ export default function NetworkMap({ graph, positions, selectedId, query, allLab
         const p = positions.get(node.id); if (!p) return null;
         const radius = nodeRadius(node), connected = !hasActive || neighbours.has(node.id);
         const matched = !!query.trim() && matchesEntity(node, query);
-        const showLabel = allLabels || graph.nodes.length <= 18 || node.id === active || (hasActive && connected && prominent.has(node.id)) || matched || (!hasActive && prominent.has(node.id));
+        const showLabel = allLabels || graph.nodes.length <= 18 || node.id === active || labelledNodes.has(node.id) || matched;
         return <g data-entity={node.id} key={node.id} role="button" tabIndex={0} aria-pressed={selectedId === node.id}
           aria-label={`${node.name}, ${node.entity_type}, ${node.memory_count} linked memories`} className={`networkNode${connected ? "" : " isDimmed"}${node.id === selectedId ? " isSelected" : ""}`}
           style={{ "--node-colour": entityColour(node.entity_type) } as CSSProperties}
