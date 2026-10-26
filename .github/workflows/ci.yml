@@ -162,6 +162,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check navigation hierarchy and route coverage
+        run: npm run test:navigation
+
   mobile:
     runs-on: ubuntu-latest
     defaults:

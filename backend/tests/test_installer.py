@@ -74,7 +74,7 @@ def test_dmg_retries_only_transient_busy_errors():
 def test_store_identity_requires_complete_metadata_and_store_version():
     store=runpy.run_path(str(ROOT/'scripts/package-installer-msix.py'))
     preview=store['identity']({'MS_STORE_VERSION':''})
-    assert preview['identity_configured'] is False and preview['version']=='3.0.1.0'
+    assert preview['identity_configured'] is False and preview['version']=='3.0.2.0'
     with pytest.raises(ValueError,match='all three'):
         store['identity']({'MS_STORE_IDENTITY_NAME':'Reserved.Engram'})
     for version in ['3.0.0.1','3.0.0','3.0.65536.0','3.0.x.0']:

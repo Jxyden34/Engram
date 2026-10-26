@@ -1,8 +1,9 @@
 {
   "name": "engram-web",
   "private": true,
-  "version": "3.0.1",
+  "version": "3.0.2",
   "scripts": {
+    "test:navigation": "node --experimental-strip-types --test lib/navigation.test.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000"

@@ -2,43 +2,29 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 
-const groups = [
-  { title: "Library", links: [
-  ["/", "Overview", "◈"],
-  ["/memories", "Memories", "◎"],
-  ["/documents", "Documents", "▱"],
-  ["/knowledge", "Knowledge graph", "◎"],
-  ["/timeline", "Timeline", "◷"],
-  ] },
-  { title: "Workspace", links: [
-  ["/intelligence", "Intelligence", "✧"],
-  ["/projects", "Projects", "▦"],
-  ["/agent", "Memory Agent", "✧"],
-  ] },
-  { title: "Capture & review", links: [
-  ["/imports", "Memory Inbox", "✦"],
-  ["/connectors", "Connectors", "⇄"],
-  ["/approvals", "Approvals", "◇"],
-  ] },
-  { title: "System", links: [
-  ["/system", "Health & about", "♡"],
-  ["/observability", "Observability", "◴"],
-  ["/disaster-recovery", "Disaster Recovery", "⛨"],
-  ["/audit", "Audit trail", "⌁"],
-  ["/settings", "AI, API & OAuth", "⌘"],
-  ] },
-];
+import { navigationGroups, navigationGroup, isNavigationPage } from "@/lib/navigation";
 
 export default function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const activeGroup = navigationGroup(pathname) || navigationGroups[0];
+  const subtabs = useRef<HTMLElement>(null);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState("");
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    const bar = subtabs.current;
+    const selected = bar?.querySelector<HTMLElement>('[aria-current]');
+    if (!bar || !selected) return;
+    if (selected.offsetLeft < bar.scrollLeft) bar.scrollLeft = selected.offsetLeft;
+    else if (selected.offsetLeft + selected.offsetWidth > bar.scrollLeft + bar.clientWidth)
+      bar.scrollLeft = selected.offsetLeft + selected.offsetWidth - bar.clientWidth;
+  }, [pathname]);
 
   useEffect(() => {
     setNavigationOpen(false);
@@ -87,23 +73,15 @@ export default function Shell({ children }: { children: ReactNode }) {
         </label>
 
         <nav id="sidebar-navigation" className="sidebarNavigation" aria-label="Main navigation">
-          {groups.map(group => <div className="navGroup" key={group.title}>
-          <div className="navGroupTitle">{group.title}</div>
-          {group.links.map(([href, label, icon]) => (
-            <Link
-              key={href}
-              href={href}
-              aria-current={pathname === href || (href !== "/" && pathname.startsWith(href)) ? "page" : undefined}
-              className={
-                pathname === href || (href !== "/" && pathname.startsWith(href))
-                  ? "navLink active"
-                  : "navLink"
-              }
-            >
-              <span className="navIcon" aria-hidden="true">{icon}</span>
-              {label}
+          {navigationGroups.map(group => (
+            <Link key={group.title} href={group.links[0][0]}
+              aria-current={group === activeGroup ? "location" : undefined}
+              className={`navLink primaryNavLink ${group === activeGroup ? "active" : ""}`}
+              onClick={() => setNavigationOpen(false)}>
+              <span className="navIcon" aria-hidden="true">{group.icon}</span>
+              {group.title}
             </Link>
-          ))}</div>)}
+          ))}
         </nav>
 
         <div className="sidebarFoot">
@@ -112,7 +90,21 @@ export default function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="main" id="main-content" tabIndex={-1}>{children}</main>
+      <main className="main" id="main-content" tabIndex={-1}>
+        <div className="sectionNavigation">
+          <div className="sectionLabel">{activeGroup.title}</div>
+          <nav className="sectionTabs" ref={subtabs} aria-label={`${activeGroup.title} pages`}>
+            {activeGroup.links.map(([href,label]) => (
+              <Link key={href} href={href}
+                aria-current={isNavigationPage(pathname,href) ? (pathname === href ? "page" : "location") : undefined}
+                className={`sectionTab ${isNavigationPage(pathname,href) ? "active" : ""}`}>
+                {label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+        {children}
+      </main>
     </div>
   );
 }

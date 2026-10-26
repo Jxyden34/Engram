@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.2 — 2026-10-26
+
+- Reduce the main sidebar from sixteen page links to four section tabs: Library, Workspace, Capture & review, and System. Each section shows only its own page subtabs inside the main view; every existing destination and URL remains available.
+- Keep the correct parent and subtab selected on direct loads, nested memory pages, refresh and back/forward navigation. Subtabs scroll within their own row on smaller screens; mobile navigation closes after choosing a section.
+- Add navigation coverage and route-boundary regression checks to web CI, and validate native packages on release-version changes.
+- Include the Memory Quality module-shadowing fix in newly built installers, alongside its authenticated, populated-project and isolation regression test.
+- Align server, MCP, web, DR, MSIX and macOS bundle metadata to 3.0.2. No schema migration or runtime dependency change; existing desktop signing and qualification limits remain unchanged.
+
 ## 3.0.1 — 2026-10-25
 
 - Group the main navigation into Library, Workspace, Capture & review, and System, retaining every destination. Add a mobile navigation toggle, current-page announcements and a keyboard skip link.
