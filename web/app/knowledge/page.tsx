@@ -102,10 +102,10 @@ export default function KnowledgePage() {
       </div>
     </div>
     <section className="knowledgeFilters" aria-label="Graph filters">
-      <label className="knowledgeSearch"><span>Search loaded entities</span><input className="input" type="search" placeholder="Find a name, idea or alias…" value={query} onChange={e => { setQuery(e.target.value); setFocus(false); }} /></label>
-      <label><span>Entity type</span><select className="input" value={type} onChange={e => setType(e.target.value)}><option value="">All types</option>{types.map(t => <option key={t} value={t}>{t}</option>)}</select></label>
-      <label><span>Relationship confidence</span><select className="input" value={confidence} onChange={e => setConfidence(Number(e.target.value))}><option value={0}>All relationships</option><option value={.7}>70% and above</option><option value={.9}>90% and above</option></select></label>
-      <label><span>Map size</span><select className="input" value={limit} disabled={loading} onChange={e => setLimit(Number(e.target.value))}>{[40, 80, 120].map(n => <option key={n} value={n}>Up to {n} entities</option>)}</select></label>
+      <label className="knowledgeSearch"><span id="graph-search-label">Search loaded entities</span><input aria-labelledby="graph-search-label" className="input" type="search" placeholder="Find a name, idea or alias…" value={query} onChange={e => { setQuery(e.target.value); setFocus(false); }} /></label>
+      <label><span id="graph-type-label">Entity type</span><select aria-labelledby="graph-type-label" className="input" value={type} onChange={e => setType(e.target.value)}><option value="">All types</option>{types.map(t => <option key={t} value={t}>{t}</option>)}</select></label>
+      <label><span id="graph-confidence-label">Relationship confidence</span><select aria-labelledby="graph-confidence-label" className="input" value={confidence} onChange={e => setConfidence(Number(e.target.value))}><option value={0}>All relationships</option><option value={.7}>70% and above</option><option value={.9}>90% and above</option></select></label>
+      <label><span id="graph-size-label">Map size</span><select aria-labelledby="graph-size-label" className="input" value={limit} disabled={loading} onChange={e => setLimit(Number(e.target.value))}>{[40, 80, 120].map(n => <option key={n} value={n}>Up to {n} entities</option>)}</select></label>
     </section>
     <div className="knowledgeExplorer">
       <section className="panel knowledgeMapPanel" aria-label="Relationship map" aria-busy={loading}>
@@ -113,10 +113,11 @@ export default function KnowledgePage() {
         {loading && !loaded ? <div className="networkEmpty" role="status">Building your map…</div> : visible.nodes.length ?
           <NetworkMap graph={visible} positions={positions} selectedId={selectedId} query={query} allLabels={labels} onSelect={setSelectedId} onClear={clearSelection} /> :
           <div className="networkEmpty"><span className="networkEmptyIcon" aria-hidden="true">◎</span><h3>{error && !loaded ? "Map unavailable" : graph.nodes.length ? "No entities match these filters" : "Your connections start here"}</h3><p>{error && !loaded ? "Retry loading the map above." : graph.nodes.length ? "Try a broader search or show all entity types." : "Enrich your memories to discover entities and their relationships, or add an entity yourself."}</p>{graph.nodes.length > 0 && <button className="ghostButton" onClick={resetFilters}>Clear filters</button>}</div>}
+        {selectedId && <button className="ghostButton knowledgeMobileDetails" aria-controls="graph-inspector" onClick={() => document.getElementById("graph-inspector")?.focus()}>View entity details ↓</button>}
         <div className="knowledgeLegend">{[...new Set(visible.nodes.map(n => n.entity_type))].sort().map(t => <button key={t} className="knowledgeType" onClick={() => setType(type === t ? "" : t)} aria-pressed={type === t}><i style={{ background: entityColour(t) }} />{t}</button>)}<span className="meta">Larger dots = more linked memories</span></div>
         <p className="knowledgeScope">Map shows up to {limit} of the most connected entities. Search covers the {entities.length} loaded directory entries; matching map entities include their direct neighbours. <button onClick={resetFilters}>Clear filters</button></p>
       </section>
-      <aside className="panel knowledgeInspector" aria-label={selectedId ? "Entity details" : "Entity directory"}>
+      <aside id="graph-inspector" tabIndex={-1} className="panel knowledgeInspector" aria-label={selectedId ? "Entity details" : "Entity directory"}>
         {selectedId ? <>
           <div className="panelHead"><button className="ghostButton" onClick={clearSelection}>← All entities</button><span className="meta">Entity details</span></div>
           <div className="knowledgeDetail" aria-live="polite">

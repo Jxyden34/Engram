@@ -43,6 +43,11 @@ export function layoutGraph(graph: Graph): Map<string, Point> {
   const index = new Map(nodes.map((n, i) => [n.id, i]));
   const links = graph.edges.filter(e => e.from_entity_id !== e.to_entity_id && index.has(e.from_entity_id) && index.has(e.to_entity_id))
     .sort((a, b) => a.id.localeCompare(b.id));
+  const degree = new Map<string, number>();
+  for (const edge of links) {
+    degree.set(edge.from_entity_id, (degree.get(edge.from_entity_id) || 0) + 1);
+    degree.set(edge.to_entity_id, (degree.get(edge.to_entity_id) || 0) + 1);
+  }
   const positions = nodes.map((_, i) => {
     const angle = i * 2.399963229728653;
     const radius = Math.sqrt((i + .5) / Math.max(1, nodes.length)) * 270;
@@ -55,7 +60,7 @@ export function layoutGraph(graph: Graph): Map<string, Point> {
         const dx = positions[i].x - positions[j].x, dy = positions[i].y - positions[j].y;
         const distance = Math.max(1, Math.hypot(dx, dy));
         const clearance = nodeRadius(nodes[i]) + nodeRadius(nodes[j]) + 26;
-        const force = 1500 / (distance * distance) + Math.max(0, clearance - distance) * .16;
+        const force = 1500 / (distance * distance) + Math.max(0, clearance - distance) * .65;
         const x = dx / distance * force, y = dy / distance * force;
         forces[i].x += x; forces[i].y += y; forces[j].x -= x; forces[j].y -= y;
       }
@@ -64,7 +69,9 @@ export function layoutGraph(graph: Graph): Map<string, Point> {
       const a = index.get(edge.from_entity_id)!, b = index.get(edge.to_entity_id)!;
       const dx = positions[b].x - positions[a].x, dy = positions[b].y - positions[a].y;
       const distance = Math.max(1, Math.hypot(dx, dy));
-      const force = (distance - 90) * .09;
+      // Dense hubs and repeated relationships should not collapse their neighbours.
+      const strength = .09 / Math.sqrt(Math.min(degree.get(edge.from_entity_id)!, degree.get(edge.to_entity_id)!));
+      const force = (distance - 90) * strength;
       const x = dx / distance * force, y = dy / distance * force;
       forces[a].x += x; forces[a].y += y; forces[b].x -= x; forces[b].y -= y;
     }
