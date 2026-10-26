@@ -165,6 +165,9 @@ jobs:
       - name: Check navigation hierarchy and route coverage
         run: npm run test:navigation
 
+      - name: Check graph layout and filtering
+        run: npm run test:graph
+
   mobile:
     runs-on: ubuntu-latest
     defaults:
