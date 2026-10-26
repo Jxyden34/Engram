@@ -189,9 +189,12 @@ the packages, checksums and Linux provenance to a draft GitHub release for revie
 before publication. New Linux hosts can use:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/v3.0.2/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/main/install.sh | sudo bash
 ```
 
+This permanent top-level launcher selects the latest stable package automatically;
+the command does not change for each release. A deployed instance can also serve it
+at `/install.sh`. Use `ENGRAM_INSTALL_VERSION` only when deliberately pinning a release.
 This requires an interactive terminal and a published package. Existing deployments
 must follow the [upgrade guide](docs/UPGRADING.md), not the fresh-install wizard.
 

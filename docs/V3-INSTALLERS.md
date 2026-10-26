@@ -34,21 +34,25 @@ Failures retain installation data for diagnosis; the installer never removes vol
 
 ## Linux one-line entry point
 
-After a v3 release is published, the instance can serve `/install.sh`, or use the
-script from that release tag. It selects a published v3 package, checks its SHA256,
+The permanent launcher lives at the repository root as `install.sh`; deployed
+instances also serve `/install.sh`. It selects the latest stable v3 package, checks its SHA256,
 then asks before installing Ubuntu/Debian prerequisites and opening the wizard.
 It never installs code from the commercial draft branch. Existing container runtime
 packages are preserved; conflicting installations require manual Docker configuration.
-Until a v3 release exists, the script exits before changing system packages.
+If a compatible published package is unavailable, it exits before changing system packages.
 
-The eventual release command is:
+The install command stays the same across releases:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/v3.0.2/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Jxyden34/Engram/main/install.sh | sudo bash
 ```
 
-The URL requires the published v3.0.2 tag and release assets. Before publication,
-use pipeline artifacts to evaluate the development installer.
+The command always uses the root-level launcher on `main`, which resolves the latest
+stable GitHub release and downloads its architecture-specific package/checksum.
+It is not tied to a release tag and does not need updating for each release. The
+deployed mirror is `https://memory.hindley.tech/install.sh`. Versioned package assets
+remain available for verification and rollback; set `ENGRAM_INSTALL_VERSION` only
+when deliberately selecting an older or specific release.
 
 ## Build pipeline
 
