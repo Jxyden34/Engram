@@ -12,7 +12,7 @@ mcp_principal: ContextVar[Principal | None] = ContextVar("mcp_principal", defaul
 
 mcp = MCPServer(
     "Personal Engram",
-    version="3.0.1",
+    version="3.0.2",
     instructions=(
         "Search and maintain the user's private self-hosted Engram. "
         "Use search before creating duplicate memories. "

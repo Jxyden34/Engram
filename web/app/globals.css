@@ -456,3 +456,19 @@ td strong { color:#f7f8fa; }
   .actionGroup > :is(.button,.ghostButton),.navigationToggle { min-height:44px; }
   .healthPair { grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);overflow-wrap:anywhere; }
 }
+/* Four main sections, with only the current section's pages shown inside. */
+.sidebarNavigation { gap:6px; }
+.primaryNavLink { min-height:44px;padding:12px;font-weight:500; }
+.sectionNavigation { margin-bottom:26px;border-bottom:1px solid var(--border);padding-bottom:14px;min-width:0; }
+.sectionLabel { font-size:11px;font-weight:600;color:#a0adbd;margin-bottom:10px;letter-spacing:.08em;text-transform:uppercase; }
+.sectionTabs { position:relative;display:flex;flex-direction:row;gap:6px;overflow-x:auto;max-width:100%;padding:6px;scroll-padding-inline:6px; }
+.sectionTab { flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 14px;border:1px solid transparent;border-radius:9px;color:#abb6c4;font-size:13px;white-space:nowrap; }
+.sectionTab:hover { background:#171d24;color:var(--text); }
+.sectionTab.active { background:#1c2520;color:#d2f5ac;border-color:#384b2c; }
+@media(max-width:980px) {
+  .sidebar.navigationOpen .sidebarNavigation { grid-template-columns:1fr 1fr;gap:6px;padding:4px 0; }
+}
+@media(max-width:620px) {
+  .sectionNavigation { margin-bottom:22px; }
+  .sectionTab { min-height:44px;padding:10px 13px; }
+}

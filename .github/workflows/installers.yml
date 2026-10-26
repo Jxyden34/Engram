@@ -4,7 +4,7 @@ on:
   push:
     tags: ['v3.*']
   pull_request:
-    paths: ['install.py', 'install.sh', 'scripts/*installer*', '.github/workflows/installers.yml']
+    paths: ['VERSION', 'install.py', 'install.sh', 'scripts/*installer*', '.github/workflows/installers.yml']
   workflow_dispatch:
 
 permissions:
