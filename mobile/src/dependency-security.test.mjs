@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { constants, generateKeyPairSync, privateEncrypt, sign } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 
 // Resolve the packages used by Expo/React Native, not additional test-only copies.
@@ -19,6 +22,83 @@ const { SourceMapConsumer, SourceNode } = postcss('source-map-js');
 const braces = micromatch('braces');
 const forge = cli('node-forge');
 const uuid = xcodeRequire('uuid');
+const deepmerge = config('deepmerge');
+
+test('deepmerge rejects prototype keys in target, source and nested clone paths', () => {
+  for (const merge of [deepmerge, config('deepmerge/dist/umd.js')]) {
+    const payload = JSON.parse('{"__proto__":{"engramInjected":true}}');
+    const encoded = JSON.parse('{"\\u005f_proto__":{"engramInjected":true}}');
+    for (const value of [payload, encoded]) {
+      for (const target of [null, Object.create(null), JSON.parse('{"__proto__":null}')]) {
+        const output = merge(target, value);
+        assert.equal(Object.getPrototypeOf(output), Object.prototype);
+        assert.equal(output.engramInjected, undefined);
+      }
+      for (const output of [merge(value, {}), merge.all([value, {}]), merge(null, value, { clone: false })]) {
+        assert.equal(Object.getPrototypeOf(output), Object.prototype);
+        assert.equal(output.engramInjected, undefined);
+      }
+      const nested = merge({ nested: null }, { nested: value });
+      const array = merge([], [value]);
+      assert.equal(nested.nested.engramInjected, undefined);
+      assert.equal(array[0].engramInjected, undefined);
+      assert.equal(Object.hasOwn(value, '__proto__'), true);
+    }
+    const getter = Object.defineProperty({}, '__proto__', {
+      enumerable: true, get() { throw new Error('unsafe key was read'); },
+    });
+    assert.deepEqual(merge(getter, {}), {});
+    assert.deepEqual(merge(Object.create(null), getter), {});
+    assert.equal(({}).engramInjected, undefined);
+  }
+});
+
+test('deepmerge preserves ordinary data, symbols and documented optional modes', () => {
+  const symbol = Symbol('setting');
+  const date = new Date(0);
+  const regex = /engram/;
+  const target = { nested: { first: 1 }, list: [1], date, regex, [symbol]: { first: 1 } };
+  const source = { nested: { second: 2 }, list: [2], [symbol]: { second: 2 } };
+  const merged = deepmerge(target, source);
+  assert.deepEqual(merged.nested, { first: 1, second: 2 });
+  assert.deepEqual(merged.list, [1, 2]);
+  assert.deepEqual(merged[symbol], { first: 1, second: 2 });
+  assert.equal(merged.date, date);
+  assert.equal(merged.regex, regex);
+  assert.deepEqual(target.nested, { first: 1 });
+  assert.deepEqual(source.list, [2]);
+  assert.deepEqual(deepmerge({ nested: null }, { nested: { value: 1 } }), { nested: { value: 1 } });
+  const names = { constructor: 'data', prototype: { value: 1 } };
+  assert.deepEqual(deepmerge(names, {}), names);
+  const shared = { value: 1 };
+  assert.equal(deepmerge({}, { shared }, { clone: false }).shared, shared);
+  assert.deepEqual(deepmerge([1], [2], { arrayMerge: (_old, next) => next }), [2]);
+  assert.deepEqual(deepmerge({ nested: {} }, { nested: { value: 1 } }, {
+    customMerge: key => key === 'nested' ? () => ({ custom: true }) : undefined,
+  }), { nested: { custom: true } });
+  assert.equal(deepmerge({}, { shared }, { isMergeableObject: value => value !== shared }).shared, shared);
+});
+
+test('Expo config and plugin option merges reject prototype poisoning without changing normal output', async t => {
+  const fixture = mkdtempSync(join(tmpdir(), 'engram-config-'));
+  t.after(() => {
+    assert.equal(dirname(resolve(fixture)), resolve(tmpdir()));
+    rmSync(fixture, { recursive: true, force: true });
+  });
+  writeFileSync(join(fixture, 'package.json'), '{"name":"fixture","version":"1.0.0"}');
+  const { modifyConfigAsync } = expo('@expo/config');
+  for (const wrapped of [true, false]) {
+    const exp = JSON.parse('{"name":"fixture","slug":"fixture","sdkVersion":"57.0.0","extra":{"__proto__":{"engramInjected":true}},"plugins":[["example-plugin",{"nested":null,"keep":1}]]}');
+    writeFileSync(join(fixture, 'app.json'), JSON.stringify(wrapped ? { expo: exp } : exp));
+    const modifications = JSON.parse('{"extra":{"safe":true},"plugins":[["example-plugin",{"nested":{"__proto__":{"engramInjected":true},"safe":2}}]]}');
+    const output = await modifyConfigAsync(fixture, modifications, { skipPlugins: true }, { dryRun: true });
+    assert.equal(output.type, 'success');
+    assert.equal(output.config.extra.engramInjected, undefined);
+    assert.equal(output.config.extra.safe, true);
+    assert.equal(output.config.plugins.length, 1);
+    assert.deepEqual(output.config.plugins[0], ['example-plugin', { nested: { safe: 2 }, keep: 1 }]);
+  }
+});
 
 test('shell quoting rejects line terminators after comments', () => {
   for (const newline of ['\n', '\r', '\u2028', '\u2029']) {
