@@ -839,6 +839,8 @@ def create_authorization_code(
     with connect() as conn:
         _grant_lock(conn, {"client_id": client_id, "user_id": user_id,
                            "resource": resource, "project_id": current_project_id()})
+        if not conn.execute("SELECT 1 FROM oauth_clients WHERE client_id=%s AND is_active", (client_id,)).fetchone():
+            raise HTTPException(status_code=400, detail="OAuth client is inactive")
         conn.execute(
             """
             INSERT INTO oauth_authorization_codes(

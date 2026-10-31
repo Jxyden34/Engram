@@ -320,6 +320,9 @@ def test_client_disable_does_not_revive_old_codes_after_renewal(grant,method):
     old=code_form(grant)
     if method=='revoke':oauth.revoke_client(grant['client_id'])
     else:oauth.update_static_client(grant['client_id'],{'is_active':False})
+    with pytest.raises(HTTPException) as inactive:
+        code_form(grant)
+    assert inactive.value.status_code==400
     oauth.update_static_client(grant['client_id'],{'is_active':True})
     fresh=code_form(grant)
     assert oauth.exchange_authorization_code(old).status_code==400
