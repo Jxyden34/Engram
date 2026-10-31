@@ -208,8 +208,21 @@ def store_bytes(
     return result
 
 
+async def read_limited(file: UploadFile, limit: int) -> bytes:
+    chunks = []
+    received = 0
+    while True:
+        chunk = await file.read(min(1024 * 1024, limit - received + 1))
+        if not chunk:
+            return b"".join(chunks)
+        received += len(chunk)
+        if received > limit:
+            raise HTTPException(status_code=413, detail="File exceeds the configured upload limit")
+        chunks.append(chunk)
+
+
 async def upload(file: UploadFile, actor: str, owner_id: str | None):
-    raw = await file.read()
+    raw = await read_limited(file, settings().max_upload_mb * 1024 * 1024)
     return store_bytes(
         raw,
         file.filename or "upload.bin",
@@ -302,7 +315,11 @@ def _extract_zip(
                 skipped.append({"name": name, "reason": "suspicious compression ratio"})
                 continue
 
-            entry_raw = archive.read(info)
+            file_limit = cfg.max_upload_mb * 1024 * 1024
+            if info.file_size > file_limit:
+                raise HTTPException(status_code=413, detail="ZIP entry exceeds the per-document upload limit")
+            with archive.open(info) as entry:
+                entry_raw = entry.read(file_limit + 1)
             row = store_bytes(
                 entry_raw,
                 name,
@@ -365,7 +382,20 @@ async def bulk_upload(files: list[UploadFile], actor: str, owner_id: str | None)
             skipped.append({"name": safe_name, "reason": "ignored system/hidden file"})
             continue
 
-        raw = await file.read()
+        remaining = total_limit - total_received
+        is_zip = PurePosixPath(safe_name).suffix.lower() == ".zip"
+        file_limit = remaining if is_zip else min(remaining, cfg.max_upload_mb * 1024 * 1024)
+        if file.size is not None and file.size > remaining:
+            raise HTTPException(status_code=413, detail=f"Bulk upload exceeds {cfg.bulk_max_total_mb} MB total limit")
+        try:
+            raw = await read_limited(file, file_limit)
+        except HTTPException as exc:
+            if is_zip or file_limit == remaining:
+                raise
+            # Oversized individual documents remain per-file errors in a bulk run.
+            total_received += file.size if file.size is not None else file_limit + 1
+            errors.append({"name": safe_name, "error": str(exc.detail)})
+            continue
         total_received += len(raw)
         if total_received > total_limit:
             raise HTTPException(
@@ -373,7 +403,7 @@ async def bulk_upload(files: list[UploadFile], actor: str, owner_id: str | None)
                 detail=f"Bulk upload exceeds {cfg.bulk_max_total_mb} MB total limit",
             )
 
-        if PurePosixPath(safe_name).suffix.lower() == ".zip":
+        if is_zip:
             result = _extract_zip(raw, safe_name, actor, owner_id)
             archives.append({
                 "name": safe_name,

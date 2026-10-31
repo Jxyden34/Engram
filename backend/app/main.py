@@ -43,6 +43,7 @@ from app.database import connect, current_project_id, project_scope
 from app.documents import bulk_upload, get_document, list_documents, minio_client, search_chunks, upload
 from app.mcp_server import mcp, mcp_principal
 from app.rate_limit import check_rate
+from app.request_limits import RequestLimitMiddleware
 from app.schemas import (
     ApiKeyCreate,
     ArchiveRequest,
@@ -126,25 +127,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[cfg.public_origin],
-    allow_origin_regex=r"^chrome-extension://[a-z]{32}$",
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Engram-Project", "Mcp-*", "Last-Event-ID"],
-    expose_headers=["Mcp-Session-Id", "WWW-Authenticate"],
-)
+app.add_middleware(RequestLimitMiddleware)
 
 
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/api/v1/"):
-        check_rate(request, "api", 240, 60)
+    try:
+        if path.startswith("/api/v1/"):
+            check_rate(request, "api", 240, 60)
 
-    if path in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
-        check_rate(request, "login", 12, 300)
+        if path.startswith("/oauth/"):
+            check_rate(request, "oauth", 120, 60)
+
+        if path in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
+            check_rate(request, "login", 12, 300)
+    except HTTPException as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
 
     if path.startswith("/api/v1/") and path not in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
         try:
@@ -152,8 +151,7 @@ async def security_middleware(request: Request, call_next):
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
-    if path.startswith("/oauth/"):
-        check_rate(request, "oauth", 120, 60)
+
 
     token = None
     selected_project = None
@@ -162,6 +160,8 @@ async def security_middleware(request: Request, call_next):
         "/api/v1/mobile/login", "/api/v1/mobile/logout",
     }:
         try:
+            if path.startswith("/api/v1/imports/"):
+                require(request, "document:read")
             selected_project = projects.resolve_project(
                 authenticate(request), request.headers.get("x-engram-project") or request.cookies.get("engram_project")
             )
@@ -227,6 +227,8 @@ async def security_middleware(request: Request, call_next):
                 },
             )
         try:
+            if path.startswith("/api/v1/imports/"):
+                require(request, "document:read")
             selected_project = projects.resolve_project(p, request.headers.get("x-engram-project"))
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
@@ -245,6 +247,17 @@ async def security_middleware(request: Request, call_next):
     finally:
         if token is not None:
             mcp_principal.reset(token)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[cfg.public_origin],
+    allow_origin_regex=r"^chrome-extension://[a-z]{32}$",
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Engram-Project", "Mcp-*", "Last-Event-ID"],
+    expose_headers=["Mcp-Session-Id", "WWW-Authenticate"],
+)
 
 
 @app.get("/health")
@@ -548,8 +561,8 @@ def memory_supersede(memory_id: str, body: MemorySupersede, request: Request):
 
 @app.get("/api/v1/memories/{memory_id}/versions")
 def memory_versions(memory_id: str, request: Request):
-    require(request, "memory:read")
-    return memories.versions(memory_id)
+    p = require(request, "memory:read")
+    return memories.versions(memory_id, include_deleted=p.is_admin)
 
 
 @app.get("/api/v1/memories/{memory_id}/relations")
@@ -1375,6 +1388,8 @@ async def oauth_register(request: Request):
         raise HTTPException(status_code=404, detail="Dynamic client registration is disabled")
     try:
         body = await request.json()
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=400, detail="JSON client metadata required")
     return oauth.dynamic_register(body)

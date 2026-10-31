@@ -63,11 +63,9 @@ def verify_password(password_hash: str, password: str) -> bool:
 
 
 def client_ip(request: Request) -> str | None:
-    candidate = (
-        request.headers.get("cf-connecting-ip")
-        or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-        or (request.client.host if request.client else "")
-    )
+    # Caddy establishes X-Forwarded-For from explicitly trusted ingress peers;
+    # Uvicorn exposes that normalized identity here. Never trust raw CF/XFF fields.
+    candidate = request.client.host if request.client else ""
     if not candidate:
         return None
     try:

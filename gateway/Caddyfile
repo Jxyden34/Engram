@@ -1,3 +1,11 @@
+{
+	servers {
+		trusted_proxies static 127.0.0.1/32 ::1/128 {$TRUSTED_PROXY_CIDRS}
+		trusted_proxies_strict
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+	}
+}
+
 :8080 {
 	encode zstd gzip
 
@@ -13,7 +21,10 @@
 
 	@backend path /api/* /mcp /mcp/* /health /.well-known/* /oauth/*
 	header @backend Cache-Control "no-store"
-	reverse_proxy @backend api:8000
+	reverse_proxy @backend api:8000 {
+		header_up -CF-Connecting-IP
+		header_up X-Forwarded-For {client_ip}
+	}
 
 	reverse_proxy web:3000
 
