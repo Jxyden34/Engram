@@ -12,7 +12,7 @@ overrides:
 
 patchedDependencies:
   braces@3.0.3: f38faac115691999cbaa6d92466d36d8c1fde2af6fbd83d2fd0bdc31a102e1aa
-  deepmerge@4.3.1: ccfe1dd9e4e169da30f42d99fa5916753515080bc3cd471b91cc9f318ca294ae
+  deepmerge@4.3.1: 88b0436747f9b7041c39bdf27baadee2fc9632348fa0615b0f69b78ecc7210a8
   zod@3.25.76: 2a7e2e010dd8e06a033e756e9882cf6bfb2dcb53923b5c6f0b0c05a21892dce5
 
 importers:
@@ -2760,7 +2760,7 @@ snapshots:
       '@expo/config-types': 57.0.2
       '@expo/json-file': 11.0.1
       '@expo/require-utils': 57.0.6(supports-color@8.1.1)(typescript@6.0.3)
-      deepmerge: 4.3.1(patch_hash=ccfe1dd9e4e169da30f42d99fa5916753515080bc3cd471b91cc9f318ca294ae)
+      deepmerge: 4.3.1(patch_hash=88b0436747f9b7041c39bdf27baadee2fc9632348fa0615b0f69b78ecc7210a8)
       getenv: 2.0.0
       glob: 13.0.6
       resolve-workspace-root: 2.0.1
@@ -3465,7 +3465,7 @@ snapshots:
     optionalDependencies:
       supports-color: 8.1.1
 
-  deepmerge@4.3.1(patch_hash=ccfe1dd9e4e169da30f42d99fa5916753515080bc3cd471b91cc9f318ca294ae): {}
+  deepmerge@4.3.1(patch_hash=88b0436747f9b7041c39bdf27baadee2fc9632348fa0615b0f69b78ecc7210a8): {}
 
   defaults@1.0.4:
     dependencies:
