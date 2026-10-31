@@ -8,10 +8,12 @@ overrides:
   shell-quote@>=1.8.4 <1.11.0: 1.12.0
   source-map-js@<1.2.2: 1.2.2
   xcode@3.0.1>uuid: 11.1.1
+  node-forge@<1.4.2: 1.4.2
 
 patchedDependencies:
   braces@3.0.3: f38faac115691999cbaa6d92466d36d8c1fde2af6fbd83d2fd0bdc31a102e1aa
-  node-forge@1.4.0: e73a2e3853e4b16f8b92fe2c06ff4cac693334a939bd8a90b006a191aa4837eb
+  deepmerge@4.3.1: ccfe1dd9e4e169da30f42d99fa5916753515080bc3cd471b91cc9f318ca294ae
+  zod@3.25.76: 2a7e2e010dd8e06a033e756e9882cf6bfb2dcb53923b5c6f0b0c05a21892dce5
 
 importers:
 
@@ -1679,8 +1681,8 @@ packages:
     resolution: {integrity: sha512-NMPBRMJgiQHjbd8phG3Vebdx4kZ1H121rbl5IkMqeOsahptB9BKo/d7oJ3zTXqTgagn2bWlNSXkh0QUGM31RYg==}
     engines: {node: '>=18'}
 
-  node-forge@1.4.0:
-    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
+  node-forge@1.4.2:
+    resolution: {integrity: sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==}
     engines: {node: '>= 6.13.0'}
 
   node-int64@0.4.0:
@@ -2674,7 +2676,7 @@ snapshots:
       glob: 13.0.6
       lan-network: 0.2.1
       multitars: 1.0.2
-      node-forge: 1.4.0(patch_hash=e73a2e3853e4b16f8b92fe2c06ff4cac693334a939bd8a90b006a191aa4837eb)
+      node-forge: 1.4.2
       npm-package-arg: 11.0.3
       ora: 3.4.0
       picomatch: 4.0.7
@@ -2692,7 +2694,7 @@ snapshots:
       toqr: 0.1.1
       wrap-ansi: 7.0.0
       ws: 8.22.0
-      zod: 3.25.76
+      zod: 3.25.76(patch_hash=2a7e2e010dd8e06a033e756e9882cf6bfb2dcb53923b5c6f0b0c05a21892dce5)
     optionalDependencies:
       react-native: 0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1)
     transitivePeerDependencies:
@@ -2710,7 +2712,7 @@ snapshots:
 
   '@expo/code-signing-certificates@0.0.6':
     dependencies:
-      node-forge: 1.4.0(patch_hash=e73a2e3853e4b16f8b92fe2c06ff4cac693334a939bd8a90b006a191aa4837eb)
+      node-forge: 1.4.2
 
   '@expo/config-plugins@57.0.10(supports-color@8.1.1)(typescript@6.0.3)':
     dependencies:
@@ -2758,7 +2760,7 @@ snapshots:
       '@expo/config-types': 57.0.2
       '@expo/json-file': 11.0.1
       '@expo/require-utils': 57.0.6(supports-color@8.1.1)(typescript@6.0.3)
-      deepmerge: 4.3.1
+      deepmerge: 4.3.1(patch_hash=ccfe1dd9e4e169da30f42d99fa5916753515080bc3cd471b91cc9f318ca294ae)
       getenv: 2.0.0
       glob: 13.0.6
       resolve-workspace-root: 2.0.1
@@ -3463,7 +3465,7 @@ snapshots:
     optionalDependencies:
       supports-color: 8.1.1
 
-  deepmerge@4.3.1: {}
+  deepmerge@4.3.1(patch_hash=ccfe1dd9e4e169da30f42d99fa5916753515080bc3cd471b91cc9f318ca294ae): {}
 
   defaults@1.0.4:
     dependencies:
@@ -4336,7 +4338,7 @@ snapshots:
     dependencies:
       content-type: 2.1.0
 
-  node-forge@1.4.0(patch_hash=e73a2e3853e4b16f8b92fe2c06ff4cac693334a939bd8a90b006a191aa4837eb): {}
+  node-forge@1.4.2: {}
 
   node-int64@0.4.0: {}
 
@@ -4792,4 +4794,4 @@ snapshots:
       y18n: 5.0.8
       yargs-parser: 21.1.1
 
-  zod@3.25.76: {}
+  zod@3.25.76(patch_hash=2a7e2e010dd8e06a033e756e9882cf6bfb2dcb53923b5c6f0b0c05a21892dce5): {}

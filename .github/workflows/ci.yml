@@ -168,6 +168,9 @@ jobs:
       - name: Check graph layout and filtering
         run: npm run test:graph
 
+      - name: Check post-login redirect boundaries
+        run: npm run test:return-path
+
   mobile:
     runs-on: ubuntu-latest
     defaults:

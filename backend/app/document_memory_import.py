@@ -389,7 +389,7 @@ def list_candidates(status="pending", comparison=None, limit=300, offset=0):
                    m.content AS nearest_memory_content
             FROM document_candidate_memories c
             JOIN documents d ON d.id=c.document_id
-            LEFT JOIN memories m ON m.id=c.nearest_memory_id
+            LEFT JOIN memories m ON m.id=c.nearest_memory_id AND m.deleted_at IS NULL
             WHERE {' AND '.join(clauses)}
             ORDER BY
                 CASE c.comparison

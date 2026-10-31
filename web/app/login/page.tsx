@@ -2,6 +2,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { internalReturnPath } from "@/lib/return-path";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,12 +23,7 @@ export default function LoginPage() {
         }),
       });
       const params = new URLSearchParams(window.location.search);
-      const returnTo = params.get("returnTo");
-      if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
-        router.push(returnTo);
-      } else {
-        router.push("/");
-      }
+      router.push(internalReturnPath(params.get("returnTo"), window.location.origin));
     } catch (err: any) {
       setError(err.message);
     } finally {

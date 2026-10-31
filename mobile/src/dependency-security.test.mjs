@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { constants, generateKeyPairSync, privateEncrypt, sign } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 // Resolve the packages used by Expo/React Native, not additional test-only copies.
@@ -19,6 +20,68 @@ const { SourceMapConsumer, SourceNode } = postcss('source-map-js');
 const braces = micromatch('braces');
 const forge = cli('node-forge');
 const uuid = xcodeRequire('uuid');
+const merge = config('deepmerge');
+const { z } = cli('zod');
+const esmZod = (await import(pathToFileURL(cli.resolve('zod').replace(/index\.cjs$/, 'index.js')).href)).z;
+
+test('deepmerge rejects prototype keys from both merge operands and preserves config merges', () => {
+  const poisoned = JSON.parse('{"__proto__":{"engramPolluted":true},"name":"safe"}');
+  const nullPrototype = Object.assign(Object.create(null), poisoned);
+  for (const implementation of [merge, config('deepmerge/dist/umd.js')]) {
+    for (const input of [poisoned, nullPrototype]) {
+      for (const result of [implementation(input, {}), implementation({}, input), implementation.all([input]), implementation({ nested: input }, {})]) {
+        const value = result.nested || result;
+        assert.equal(Object.getPrototypeOf(value), Object.prototype);
+        assert.equal(value.engramPolluted, undefined);
+        assert.equal(Object.hasOwn(value, '__proto__'), false);
+        assert.equal(value.name, 'safe');
+      }
+    }
+  }
+  assert.equal({}.engramPolluted, undefined);
+  const symbol = Symbol('config');
+  assert.deepEqual(merge({ ios: { a: 1 }, plugins: ['a'], [symbol]: 1 }, { ios: { b: 2 }, plugins: ['b'] }),
+    { ios: { a: 1, b: 2 }, plugins: ['a', 'b'], [symbol]: 1 });
+});
+
+test('Zod constrained collections reject excess size before parsing any element', async () => {
+  for (const library of [z, esmZod]) {
+    let visits = 0;
+    const element = library.preprocess(value => { visits++; return value; }, library.string());
+    const huge = Array(10000).fill(0);
+    for (const [schema, input] of [
+      [library.array(element).max(2, 'too many'), huge],
+      [library.array(element).length(2), huge],
+      [library.set(element).max(2), new Set(huge.map((_, i) => i))],
+      [library.set(element).size(2), new Set([1, 2, 3])],
+    ]) {
+      for (const result of [schema.safeParse(input), await schema.safeParseAsync(input)]) {
+        assert.equal(result.success, false);
+        assert.equal(result.error.issues.length, 1);
+        assert.equal(result.error.issues[0].code, 'too_big');
+      }
+    }
+    assert.equal(visits, 0);
+    assert.deepEqual(library.array(element).max(2).parse(['a', 'b']), ['a', 'b']);
+    assert.equal(visits, 2);
+    assert.deepEqual([...library.set(library.string()).size(2).parse(new Set(['a', 'b']))], ['a', 'b']);
+    assert.equal(library.array(library.string()).length(2).safeParse(['a']).error.issues[0].code, 'too_small');
+    assert.equal(library.array(library.string()).max(2).safeParse([1]).error.issues[0].code, 'invalid_type');
+  }
+});
+
+test('Expo plugin and generated MCP command schemas retain their Zod 3 behavior', () => {
+  const { PluginSchema, DevToolsPluginOutputSchema } = cli('./build/src/start/server/DevToolsPlugin.schema.js');
+  const { createMCPDevToolsExtensionSchema } = cli('./build/src/start/server/createMCPDevToolsExtensionSchema.js');
+  const plugin = PluginSchema.parse({ packageName: 'example', packageRoot: '/example', cliExtensions: {
+    description: 'Example', entryPoint: 'index.js', commands: [{ name: 'inspect', title: 'Inspect', environments: ['cli', 'mcp'], parameters: [{ name: 'count', type: 'number' }] }],
+  } });
+  const command = createMCPDevToolsExtensionSchema(plugin);
+  assert.deepEqual(command.parse({ command: 'inspect', count: 2 }), { command: 'inspect', count: 2 });
+  assert.equal(command.safeParse({ command: 'inspect', count: '2' }).success, false);
+  assert.equal(command.safeParse({ command: 'inspect', extra: true }).success, false);
+  assert.deepEqual(DevToolsPluginOutputSchema.parse([{ type: 'text', text: 'Ready', level: 'info' }]), [{ type: 'text', text: 'Ready', level: 'info' }]);
+});
 
 test('shell quoting rejects line terminators after comments', () => {
   for (const newline of ['\n', '\r', '\u2028', '\u2029']) {

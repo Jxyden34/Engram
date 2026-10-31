@@ -728,7 +728,7 @@ def list_candidates(
             JOIN chat_import_conversations ic ON ic.id=c.import_conversation_id
             JOIN chat_import_jobs j ON j.id=c.import_job_id
             JOIN documents d ON d.id=j.source_document_id
-            LEFT JOIN memories m ON m.id=c.nearest_memory_id
+            LEFT JOIN memories m ON m.id=c.nearest_memory_id AND m.deleted_at IS NULL
             WHERE {' AND '.join(clauses)}
             ORDER BY
                 CASE c.comparison

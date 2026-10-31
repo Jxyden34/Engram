@@ -5,6 +5,7 @@
   "scripts": {
     "test:navigation": "node --experimental-strip-types --test lib/navigation.test.mjs",
     "test:graph": "node --experimental-strip-types --test lib/graph.test.mjs",
+    "test:return-path": "node --experimental-strip-types --test lib/return-path.test.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000"
