@@ -61,3 +61,40 @@ def test_bounded_reads_reject_before_full_buffer_and_keep_ordinary_upload(monkey
     assert error.value.status_code==413 and file.remaining==89 and file.reads==[11]
     assert asyncio.run(documents.read_limited(UploadFile(io.BytesIO(b'hello')),5))==b'hello'
     assert asyncio.run(documents.read_limited(UploadFile(io.BytesIO(b'')),5))==b''
+
+def test_zip_entry_limit_precedes_decompression_and_keeps_small_entries(monkeypatch):
+    import zipfile
+    from uuid import uuid4
+    monkeypatch.setattr(documents.settings(),'max_upload_mb',1)
+    data=io.BytesIO()
+    with zipfile.ZipFile(data,'w',compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr('oversized.txt',b'x'*(1024*1024+1))
+        archive.writestr('small.txt',b'hello')
+    opened=[];original=zipfile.ZipFile.open
+    def observe(self,member,*args,**kwargs):
+        opened.append(member.filename if isinstance(member,zipfile.ZipInfo) else member)
+        return original(self,member,*args,**kwargs)
+    stored=[]
+    def store(raw,*args,**kwargs):stored.append(raw);return {'id':str(uuid4()),'duplicate':False}
+    monkeypatch.setattr(zipfile.ZipFile,'open',observe)
+    monkeypatch.setattr(documents,'store_bytes',store)
+    result=documents._extract_zip(data.getvalue(),'batch.zip','test',None)
+    assert opened==['small.txt'] and stored==[b'hello']
+    assert len(result['accepted'])==1 and result['errors'][0]['name']=='oversized.txt'
+
+
+def test_bulk_file_errors_and_larger_compressed_budget_remain_supported(monkeypatch):
+    import zipfile
+    from uuid import uuid4
+    monkeypatch.setattr(documents.settings(),'max_upload_mb',1)
+    monkeypatch.setattr(documents.settings(),'bulk_max_total_mb',4)
+    monkeypatch.setattr(documents,'store_bytes',lambda *args,**kwargs:{'id':str(uuid4()),'duplicate':False})
+    files=[UploadFile(io.BytesIO(b'x'*(1024*1024+1)),filename='oversized.txt'),UploadFile(io.BytesIO(b'hello'),filename='small.txt')]
+    result=asyncio.run(documents.bulk_upload(files,'test',None))
+    assert len(result['accepted'])==1 and len(result['errors'])==1
+    data=io.BytesIO()
+    with zipfile.ZipFile(data,'w',compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr('a.txt',b'a'*(600*1024));archive.writestr('b.txt',b'b'*(600*1024))
+    assert len(data.getvalue())>1024*1024
+    result=asyncio.run(documents.bulk_upload([UploadFile(io.BytesIO(data.getvalue()),filename='batch.zip')],'test',None))
+    assert len(result['accepted'])==2 and not result['errors']

@@ -14,6 +14,7 @@ from app.util import vector_literal
 from app.chatgpt_import import (
     DURABLE_MEMORY_SYSTEM,
     _compare,
+    _visible_candidate,
     _nearest_memory,
     _normalise_candidate,
     _ollama_json,
@@ -386,7 +387,8 @@ def list_candidates(status="pending", comparison=None, limit=300, offset=0):
                    c.status, c.created_at,
                    d.filename AS source_filename,
                    m.title AS nearest_memory_title,
-                   m.content AS nearest_memory_content
+                   m.content AS nearest_memory_content,
+                   (c.nearest_memory_id IS NULL OR m.id IS NOT NULL) AS _nearest_visible
             FROM document_candidate_memories c
             JOIN documents d ON d.id=c.document_id
             LEFT JOIN memories m ON m.id=c.nearest_memory_id AND m.deleted_at IS NULL
@@ -408,7 +410,7 @@ def list_candidates(status="pending", comparison=None, limit=300, offset=0):
 
     out = []
     for row in rows:
-        item = dict(row)
+        item = _visible_candidate(row)
         item["confidence"] = float(item["confidence"])
         if item.get("nearest_similarity") is not None:
             item["nearest_similarity"] = float(item["nearest_similarity"])
@@ -437,9 +439,8 @@ def update_candidate(candidate_id: str, changes: dict[str, Any]):
     nearest = _nearest_memory(emb)
     comparison, reason = _compare(merged, nearest)
 
-    excerpt = existing["source_excerpt"] or ""
+    excerpt = (existing["source_excerpt"] or "").split("\nComparison hint:", 1)[0].strip()
     if reason:
-        excerpt = excerpt.split("\nComparison hint:")[0].strip()
         excerpt = (excerpt + f"\nComparison hint: {reason}").strip()
 
     with connect() as conn:
@@ -478,7 +479,9 @@ def accept_candidate(candidate_id: str, actor: str):
         candidate = conn.execute(
             """
             SELECT c.*, d.filename, d.content_type, d.source_type, d.source_ref,
-                   d.source_metadata
+                   d.source_metadata,
+                   (c.nearest_memory_id IS NULL OR EXISTS (SELECT 1 FROM memories m
+                    WHERE m.id=c.nearest_memory_id AND m.deleted_at IS NULL)) AS _nearest_visible
             FROM document_candidate_memories c
             JOIN documents d ON d.id=c.document_id
             WHERE c.id=%s
@@ -492,6 +495,7 @@ def accept_candidate(candidate_id: str, actor: str):
     if candidate["status"] != "pending":
         raise HTTPException(status_code=409, detail=f"Candidate already {candidate['status']}")
 
+    candidate = _visible_candidate(candidate)
     memory = create_memory(
         {
             "title": candidate["title"],

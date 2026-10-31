@@ -314,3 +314,13 @@ def test_registration_cleanup_keeps_clients_with_pending_or_active_grants(grant,
         assert conn.execute('SELECT 1 FROM oauth_clients WHERE client_id=%s', (grant['client_id'],)).fetchone()
     assert oauth.oauth_access_token_principal(pair['access_token'])
     assert oauth.exchange_authorization_code(pending).status_code == 200
+
+@pytest.mark.parametrize('method',['revoke','disable'])
+def test_client_disable_does_not_revive_old_codes_after_renewal(grant,method):
+    old=code_form(grant)
+    if method=='revoke':oauth.revoke_client(grant['client_id'])
+    else:oauth.update_static_client(grant['client_id'],{'is_active':False})
+    oauth.update_static_client(grant['client_id'],{'is_active':True})
+    fresh=code_form(grant)
+    assert oauth.exchange_authorization_code(old).status_code==400
+    assert oauth.exchange_authorization_code(fresh).status_code==200

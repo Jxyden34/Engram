@@ -102,3 +102,29 @@ def test_cors_preflight_and_rate_rejection_keep_protocol_semantics(monkeypatch):
     monkeypatch.setattr(main,'check_rate',reject)
     result=http.post('/api/v1/auth/login',json={'username':'nobody','password':'unused'})
     assert result.status_code==429 and result.headers['retry-after']=='30'
+
+def test_deleted_comparison_hints_are_not_returned_updated_or_copied_to_memories(records,client,monkeypatch):
+    from app import chatgpt_import as chat, document_memory_import as document
+    http,p=client;p.scopes.add('document:read')
+    with project_scope(records['project']),connect() as conn:
+        for table in ['candidate_memories','document_candidate_memories']:
+            conn.execute("UPDATE "+table+" SET source_excerpt='Original document evidence'||E'\nComparison hint: nearest-only-private-secret'")
+        conn.execute('UPDATE memories SET deleted_at=now() WHERE id=%s',(records['memory'],));conn.commit()
+    for module in [chat,document]:
+        monkeypatch.setattr(module,'embed',lambda *args:[0.0]*384)
+        monkeypatch.setattr(module,'_nearest_memory',lambda *args:None)
+        monkeypatch.setattr(module,'_compare',lambda *args:('new',None))
+    for family,key,module in [('chatgpt','chat_candidate',chat),('documents','candidate',document)]:
+        path='/api/v1/imports/'+family+'/candidates'
+        assert http.get(path).json()[0]['source_excerpt']=='Original document evidence'
+        changed=http.patch(path+'/'+records[key],json={'title':'Reviewed candidate'})
+        assert changed.status_code==200 and changed.json()['source_excerpt']=='Original document evidence'
+        # Acceptance must not copy a stale persisted hint into permanent metadata.
+        table='candidate_memories' if family=='chatgpt' else 'document_candidate_memories'
+        with project_scope(records['project']),connect() as conn:
+            conn.execute("UPDATE "+table+" SET source_excerpt='Original document evidence'||E'\nComparison hint: nearest-only-private-secret',nearest_memory_id=%s WHERE id=%s",(records['memory'],records[key]));conn.commit()
+        captured=[]
+        def create(payload,*args):captured.append(payload);return {'id':records['other']}
+        monkeypatch.setattr(module,'create_memory',create)
+        assert http.post(path+'/'+records[key]+'/accept').status_code==200
+        assert captured[0]['metadata']['source_excerpt']=='Original document evidence'

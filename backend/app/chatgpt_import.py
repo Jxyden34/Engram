@@ -697,6 +697,15 @@ def candidate_stats():
     return [dict(row) for row in rows]
 
 
+def _visible_candidate(row):
+    item = dict(row)
+    if not item.pop("_nearest_visible", True):
+        # Comparison explanations can quote a previously visible nearest memory.
+        # Keep the original document evidence, without that stale derived copy.
+        item["source_excerpt"] = (item.get("source_excerpt") or "").split("\nComparison hint:", 1)[0] or None
+    return item
+
+
 def list_candidates(
     status: str = "pending",
     comparison: str | None = None,
@@ -723,7 +732,8 @@ def list_candidates(
                    j.source_document_id,
                    d.filename AS source_filename,
                    m.title AS nearest_memory_title,
-                   m.content AS nearest_memory_content
+                   m.content AS nearest_memory_content,
+                   (c.nearest_memory_id IS NULL OR m.id IS NOT NULL) AS _nearest_visible
             FROM candidate_memories c
             JOIN chat_import_conversations ic ON ic.id=c.import_conversation_id
             JOIN chat_import_jobs j ON j.id=c.import_job_id
@@ -747,7 +757,7 @@ def list_candidates(
 
     result = []
     for row in rows:
-        item = dict(row)
+        item = _visible_candidate(row)
         if item.get("confidence") is not None:
             item["confidence"] = float(item["confidence"])
         if item.get("nearest_similarity") is not None:
@@ -768,6 +778,9 @@ def update_candidate(candidate_id: str, changes: dict[str, Any]):
     candidate_embedding = embed(f"{merged['title']}\n{merged['content']}")
     nearest = _nearest_memory(candidate_embedding)
     comparison, comparison_reason = _compare(merged, nearest)
+    excerpt = (existing.get("source_excerpt") or "").split("\nComparison hint:", 1)[0]
+    if comparison_reason:
+        excerpt += f"\nComparison hint: {comparison_reason}"
 
     with connect() as conn:
         row = conn.execute(
@@ -775,7 +788,7 @@ def update_candidate(candidate_id: str, changes: dict[str, Any]):
             UPDATE candidate_memories
             SET title=%s, content=%s, memory_type=%s, importance=%s, confidence=%s,
                 tags=%s, embedding=%s::vector, nearest_memory_id=%s,
-                nearest_similarity=%s, comparison=%s, updated_at=now()
+                nearest_similarity=%s, comparison=%s, source_excerpt=%s, updated_at=now()
             WHERE id=%s AND status='pending'
             RETURNING *
             """,
@@ -790,6 +803,7 @@ def update_candidate(candidate_id: str, changes: dict[str, Any]):
                 nearest["id"] if nearest else None,
                 nearest["similarity"] if nearest else None,
                 comparison,
+                excerpt[:2400] or None,
                 candidate_id,
             ),
         ).fetchone()
@@ -802,12 +816,14 @@ def update_candidate(candidate_id: str, changes: dict[str, Any]):
 def get_candidate(candidate_id: str):
     with connect() as conn:
         row = conn.execute(
-            "SELECT * FROM candidate_memories WHERE id=%s",
+            """SELECT c.*, (c.nearest_memory_id IS NULL OR EXISTS (
+                SELECT 1 FROM memories m WHERE m.id=c.nearest_memory_id AND m.deleted_at IS NULL
+            )) AS _nearest_visible FROM candidate_memories c WHERE c.id=%s""",
             (candidate_id,),
         ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Candidate memory not found")
-    return dict(row)
+    return _visible_candidate(row)
 
 
 def accept_candidate(candidate_id: str, actor: str):
@@ -815,7 +831,9 @@ def accept_candidate(candidate_id: str, actor: str):
         candidate = conn.execute(
             """
             SELECT c.*, ic.title AS conversation_title, ic.external_conversation_id,
-                   j.source_document_id, d.filename AS source_filename
+                   j.source_document_id, d.filename AS source_filename,
+                   (c.nearest_memory_id IS NULL OR EXISTS (SELECT 1 FROM memories m
+                    WHERE m.id=c.nearest_memory_id AND m.deleted_at IS NULL)) AS _nearest_visible
             FROM candidate_memories c
             JOIN chat_import_conversations ic ON ic.id=c.import_conversation_id
             JOIN chat_import_jobs j ON j.id=c.import_job_id
@@ -830,6 +848,7 @@ def accept_candidate(candidate_id: str, actor: str):
         if candidate["status"] != "pending":
             raise HTTPException(status_code=409, detail=f"Candidate already {candidate['status']}")
 
+    candidate = _visible_candidate(candidate)
     source_ref = (
         f"chatgpt://conversation/{candidate['external_conversation_id']}"
         if candidate["external_conversation_id"]

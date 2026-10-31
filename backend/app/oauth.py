@@ -41,6 +41,9 @@ DYNAMIC_CLIENT_LIMIT = 100
 
 
 def _grant_lock(conn, grant):
+    # Match the client-first lock order used by administrative client revocation.
+    # ponytail: serialize one client's short grant transactions; split only if needed.
+    conn.execute("SELECT client_id FROM oauth_clients WHERE client_id=%s FOR UPDATE", (grant["client_id"],))
     # Always acquire this before token/consent row locks, including revocation.
     identity = json.dumps([str(grant[key]) for key in
                            ("client_id", "user_id", "resource", "project_id")])
@@ -51,7 +54,9 @@ def _grant_lock(conn, grant):
 def _active_consent(conn, grant):
     return conn.execute("""SELECT 1 FROM oauth_consents
         WHERE client_id=%s AND user_id=%s AND resource=%s AND project_id=%s
-          AND revoked_at IS NULL""",
+          AND revoked_at IS NULL
+          AND EXISTS (SELECT 1 FROM oauth_clients c
+                      WHERE c.client_id=oauth_consents.client_id AND c.is_active)""",
         tuple(grant[key] for key in ("client_id", "user_id", "resource", "project_id"))).fetchone()
 
 
@@ -324,6 +329,7 @@ def update_static_client(client_id: str, changes: dict[str, Any]):
                 "UPDATE oauth_consents SET revoked_at=coalesce(revoked_at,now()) WHERE client_id=%s",
                 (client_id,),
             )
+            conn.execute("UPDATE oauth_authorization_codes SET consumed_at=coalesce(consumed_at,now()) WHERE client_id=%s", (client_id,))
         conn.commit()
     return dict(row)
 
@@ -353,6 +359,7 @@ def revoke_client(client_id: str):
             "UPDATE oauth_consents SET revoked_at=coalesce(revoked_at,now()) WHERE client_id=%s",
             (client_id,),
         )
+        conn.execute("UPDATE oauth_authorization_codes SET consumed_at=coalesce(consumed_at,now()) WHERE client_id=%s", (client_id,))
         conn.commit()
     return dict(row)
 

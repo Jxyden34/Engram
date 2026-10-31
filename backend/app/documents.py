@@ -315,7 +315,11 @@ def _extract_zip(
                 skipped.append({"name": name, "reason": "suspicious compression ratio"})
                 continue
 
-            entry_raw = archive.read(info)
+            file_limit = cfg.max_upload_mb * 1024 * 1024
+            if info.file_size > file_limit:
+                raise HTTPException(status_code=413, detail="ZIP entry exceeds the per-document upload limit")
+            with archive.open(info) as entry:
+                entry_raw = entry.read(file_limit + 1)
             row = store_bytes(
                 entry_raw,
                 name,
