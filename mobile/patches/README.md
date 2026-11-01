@@ -18,6 +18,22 @@ transitive importer. Use pnpm 11.19.0; do not use npm or an unpatched installati
   Unbounded containers are unchanged; Zod 3 maps have no built-in size constraint.
   The unused bundled Zod 4 exports are not patched. Expo CLI still requires Zod 3;
   forcing Zod 4 or an Expo SDK major upgrade would change its schema contracts.
+- `glob@13.0.6`: GHSA-3g3m-2fjr-6pw4. Backports upstream commit
+  `4682e8c9babee1b385202ede36389634e12076d7`: four abort branches return
+  immediately, and resumed callbacks still complete after cancellation.
+  CommonJS/ESM exports and legacy main/module entries use the existing raw
+  modules, so Expo does not execute the unpatched bundled walker or matcher.
+- `minimatch@10.2.6`: GHSA-g3hv-75wg-m249. Backports upstream commit
+  `77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8`: cap optimization-level-2
+  `**/..` splitting at `braceExpandMax` and skip quadratic deduplication above
+  1,000 patterns. Both CommonJS and ESM are patched. Glob's raw entry points
+  resolve this same patched dependency; normal matching APIs remain unchanged.
+
+Glob 14.0.2 and minimatch 11.0.1 publish the upstream fixes, but also change
+matcher APIs and path/ignore behavior. These backports retain Expo 57's existing
+contracts. Regression tests cover default/raw CommonJS/ESM imports, cancellation
+for promise/stream/iterator/synchronous walks, paused streams, bounded pattern
+growth, normal matching, and Expo's glob and fingerprint helpers.
 
 `node-forge` now uses upstream **1.4.2** through an override. Its obsolete custom
 patch was removed; RSA rejection/normal-signature and Expo signing checks remain.
