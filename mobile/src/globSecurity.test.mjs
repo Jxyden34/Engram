@@ -49,38 +49,57 @@ function fixture(t) {
 test('glob cancellation stops new directory reads across published entry points', async t => {
   const cwd = fixture(t);
   for (const glob of globVariants) {
-    for (const mode of ['promise', 'stream', 'iterator', 'sync', 'syncStream']) {
-      const controller = new AbortController();
-      const reason = new Error('cancel fixture walk');
-      let reads = 0;
-      const count = () => { if (++reads === 1) controller.abort(reason); };
-      const countedFs = {
-        ...fs,
-        readdir(...args) { count(); return fs.readdir(...args); },
-        readdirSync(...args) { count(); return fs.readdirSync(...args); },
-      };
-      const options = { cwd, fs: countedFs, signal: controller.signal };
-      if (mode === 'sync') {
-        assert.throws(() => glob.globSync('**', options), error => error === reason);
-      } else if (mode === 'syncStream') {
-        // A synchronous stream may finish before an async iterator subscribes.
-        // Its cancellation must still stop filesystem work.
-        const walk = glob.globStreamSync('**', options);
-        walk.on('error', error => assert.equal(error, reason));
-        try { for await (const ignored of walk) { /* drain */ } }
-        catch (error) { assert.equal(error, reason); }
-      } else {
-        await assert.rejects(async () => {
-          if (mode === 'promise') await glob.glob('**', options);
-          else {
-            const walk = mode === 'stream' ? glob.globStream('**', options) : glob.globIterate('**', options);
-            for await (const ignored of walk) { /* drain until cancellation */ }
-          }
-        }, error => error === reason, mode);
+    for (const scenario of [
+      { pattern: '**', extra: {} },
+      { pattern: '*', extra: { stat: true } },
+      { pattern: ['src/*', 'packages/*'], extra: {} },
+      { pattern: '**', extra: { realpath: true, stat: true, follow: true, nodir: true } },
+    ]) {
+      for (const mode of ['promise', 'stream', 'iterator', 'sync', 'syncStream']) {
+        const controller = new AbortController();
+        const reason = new Error('cancel fixture walk');
+        let reads = 0;
+        let metadataAfterAbort = 0;
+        const count = () => { if (++reads === 1) controller.abort(reason); };
+        const metadata = () => { if (controller.signal.aborted) metadataAfterAbort++; };
+        const countedFs = {
+          ...fs,
+          readdir(...args) { count(); return fs.readdir(...args); },
+          readdirSync(...args) { count(); return fs.readdirSync(...args); },
+          lstatSync(...args) { metadata(); return fs.lstatSync(...args); },
+          realpathSync(...args) { metadata(); return fs.realpathSync(...args); },
+          readlinkSync(...args) { metadata(); return fs.readlinkSync(...args); },
+          promises: {
+            ...fs.promises,
+            lstat(...args) { metadata(); return fs.promises.lstat(...args); },
+            realpath(...args) { metadata(); return fs.promises.realpath(...args); },
+            readlink(...args) { metadata(); return fs.promises.readlink(...args); },
+          },
+        };
+        const options = { cwd, fs: countedFs, signal: controller.signal, ...scenario.extra };
+        if (mode === 'sync') {
+          assert.throws(() => glob.globSync(scenario.pattern, options), error => error === reason);
+        } else if (mode === 'syncStream') {
+          // A synchronous stream may finish before an async iterator subscribes.
+          // Its cancellation must still stop filesystem work.
+          const walk = glob.globStreamSync(scenario.pattern, options);
+          walk.on('error', error => assert.equal(error, reason));
+          try { for await (const ignored of walk) { /* drain */ } }
+          catch (error) { assert.equal(error, reason); }
+        } else {
+          await assert.rejects(async () => {
+            if (mode === 'promise') await glob.glob(scenario.pattern, options);
+            else {
+              const walk = mode === 'stream' ? glob.globStream(scenario.pattern, options) : glob.globIterate(scenario.pattern, options);
+              for await (const ignored of walk) { /* drain until cancellation */ }
+            }
+          }, error => error === reason, mode);
+        }
+        // Allow the already-issued read to complete; it must not start another.
+        await new Promise(resolve => setTimeout(resolve, 50));
+        assert.equal(reads, 1, mode);
+        assert.equal(metadataAfterAbort, 0, mode + ' metadata');
       }
-      // Allow the already-issued read to complete; it must not start another.
-      await new Promise(resolve => setTimeout(resolve, 50));
-      assert.equal(reads, 1, mode);
     }
     const signal = AbortSignal.abort(new Error('already canceled'));
     await assert.rejects(glob.glob('**', { cwd, signal }), /already canceled/);
@@ -110,8 +129,10 @@ test('minimatch bounds optimization growth while preserving ordinary matching', 
   for (const { Minimatch } of minimatchVariants) {
     // Eight splits are small even on the vulnerable implementation.
     const pattern = Array(8).fill('**/../a/b').join('/');
-    const bounded = new Minimatch(pattern, { optimizationLevel: 2, braceExpandMax: 32 });
-    assert.ok(bounded.set.length <= 32);
+    assert.throws(() => new Minimatch(pattern, { optimizationLevel: 2, braceExpandMax: 32 }),
+      { name: 'RangeError', message: 'Pattern optimization exceeds braceExpandMax (32)' });
+    assert.equal(new Minimatch(pattern, { optimizationLevel: 2, braceExpandMax: 256 })
+      .match(Array(8).fill('x/a/b').join('/')), true);
     const small = new Minimatch('**/../a/b/**/../c/d', { optimizationLevel: 2 });
     assert.equal(small.set.length, 4);
     assert.equal(small.match('../a/b/../c/d'), true);
@@ -128,4 +149,8 @@ test('minimatch bounds optimization growth while preserving ordinary matching', 
   const paths = fingerprint('./build/utils/Path.js');
   assert.equal(paths.isIgnoredPath('node_modules/pkg/index.js', ['**/node_modules/**']), true);
   assert.equal(paths.isIgnoredPath('src/main.ts', ['**/node_modules/**']), false);
+  const pattern = Array(8).fill('**/../a/b').join('/');
+  const file = Array(8).fill('x/a/b').join('/');
+  assert.equal(paths.isIgnoredPath(file, [pattern], { optimizationLevel: 2 }), true);
+  assert.throws(() => paths.isIgnoredPath(file, [pattern], { optimizationLevel: 2, braceExpandMax: 32 }), RangeError);
 });

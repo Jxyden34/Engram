@@ -21,12 +21,16 @@ transitive importer. Use pnpm 11.19.0; do not use npm or an unpatched installati
 - `glob@13.0.6`: GHSA-3g3m-2fjr-6pw4. Backports upstream commit
   `4682e8c9babee1b385202ede36389634e12076d7`: four abort branches return
   immediately, and resumed callbacks still complete after cancellation.
+  Additional guards stop sibling-directory and metadata work after cancellation,
+  including continuations after awaited filesystem operations.
   CommonJS/ESM exports and legacy main/module entries use the existing raw
   modules, so Expo does not execute the unpatched bundled walker or matcher.
 - `minimatch@10.2.6`: GHSA-g3hv-75wg-m249. Backports upstream commit
   `77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8`: cap optimization-level-2
   `**/..` splitting at `braceExpandMax` and skip quadratic deduplication above
-  1,000 patterns. Both CommonJS and ESM are patched. Glob's raw entry points
+  1,000 patterns. Exceeding the split budget raises a controlled `RangeError`;
+  silently stopping optimization would change matching results. Both CommonJS
+  and ESM are patched. Glob's raw entry points
   resolve this same patched dependency; normal matching APIs remain unchanged.
 
 Glob 14.0.2 and minimatch 11.0.1 publish the upstream fixes, but also change

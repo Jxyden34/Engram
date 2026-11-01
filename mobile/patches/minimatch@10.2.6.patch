@@ -1,5 +1,5 @@
 diff --git a/dist/commonjs/index.js b/dist/commonjs/index.js
-index 5a6983481b78583d75c89a17c5a8371b059171ff..610582368b09ce91da0763217b3dc535b2b138e0 100644
+index 5a6983481b78583d75c89a17c5a8371b059171ff..e6974bc51fa0db075dc60a8d754c3291f088149f 100644
 --- a/dist/commonjs/index.js
 +++ b/dist/commonjs/index.js
 @@ -453,6 +453,7 @@ class Minimatch {
@@ -10,17 +10,16 @@ index 5a6983481b78583d75c89a17c5a8371b059171ff..610582368b09ce91da0763217b3dc535
          let didSomething = false;
          do {
              didSomething = false;
-@@ -480,7 +481,8 @@ class Minimatch {
-                         p === '..' ||
-                         !p2 ||
-                         p2 === '.' ||
--                        p2 === '..') {
-+                        p2 === '..' ||
-+                        globParts.length >= braceExpandMax) {
+@@ -483,6 +484,8 @@ class Minimatch {
+                         p2 === '..') {
                          continue;
                      }
++                    if (globParts.length >= braceExpandMax)
++                        throw new RangeError('Pattern optimization exceeds braceExpandMax (' + braceExpandMax + ')');
                      didSomething = true;
-@@ -537,6 +539,8 @@ class Minimatch {
+                     // edit parts in place, and push the new one
+                     parts.splice(gs, 1);
+@@ -537,6 +540,8 @@ class Minimatch {
      // {<pre>/**/<rest>,<pre>/**/<p>/<rest>} -> <pre>/**/<rest>
      // ^-- not valid because ** doens't follow symlinks
      secondPhasePreProcess(globParts) {
@@ -30,7 +29,7 @@ index 5a6983481b78583d75c89a17c5a8371b059171ff..610582368b09ce91da0763217b3dc535
              for (let j = i + 1; j < globParts.length; j++) {
                  const matched = this.partsMatch(globParts[i], globParts[j], !this.preserveMultipleSlashes);
 diff --git a/dist/esm/index.js b/dist/esm/index.js
-index a5e6fa88fdc6d6ec05d26ab4975718824cbc8bdc..09ecfe9564507377525848e1518eca51d838d032 100644
+index a5e6fa88fdc6d6ec05d26ab4975718824cbc8bdc..497a7b6a5e046f6a3e581a10bd5156b422f5adfc 100644
 --- a/dist/esm/index.js
 +++ b/dist/esm/index.js
 @@ -444,6 +444,7 @@ export class Minimatch {
@@ -41,17 +40,16 @@ index a5e6fa88fdc6d6ec05d26ab4975718824cbc8bdc..09ecfe9564507377525848e1518eca51
          let didSomething = false;
          do {
              didSomething = false;
-@@ -471,7 +472,8 @@ export class Minimatch {
-                         p === '..' ||
-                         !p2 ||
-                         p2 === '.' ||
--                        p2 === '..') {
-+                        p2 === '..' ||
-+                        globParts.length >= braceExpandMax) {
+@@ -474,6 +475,8 @@ export class Minimatch {
+                         p2 === '..') {
                          continue;
                      }
++                    if (globParts.length >= braceExpandMax)
++                        throw new RangeError('Pattern optimization exceeds braceExpandMax (' + braceExpandMax + ')');
                      didSomething = true;
-@@ -528,6 +530,8 @@ export class Minimatch {
+                     // edit parts in place, and push the new one
+                     parts.splice(gs, 1);
+@@ -528,6 +531,8 @@ export class Minimatch {
      // {<pre>/**/<rest>,<pre>/**/<p>/<rest>} -> <pre>/**/<rest>
      // ^-- not valid because ** doens't follow symlinks
      secondPhasePreProcess(globParts) {
