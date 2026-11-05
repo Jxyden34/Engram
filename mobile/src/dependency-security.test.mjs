@@ -8,17 +8,20 @@ const require = createRequire(import.meta.url);
 const expo = createRequire(require.resolve('expo/package.json'));
 const cli = createRequire(expo.resolve('@expo/cli/package.json'));
 const config = createRequire(expo.resolve('@expo/config/package.json'));
-const configPlugins = createRequire(config.resolve('@expo/config-plugins/package.json'));
 const native = createRequire(require.resolve('react-native/package.json'));
 const postcss = createRequire(cli.resolve('postcss'));
 const micromatch = createRequire(cli.resolve('micromatch'));
-// The retained config consumer still uses Xcode 3; current Expo plugins use Xcode 4.
-const xcodeRequire = createRequire(configPlugins.resolve('xcode'));
+// Resolve any retained Xcode 3 consumer; current Expo patches can remove it entirely.
+const xcodeImporters = [expo, cli, config].map(importer => {
+  const plugins = createRequire(importer.resolve('@expo/config-plugins/package.json'));
+  return createRequire(plugins.resolve('xcode'));
+});
+const legacyXcode = xcodeImporters.find(importer => importer('./package.json').version === '3.0.1');
 const shellQuote = native('shell-quote');
 const { SourceMapConsumer, SourceNode } = postcss('source-map-js');
 const braces = micromatch('braces');
 const forge = cli('node-forge');
-const uuid = xcodeRequire('uuid');
+const uuid = legacyXcode?.('uuid');
 
 test('shell quoting rejects line terminators after comments', () => {
   for (const newline of ['\n', '\r', '\u2028', '\u2029']) {
@@ -60,7 +63,8 @@ test('PostCSS still generates valid CSS source maps', async () => {
   assert.deepEqual(result.map.toJSON().sources, ['input.css']);
 });
 
-test('UUID namespace generators reject partial writes before modifying buffers', () => {
+test('UUID namespace generators reject partial writes before modifying buffers',
+  { skip: !legacyXcode && 'All active Xcode consumers removed the uuid dependency' }, () => {
   for (const generate of [uuid.v3, uuid.v5]) {
     for (const [length, offset] of [[8, 4], [16, -1], [16, 1]]) {
       const buffer = new Uint8Array(length).fill(0xaa);

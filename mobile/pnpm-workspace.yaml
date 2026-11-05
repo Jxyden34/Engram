@@ -4,23 +4,33 @@ overrides:
   'xcode@3.0.1>uuid': 11.1.1
 
 minimumReleaseAgeExclude:
-  - expo-constants@57.0.20 || 57.0.21
-  - expo-modules-core@57.0.20 || 57.0.21
-  - expo@57.0.26 || 57.0.27
-  - expo-updates@57.0.24 || 57.0.25
-  - '@expo/cli@57.0.28'
-  - '@expo/config-plugins@57.0.10'
-  - '@expo/config@57.0.10'
-  - '@expo/image-utils@0.11.6'
-  - '@expo/metro-config@57.0.13'
+  - expo-constants@57.0.20 || 57.0.21 || 57.0.23
+  - expo-modules-core@57.0.20 || 57.0.21 || 57.0.25
+  - expo@57.0.26 || 57.0.27 || 57.0.32
+  - expo-updates@57.0.24 || 57.0.25 || 57.0.27
+  - '@expo/cli@57.0.28 || 57.0.33'
+  - '@expo/config-plugins@57.0.10 || 57.0.12'
+  - '@expo/config@57.0.10 || 57.0.11'
+  - '@expo/image-utils@0.11.6 || 0.11.7'
+  - '@expo/metro-config@57.0.13 || 57.0.14'
   - '@expo/metro-file-map@57.0.4'
-  - '@expo/prebuild-config@57.0.17'
-  - '@expo/require-utils@57.0.6'
-  - '@expo/router-server@57.0.12'
-  - babel-preset-expo@57.0.14
-  - expo-asset@57.0.19
-  - expo-modules-autolinking@57.0.14
+  - '@expo/prebuild-config@57.0.17 || 57.0.20'
+  - '@expo/require-utils@57.0.6 || 57.0.7'
+  - '@expo/router-server@57.0.12 || 57.0.15'
+  - babel-preset-expo@57.0.14 || 57.0.17
+  - expo-asset@57.0.19 || 57.0.21
+  - expo-modules-autolinking@57.0.14 || 57.0.17
   - expo-eas-client@57.0.5
+  - '@expo/env@2.4.4'
+  - '@expo/fingerprint@0.20.15'
+  - '@expo/inline-modules@0.1.9'
+  - '@expo/local-build-cache-provider@57.0.10'
+  - '@expo/log-box@57.0.5'
+  - '@expo/plist@0.8.2'
+  - '@expo/schema-utils@57.0.3'
+  - expo-dev-client@57.0.21
+  - expo-dev-launcher@57.0.22
+  - expo-dev-menu@57.0.21
 
 patchedDependencies:
   braces@3.0.3: patches/braces@3.0.3.patch
