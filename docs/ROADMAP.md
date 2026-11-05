@@ -22,7 +22,7 @@ licence status. Personal Community is free for noncommercial use; Commercial is 
 separate build that requires activation. An owner dashboard turns manual payment
 confirmation into automatic key issuance and SMTP email. Online checkout is deferred.
 See [the development feature guide](DEVELOPMENT-PREVIEWS.md) for the individually versioned additions.
-See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable is v2.8.0;
+See [commercial licensing setup](COMMERCIAL-LICENSING.md). Stable is v3.0.2;
 existing native releases retain their preview channels; v3.7 source uses a separate runtime and channel.
 
 ### Built on the draft development branch

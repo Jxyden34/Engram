@@ -81,6 +81,27 @@ def test_small_model_gets_one_bounded_repair_attempt(monkeypatch):
     assert all(r[1]['timeout'] == 90.0 for r in requests)
 
 
+def test_repair_receives_the_failed_calculator_without_relaxing_limits(monkeypatch):
+    import json
+    requests = []
+    invalid = generated()
+    invalid['widgets'][1]['divide_by'] = 1_000_001
+    def model(system, user, **kwargs):
+        context = json.loads(user)
+        requests.append(context)
+        if len(requests) == 1:
+            return invalid
+        assert context['previous_attempt'] == invalid
+        assert any(e['field'][-1] == 'divide_by' for e in context['repair_errors'])
+        corrected = context['previous_attempt']
+        corrected['widgets'][1]['divide_by'] = 1
+        return corrected
+    monkeypatch.setattr(dreams, '_ollama_json', model)
+    result = dreams.generate([{'content': c} for c in CONTENT], 'Build a calculator')
+    assert result.widgets[1].divide_by == 1 and len(requests) == 2
+    assert invalid['widgets'][1]['divide_by'] == 1_000_001
+
+
 def test_inspiration_excerpts_are_copied_from_inputs_not_written_by_model(monkeypatch):
     monkeypatch.setattr(dreams, '_ollama_json', lambda *a, **k: generated())
     result = dreams.generate([{'content': c} for c in CONTENT], '')

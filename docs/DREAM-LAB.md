@@ -83,3 +83,19 @@ same historical numbers; apply all files, not one file per number.
 - Broader browser/device accessibility and usability checks.
 - Explicit export/promotion design before any live integrations or deployments.
 - Native mobile Dream Lab review, without changing existing installed runtimes.
+
+## Restart qualification, 5 November 2026
+
+The disposable commercial beta VM was found powered off. After starting it with
+its existing 2 GB allocation, the API, database, Redis and object store became
+healthy. HTTPS and administrator sign-in passed at
+`https://engram-beta-commercial.hindley.tech`; the five projects, four Personal
+memories and three existing demo dreams remained present. Nightly generation
+remained disabled. The expired test licence was renewed for this installation,
+with a protected copy of its previous licence record retained on the VM.
+
+A fresh worker job reached generation but rejected an out-of-range model output
+after its bounded repair attempt. The repair now receives the failed candidate
+alongside its field errors, so it can correct the actual values. Divisor limits,
+source checks and the maximum of two model calls remain enforced. Restart checks
+do not qualify model usefulness or prolonged overnight reliability.

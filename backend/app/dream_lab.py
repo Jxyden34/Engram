@@ -194,6 +194,7 @@ def generate(sources, direction, previous=None):
                'sources': [dict(s, number=i+1) for i, s in enumerate(sources)]}
     # One bounded repair attempt helps small local models satisfy the numeric/schema constraints.
     for attempt in range(2):
+        raw = None
         try:
             raw = _ollama_json(SYSTEM, json.dumps(context), timeout=90.0, max_tokens=4500,
                                format_schema=GeneratedPrototype.model_json_schema())
@@ -213,7 +214,12 @@ def generate(sources, direction, previous=None):
                                          for e in exc.errors(include_input=False)]
                                         if isinstance(exc, ValidationError) else
                                         ['Return valid JSON and reference supplied source numbers only.'])
-            context['repair_instruction'] = 'Regenerate a complete prototype fixing these constraints. For every number widget set minimum <= value <= maximum.'
+            # Repair the actual candidate rather than asking the model to guess
+            # which values caused the errors in an otherwise new generation.
+            context['previous_attempt'] = raw
+            context['repair_instruction'] = ('Correct previous_attempt using repair_errors and return the complete prototype. '
+                'Preserve valid fields. For every number set minimum <= value <= maximum. '
+                'For every metric use 0 < divide_by <= 1000000; use 1 unless a conversion is needed.')
 
 
 def signed_in(request: Request, write=False):
