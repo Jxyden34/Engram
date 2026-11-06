@@ -11,22 +11,25 @@ const expo = createRequire(require.resolve('expo/package.json'));
 const cli = createRequire(expo.resolve('@expo/cli/package.json'));
 const updates = createRequire(require.resolve('expo-updates/package.json'));
 const fingerprint = createRequire(updates.resolve('@expo/fingerprint/package.json'));
-const globRoot = dirname(cli.resolve('glob/package.json'));
-const minimatchRoot = dirname(fingerprint.resolve('minimatch/package.json'));
-const globVariants = [
-  cli('glob'), cli('glob/raw'),
-  await import(pathToFileURL(join(globRoot, cli('glob/package.json').exports['.'].import.default)).href),
-  await import(pathToFileURL(join(globRoot, 'dist/esm/index.js')).href),
-];
-const minimatchVariants = [
-  fingerprint('minimatch'),
-  await import(pathToFileURL(join(minimatchRoot, 'dist/esm/index.js')).href),
-];
+const globVariants = [];
+const minimatchVariants = [];
+for (const importer of [cli, fingerprint]) {
+  const globRoot = dirname(importer.resolve('glob/package.json'));
+  const matcher = createRequire(importer.resolve('glob'));
+  const minimatchRoot = dirname(matcher.resolve('minimatch/package.json'));
+  globVariants.push(importer('glob'), importer('glob/raw'),
+    await import(pathToFileURL(join(globRoot, importer('glob/package.json').exports['.'].import.default)).href),
+    await import(pathToFileURL(join(globRoot, 'dist/esm/index.js')).href));
+  minimatchVariants.push(matcher('minimatch'),
+    await import(pathToFileURL(join(minimatchRoot, 'dist/esm/index.js')).href));
+}
 
-test('Expo glob entry points share the patched external matcher', () => {
-  assert.equal(globVariants[0].Glob, globVariants[1].Glob);
-  assert.equal(globVariants[2].Glob, globVariants[3].Glob);
-  assert.equal(createRequire(cli.resolve('glob')).resolve('minimatch'), fingerprint.resolve('minimatch'));
+test('Expo glob entry points use the cancellation repair for both dependency versions', () => {
+  for (const offset of [0, 4]) {
+    assert.equal(globVariants[offset].Glob, globVariants[offset + 1].Glob);
+    assert.equal(globVariants[offset + 2].Glob, globVariants[offset + 3].Glob);
+  }
+  assert.equal(createRequire(fingerprint.resolve('glob')).resolve('minimatch'), fingerprint.resolve('minimatch'));
 });
 
 function fixture(t) {
