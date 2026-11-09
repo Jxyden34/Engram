@@ -243,3 +243,5 @@ jobs:
           docker compose build
           api worker connector-scheduler web
           db-backup dr-monitor
+- name: Vibe-Shield Security Audit
+  uses: avivgerz-hue/vibe-shield@v2.1.0
