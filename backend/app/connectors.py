@@ -38,6 +38,12 @@ query RepositoryDiscussions($owner: String!, $name: String!, $limit: Int!) {
 """
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 GMAIL_CALLBACK_PATH = "/api/v1/connectors/gmail/callback"
+CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events.owned.readonly"
+CALENDAR_CALLBACK_PATH = "/api/v1/connectors/google-calendar/callback"
+GOOGLE_CONNECTORS = {
+    "gmail": ("Gmail", GMAIL_SCOPE, GMAIL_CALLBACK_PATH),
+    "google_calendar": ("Google Calendar", CALENDAR_SCOPE, CALENDAR_CALLBACK_PATH),
+}
 
 DOC_EXTENSIONS = {
     ".md", ".txt", ".rst", ".adoc", ".json", ".yaml", ".yml",
@@ -69,15 +75,15 @@ def capabilities():
             "available": True,
             "scope": "capture:write",
         },
-        "gmail": {
+        **{kind: {
             "available": bool(
                 cfg.google_oauth_client_id
                 and cfg.google_oauth_client_secret
                 and _google_encryption_key()
             ),
-            "scope": GMAIL_SCOPE,
-            "redirect_uri": f"{cfg.public_origin.rstrip('/')}{GMAIL_CALLBACK_PATH}",
-        },
+            "scope": scope,
+            "redirect_uri": f"{cfg.public_origin.rstrip('/')}{callback}",
+        } for kind, (_, scope, callback) in GOOGLE_CONNECTORS.items()},
     }
 
 
@@ -130,52 +136,69 @@ def _gmail_config(config: dict[str, Any]) -> dict[str, Any]:
     return {"query": query or "newer_than:30d", "label_ids": labels, "max_messages_per_sync": limit}
 
 
-def start_gmail_oauth(data: dict[str, Any], actor: str, owner_id: str, session_hash: str) -> str:
+def _calendar_config(config: dict[str, Any]) -> dict[str, Any]:
+    calendar_id = str(config.get("calendar_id") or "primary").strip()
+    if calendar_id in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9@._+-]{1,320}", calendar_id):
+        raise HTTPException(status_code=422, detail="Invalid Google Calendar ID")
+    return {"calendar_id": calendar_id}
+
+
+def start_google_oauth(kind: str, data: dict[str, Any], actor: str, owner_id: str, session_hash: str) -> str:
     cfg = settings()
+    label, scope, callback = GOOGLE_CONNECTORS[kind]
     if not cfg.google_oauth_client_id or not cfg.google_oauth_client_secret:
         raise HTTPException(status_code=503, detail="Google OAuth client is not configured")
     if not _google_encryption_key():
-        raise HTTPException(status_code=503, detail="Gmail token encryption key is not configured")
+        raise HTTPException(status_code=503, detail="Google token encryption key is not configured")
     state = secrets.token_urlsafe(32)
+    verifier = secrets.token_urlsafe(48)
     state_data = json.dumps({
         "actor": actor,
         "owner_id": owner_id,
         "session_hash": session_hash,
         "project_id": current_project_id(),
-        "name": str(data.get("name") or "Gmail").strip()[:200] or "Gmail",
-        "config": _gmail_config(data),
+        "name": str(data.get("name") or label).strip()[:200] or label,
+        "config": _gmail_config(data) if kind == "gmail" else _calendar_config(data),
+        "verifier": verifier,
     })
     redis = Redis.from_url(cfg.redis_url)
-    if not redis.set(f"gmail:oauth:{hashlib.sha256(state.encode()).hexdigest()}", state_data, ex=600, nx=True):
-        raise HTTPException(status_code=503, detail="Could not start Gmail authorization")
-    redirect_uri = f"{cfg.public_origin.rstrip('/')}{GMAIL_CALLBACK_PATH}"
+    if not redis.set(f"{kind}:oauth:{hashlib.sha256(state.encode()).hexdigest()}", state_data, ex=600, nx=True):
+        raise HTTPException(status_code=503, detail="Could not start Google authorization")
+    redirect_uri = f"{cfg.public_origin.rstrip('/')}{callback}"
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode({
         "client_id": cfg.google_oauth_client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": GMAIL_SCOPE,
+        "scope": scope,
+        "code_challenge": base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("="),
+        "code_challenge_method": "S256",
         "access_type": "offline",
         "prompt": "consent",
         "state": state,
     })
 
 
-def finish_gmail_oauth(state: str, code: str, session_hash: str) -> tuple[str, str]:
+def start_gmail_oauth(data: dict[str, Any], actor: str, owner_id: str, session_hash: str) -> str:
+    return start_google_oauth("gmail", data, actor, owner_id, session_hash)
+
+
+def finish_google_oauth(kind: str, state: str, code: str, session_hash: str) -> tuple[str, str | None]:
     cfg = settings()
+    label, scope, callback = GOOGLE_CONNECTORS[kind]
     if not cfg.google_oauth_client_id or not cfg.google_oauth_client_secret:
         raise HTTPException(status_code=503, detail="Google OAuth client is not configured")
     state_hash = hashlib.sha256(state.encode()).hexdigest()
-    value = Redis.from_url(cfg.redis_url).getdel(f"gmail:oauth:{state_hash}")
+    value = Redis.from_url(cfg.redis_url).getdel(f"{kind}:oauth:{state_hash}")
     if not value:
-        raise HTTPException(status_code=400, detail="Gmail authorization state expired or was already used")
+        raise HTTPException(status_code=400, detail="Google authorization state expired or was already used")
     data = json.loads(value)
     if not secrets.compare_digest(data["session_hash"], session_hash):
-        raise HTTPException(status_code=403, detail="Gmail authorization must finish in the same browser session")
+        raise HTTPException(status_code=403, detail="Google authorization must finish in the same browser session")
     if data.get("project_id", DEFAULT_PROJECT_ID) != current_project_id():
-        raise HTTPException(status_code=409, detail="Select the original project before finishing Gmail authorization")
+        raise HTTPException(status_code=409, detail="Select the original project before finishing Google authorization")
     if not code:
         raise HTTPException(status_code=400, detail="Google authorization was cancelled")
-    redirect_uri = f"{cfg.public_origin.rstrip('/')}{GMAIL_CALLBACK_PATH}"
+    redirect_uri = f"{cfg.public_origin.rstrip('/')}{callback}"
     try:
         response = httpx.post("https://oauth2.googleapis.com/token", data={
             "code": code,
@@ -183,6 +206,7 @@ def finish_gmail_oauth(state: str, code: str, session_hash: str) -> tuple[str, s
             "client_secret": cfg.google_oauth_client_secret,
             "redirect_uri": redirect_uri,
             "grant_type": "authorization_code",
+            **({"code_verifier": data["verifier"]} if data.get("verifier") else {}),
         }, timeout=30)
         if response.is_error:
             raise HTTPException(status_code=502, detail="Google token exchange failed")
@@ -190,40 +214,51 @@ def finish_gmail_oauth(state: str, code: str, session_hash: str) -> tuple[str, s
         refresh_token = tokens.get("refresh_token")
         if not refresh_token:
             raise HTTPException(status_code=502, detail="Google did not return offline access; retry authorization")
-        profile = httpx.get("https://gmail.googleapis.com/gmail/v1/users/me/profile",
-                            headers={"Authorization": f"Bearer {tokens['access_token']}"}, timeout=30)
-        if profile.is_error:
-            raise HTTPException(status_code=502, detail="Could not read the authorized Gmail profile")
-        email_address = str(profile.json().get("emailAddress") or "").strip().lower()
-        if not email_address:
-            raise HTTPException(status_code=502, detail="Google returned no Gmail address")
+        if tokens.get("scope") and scope not in tokens["scope"].split():
+            raise HTTPException(status_code=403, detail="The required Google read permission was not granted")
+        email_address = None
+        if kind == "gmail":
+            profile = httpx.get("https://gmail.googleapis.com/gmail/v1/users/me/profile",
+                                headers={"Authorization": f"Bearer {tokens['access_token']}"}, timeout=30)
+            if profile.is_error:
+                raise HTTPException(status_code=502, detail="Could not read the authorized Gmail profile")
+            email_address = str(profile.json().get("emailAddress") or "").strip().lower()
+            if not email_address:
+                raise HTTPException(status_code=502, detail="Google returned no Gmail address")
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail="Could not complete Google authorization") from exc
 
     connector_id = str(uuid4())
     credential = _encrypt_google_token(refresh_token, connector_id)
-    name = data["name"] if data["name"] != "Gmail" else f"Gmail · {email_address}"
+    name = f"{label} · {email_address}" if data["name"] == label and email_address else data["name"]
+    config = data["config"]
+    if email_address:
+        config["email_address"] = email_address
     with connect() as conn:
         row = conn.execute("""
             INSERT INTO connectors(id,owner_id,connector_type,name,schedule_minutes,config,
                                    credential_ciphertext,created_by)
-            VALUES (%s,%s,'gmail',%s,360,%s::jsonb,%s,%s)
+            VALUES (%s,%s,%s,%s,360,%s::jsonb,%s,%s)
             RETURNING id
-        """, (connector_id, data["owner_id"], name,
-              json.dumps({**data["config"], "email_address": email_address}),
+        """, (connector_id, data["owner_id"], kind, name,
+              json.dumps(config),
               credential, data["actor"])).fetchone()
         conn.commit()
     return str(row["id"]), email_address
 
 
-def cancel_gmail_oauth(state: str, session_hash: str) -> None:
+def finish_gmail_oauth(state: str, code: str, session_hash: str) -> tuple[str, str | None]:
+    return finish_google_oauth("gmail", state, code, session_hash)
+
+
+def cancel_google_oauth(state: str, session_hash: str, *, kind: str = "gmail") -> None:
     value = Redis.from_url(settings().redis_url).getdel(
-        f"gmail:oauth:{hashlib.sha256(state.encode()).hexdigest()}"
+        f"{kind}:oauth:{hashlib.sha256(state.encode()).hexdigest()}"
     )
     if value:
         data = json.loads(value)
         if not secrets.compare_digest(data["session_hash"], session_hash):
-            raise HTTPException(status_code=403, detail="Gmail authorization session did not match")
+            raise HTTPException(status_code=403, detail="Google authorization session did not match")
 
 
 def revoke_gmail_token(connector_id: str, ciphertext: str | None) -> None:
@@ -360,6 +395,8 @@ def update_connector(connector_id: str, changes: dict[str, Any]):
     if changes.get("config") is not None:
         if current["connector_type"] == "github":
             config = _validate_github_config(changes["config"])
+        elif current["connector_type"] == "google_calendar":
+            config = _calendar_config(changes["config"])
         else:
             config = {
                 **_gmail_config(changes["config"]),
@@ -406,7 +443,7 @@ def delete_connector(connector_id: str):
             (connector_id,),
         ).fetchone()
         conn.commit()
-    if current["connector_type"] == "gmail":
+    if current["connector_type"] in GOOGLE_CONNECTORS:
         revoke_gmail_token(connector_id, current["credential_ciphertext"])
     return dict(row)
 
@@ -736,7 +773,7 @@ def _decode_header(value: str) -> str:
         return value
 
 
-def _gmail_access_token(connector: dict[str, Any]) -> str:
+def _google_access_token(connector: dict[str, Any]) -> str:
     refresh_token = _decrypt_google_token(
         connector["credential_ciphertext"], str(connector["id"])
     )
@@ -757,6 +794,61 @@ def _gmail_access_token(connector: dict[str, Any]) -> str:
                          (encrypted, connector["id"]))
             conn.commit()
     return token_data["access_token"]
+
+
+_gmail_access_token = _google_access_token
+
+
+def _sync_google_calendar(connector: dict, run_id: str, counters: dict[str, int]) -> None:
+    calendar_id = _calendar_config(connector["config"])["calendar_id"]
+    token = _google_access_token(connector)
+    now = datetime.now(timezone.utc)
+    params = {
+        "timeMin": (now - timedelta(days=30)).isoformat(),
+        "timeMax": (now + timedelta(days=90)).isoformat(),
+        "singleEvents": "true", "orderBy": "startTime", "maxResults": 100, "maxAttendees": 100,
+        "fields": "nextPageToken,items(id,status,summary,description,location,start,end,attendees(displayName,email),updated,htmlLink,recurringEventId)",
+    }
+    with httpx.Client(base_url="https://www.googleapis.com/calendar/v3/",
+                      headers={"Authorization": f"Bearer {token}"}, timeout=30) as client:
+        for _ in range(5):
+            response = client.get(f"calendars/{quote(calendar_id, safe='')}/events", params=params)
+            response.raise_for_status()
+            page = response.json()
+            for event in page.get("items", []):
+                if counters["seen"] >= 500:
+                    return
+                counters["seen"] += 1
+                event_id = event.get("id")
+                if not event_id or event.get("status") == "cancelled":
+                    counters["skipped"] += 1
+                    continue
+                title = str(event.get("summary") or "Untitled event")[:300]
+                start = event.get("start") or {}
+                end = event.get("end") or {}
+                attendees = ", ".join(
+                    person.get("displayName") or person.get("email") or ""
+                    for person in (event.get("attendees") or [])
+                )
+                notes = _PlainTextHTML()
+                notes.feed(str(event.get("description") or "")[:100_000])
+                lines = [f"# {title}", f"- Start: {start.get('dateTime') or start.get('date') or ''}",
+                         f"- End: {end.get('dateTime') or end.get('date') or ''}",
+                         f"- Location: {event.get('location') or ''}", f"- Attendees: {attendees}",
+                         "", "".join(notes.parts)]
+                identity = f"calendar:{calendar_id}:{event_id}"
+                filename = f"calendar/{hashlib.sha256(identity.encode()).hexdigest()}.md"
+                changed = _upsert_source_item(
+                    connector, run_id, identity, "calendar_event", title, event.get("htmlLink"),
+                    "\n".join(lines).encode(), filename, "text/markdown", event.get("updated"),
+                    {"calendar_id": calendar_id, "event_id": event_id, "start": start, "end": end,
+                     "recurring_event_id": event.get("recurringEventId")}, source_type="google_calendar",
+                )
+                counters["changed"] += int(bool(changed))
+                counters["skipped"] += int(not changed)
+            if not page.get("nextPageToken"):
+                return
+            params["pageToken"] = page["nextPageToken"]
 
 
 def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int],
@@ -1285,6 +1377,10 @@ def sync_connector(connector_id: str, run_id: str, *, backfill: tuple[str, str] 
             if backfill and not connector["enabled"]:
                 raise RuntimeError("Gmail connector was paused before backfill ran")
             _sync_gmail(dict(connector), run_id, counters, backfill)
+        elif connector["connector_type"] == "google_calendar":
+            if not connector["enabled"] or not connector["credential_ciphertext"]:
+                raise RuntimeError("Google Calendar connector is paused or needs authorization")
+            _sync_google_calendar(dict(connector), run_id, counters)
         else:
             raise RuntimeError(f"Unsupported connector type: {connector['connector_type']}")
 

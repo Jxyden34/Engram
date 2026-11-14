@@ -359,7 +359,10 @@ Ingest:
 
 Calendar export import indexes selected `.ics` files as source documents.
 Event times, locations, attendees, recurrence rules, and notes are searchable.
-Recurring events retain their rules and exceptions. Live provider sync is planned.
+Recurring exports retain their rules and exceptions. The Google Calendar sync
+branch adds read-only polling of one owned calendar, including recurring
+occurrences in a bounded date window. Live OAuth and provider sync qualification
+are pending. Microsoft 365 sync remains planned.
 
 Potential sources:
 
