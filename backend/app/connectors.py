@@ -7,9 +7,10 @@ import json
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from uuid import uuid4
 
 import httpx
@@ -238,12 +239,32 @@ def _validate_github_config(config: dict[str, Any]) -> dict[str, Any]:
     clean_repositories = []
     for repo in repositories:
         repo = str(repo).strip()
-        if repo.count("/") != 1:
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or any(
+            part in {".", ".."} for part in repo.split("/")
+        ):
             raise HTTPException(
                 status_code=400,
                 detail=f"Repository must use owner/name format: {repo}",
             )
         clean_repositories.append(repo.lower())
+
+    def filters(name: str) -> list[str]:
+        values = config.get(name, [])
+        if not isinstance(values, list) or len(values) > 50 or any(
+            not isinstance(value, str) or not value.strip() or len(value) > 200
+            for value in values
+        ):
+            raise HTTPException(status_code=400, detail=f"Invalid GitHub {name}")
+        return [value.strip() for value in values]
+
+    branches = config.get("branches", {})
+    if not isinstance(branches, dict) or len(branches) > 100 or any(
+        not isinstance(repo, str) or repo.lower() not in clean_repositories
+        or not isinstance(branch, str) or not branch.strip() or len(branch) > 255
+        or any(ord(char) < 33 for char in branch)
+        for repo, branch in branches.items()
+    ):
+        raise HTTPException(status_code=400, detail="Invalid GitHub repository branches")
 
     return {
         "installation_id": installation_id,
@@ -253,6 +274,11 @@ def _validate_github_config(config: dict[str, Any]) -> dict[str, Any]:
         "sync_issues": bool(config.get("sync_issues", True)),
         "sync_pulls": bool(config.get("sync_pulls", True)),
         "sync_code": bool(config.get("sync_code", False)),
+        "sync_commits": bool(config.get("sync_commits", False)),
+        "sync_releases": bool(config.get("sync_releases", False)),
+        "branches": {repo.lower(): branch for repo, branch in branches.items()},
+        "ignore_patterns": filters("ignore_patterns"),
+        "code_extensions": [value.lower() for value in filters("code_extensions")],
         "max_items_per_sync": min(
             max(int(config.get("max_items_per_sync", settings().github_max_items_per_sync)), 10),
             2000,
@@ -872,6 +898,11 @@ def _upsert_source_item(
 def _sync_repo(client, connector, run_id, repo, config, counters):
     repo_name = repo["full_name"]
     prefix = f"github/{repo_name}"
+    branch_override = config["branches"].get(repo_name.lower())
+    branch = branch_override or repo.get("default_branch") or "main"
+
+    def ignored(path):
+        return any(fnmatchcase(path, pattern) for pattern in config["ignore_patterns"])
 
     def ingest(*args, **kwargs):
         counters["seen"] += 1
@@ -897,23 +928,25 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
         {"repository": repo_name},
     )
 
-    if config["sync_readme"]:
-        response = client.get(f"/repos/{repo_name}/readme")
+    if config["sync_readme"] and counters["seen"] < config["max_items_per_sync"]:
+        response = client.get(f"/repos/{repo_name}/readme", params={"ref": branch})
         if response.status_code == 200:
             data = response.json()
             try:
+                path = data.get("path") or "README.md"
                 raw = base64.b64decode(data.get("content") or "")
-                ingest(
-                    f"readme:{repo_name}",
-                    "readme",
-                    f"{repo_name} README",
-                    data.get("html_url") or repo.get("html_url"),
-                    raw,
-                    f"{prefix}/{data.get('path') or 'README.md'}",
-                    "text/markdown",
-                    repo.get("pushed_at"),
-                    {"repository": repo_name, "path": data.get("path")},
-                )
+                if not ignored(path) and len(raw) <= config["max_file_kb"] * 1024:
+                    ingest(
+                        f"readme:{repo_name}:{branch}" if branch_override else f"readme:{repo_name}",
+                        "readme",
+                        f"{repo_name} README",
+                        data.get("html_url") or repo.get("html_url"),
+                        raw,
+                        f"{prefix}/{path}",
+                        "text/markdown",
+                        repo.get("pushed_at"),
+                        {"repository": repo_name, "path": path, "branch": branch},
+                    )
             except Exception:
                 counters["errors"] += 1
 
@@ -963,10 +996,47 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                 {"repository": repo_name, "number": pull["number"]},
             )
 
+    for kind, endpoint, params in (
+        ("commit", "commits", {"sha": branch}),
+        ("release", "releases", {}),
+    ):
+        remaining = config["max_items_per_sync"] - counters["seen"]
+        if not config[f"sync_{endpoint}"] or remaining <= 0:
+            continue
+        try:
+            items = _paginate(client, f"/repos/{repo_name}/{endpoint}", params, limit=min(100, remaining))
+        except httpx.HTTPStatusError:
+            counters["errors"] += 1
+            continue
+        for item in items:
+            if kind == "commit":
+                identity = item["sha"]
+                commit = item["commit"]
+                body = commit.get("message") or ""
+                title = body.splitlines()[0][:200] if body else identity[:12]
+                updated = (commit.get("committer") or {}).get("date")
+                metadata = {"repository": repo_name, "sha": identity, "branch": branch}
+            else:
+                if item.get("draft"):
+                    continue
+                identity = str(item["id"])
+                title = item.get("name") or item["tag_name"]
+                body = item.get("body") or ""
+                updated = item.get("published_at")
+                metadata = {"repository": repo_name, "tag": item["tag_name"]}
+            raw = f"# {repo_name}: {title}\n\n{body}\n".encode("utf-8")
+            if len(raw) > config["max_file_kb"] * 1024:
+                counters["skipped"] += 1
+                continue
+            ingest(
+                f"{kind}:{repo_name}:{identity}", kind, f"{repo_name}: {title}",
+                item.get("html_url"), raw, f"{prefix}/{endpoint}/{identity}.md",
+                "text/markdown", updated, metadata,
+            )
+
     if (config["sync_docs"] or config["sync_code"]) and counters["seen"] < config["max_items_per_sync"]:
-        branch = repo.get("default_branch") or "main"
         response = client.get(
-            f"/repos/{repo_name}/git/trees/{branch}",
+            f"/repos/{repo_name}/git/trees/{quote(branch, safe='')}",
             params={"recursive": "1"},
         )
         if response.status_code == 200:
@@ -978,6 +1048,8 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                     continue
 
                 path = entry.get("path") or ""
+                if not path or ignored(path):
+                    continue
                 suffix = Path(path).suffix.lower()
                 lower = path.lower()
                 is_doc = (
@@ -990,7 +1062,9 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                         or Path(lower).name in {"contributing.md", "changelog.md", "security.md"}
                     )
                 )
-                is_code = suffix in CODE_EXTENSIONS
+                is_code = suffix in CODE_EXTENSIONS and (
+                    not config["code_extensions"] or suffix in config["code_extensions"]
+                )
 
                 if not ((config["sync_docs"] and is_doc) or (config["sync_code"] and is_code)):
                     continue
@@ -1016,10 +1090,10 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                     continue
 
                 ingest(
-                    f"file:{repo_name}:{path}",
+                    f"file:{repo_name}:{branch}:{path}" if branch_override else f"file:{repo_name}:{path}",
                     "repository_file",
                     f"{repo_name}: {path}",
-                    f"{repo.get('html_url')}/blob/{branch}/{path}",
+                    f"{repo.get('html_url')}/blob/{quote(branch, safe='/')}/{quote(path, safe='/')}",
                     raw,
                     f"{prefix}/files/{path}",
                     "text/plain",

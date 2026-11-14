@@ -65,13 +65,23 @@ export default function ConnectorsPage() {
     setError("");
     setNotice("");
 
-    const f = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const f = new FormData(form);
     const repositories = String(f.get("repositories") || "")
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean);
 
     try {
+      const branches = Object.fromEntries(
+        String(f.get("branches") || "").split(/\r?\n/).map(value => value.trim()).filter(Boolean).map(value => {
+          const separator = value.indexOf("=");
+          if (separator < 1 || !value.slice(separator + 1).trim()) {
+            throw new Error("Use owner/repo=branch for each branch selection.");
+          }
+          return [value.slice(0, separator).trim(), value.slice(separator + 1).trim()];
+        })
+      );
       const connector: any = await api("/api/v1/connectors", {
         method: "POST",
         body: JSON.stringify({
@@ -81,11 +91,16 @@ export default function ConnectorsPage() {
           config: {
             installation_id: f.get("installation_id"),
             repositories,
+            branches,
+            ignore_patterns: String(f.get("ignore_patterns") || "").split(/\r?\n/).map(value => value.trim()).filter(Boolean),
+            code_extensions: String(f.get("code_extensions") || "").split(",").map(value => value.trim()).filter(Boolean),
             sync_readme: true,
             sync_docs: Boolean(f.get("sync_docs")),
             sync_issues: Boolean(f.get("sync_issues")),
             sync_pulls: Boolean(f.get("sync_pulls")),
             sync_code: Boolean(f.get("sync_code")),
+            sync_commits: Boolean(f.get("sync_commits")),
+            sync_releases: Boolean(f.get("sync_releases")),
             max_items_per_sync: Number(f.get("max_items_per_sync")),
           },
         }),
@@ -93,7 +108,7 @@ export default function ConnectorsPage() {
 
       await api(`/api/v1/connectors/${connector.id}/sync`, { method: "POST" });
       setNotice("GitHub connector created and first sync queued.");
-      e.currentTarget.reset();
+      form.reset();
       await load();
     } catch (e: any) {
       setError(e.message);
@@ -287,7 +302,22 @@ export default function ConnectorsPage() {
               <label className="check"><input type="checkbox" name="sync_issues" defaultChecked /> issues</label>
               <label className="check"><input type="checkbox" name="sync_pulls" defaultChecked /> pull requests</label>
               <label className="check"><input type="checkbox" name="sync_code" /> source code</label>
+              <label className="check"><input type="checkbox" name="sync_commits" /> commits</label>
+              <label className="check"><input type="checkbox" name="sync_releases" /> releases</label>
             </div>
+          </div>
+
+          <div className="field full">
+            <label htmlFor="github-branches">Branch overrides for listed repositories</label>
+            <textarea className="textarea" id="github-branches" name="branches" placeholder="owner/repo=release/current" />
+          </div>
+          <div className="field">
+            <label htmlFor="github-ignore">Ignore file patterns (one per line)</label>
+            <textarea className="textarea" id="github-ignore" name="ignore_patterns" placeholder="vendor/*" />
+          </div>
+          <div className="field">
+            <label htmlFor="github-extensions">Source file extensions</label>
+            <input className="input" id="github-extensions" name="code_extensions" placeholder=".py, .ts" />
           </div>
 
           <div className="field full">

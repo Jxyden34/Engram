@@ -197,13 +197,10 @@ Supported ingestion:
 Remaining GitHub work:
 
 - 🟡 Webhook-triggered instant sync
-- 🟡 Commit ingestion
-- 🟡 Release ingestion
+- 🧪 Optional commit and published-release ingestion in the v3.1.0 draft. Both share the connector's existing sync budget.
 - 🟡 Discussions
-- 🟡 Repository branch selection
-- 🟡 Per-repository filters
-- 🟡 Ignore patterns
-- 🟡 Source-code language filters
+- 🧪 Per-repository branch overrides, file ignore patterns, and source extension filters in the v3.1.0 draft.
+- 🟡 Per-repository content filters beyond branch selection
 - 🟡 Connector health diagnostics
 
 ### Browser Capture ✅
