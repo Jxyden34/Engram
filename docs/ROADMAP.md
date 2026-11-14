@@ -221,8 +221,8 @@ Supported:
 Planned:
 
 - 🧪 Reader view extracts the main article or content landmark in the v3.1.0 draft.
-- 🟡 Screenshot capture
-- 🟡 Image OCR
+- 🧪 Capture the visible web page as a PNG and save it as a project source in the v3.1.0 draft.
+- 🧪 Local English-language OCR indexes text in PNG sources. Browser capture and OCR qualification are pending.
 - 🧪 Capture tags are saved with the source document in the v3.1.0 draft.
 - 🧪 Browser captures can specify the target project ID and require a key bound to that project.
 - 🟡 Mobile share-sheet support

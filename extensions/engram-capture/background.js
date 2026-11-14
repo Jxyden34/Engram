@@ -60,12 +60,14 @@ async function sendCapture(payload) {
     throw new Error("Configure the Engram URL and capture key in the extension popup.");
   }
 
-  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+  const headers = { Authorization: `Bearer ${key}` };
   if (cfg.project) headers["X-Engram-Project"] = cfg.project;
-  const response = await fetch(`${base}/api/v1/capture`, {
+  const screenshot = payload instanceof FormData;
+  if (!screenshot) headers["Content-Type"] = "application/json";
+  const response = await fetch(`${base}/api/v1/capture${screenshot ? "/screenshot" : ""}`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ ...payload, tags: payload.tags ?? cfg.tags }),
+    body: screenshot ? payload : JSON.stringify({ ...payload, tags: payload.tags ?? cfg.tags }),
   });
 
   const body = await response.json().catch(() => ({}));
@@ -112,6 +114,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     try {
       let payload = message.payload;
+      if (message.mode === "screenshot") {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.url || !/^https?:\/\//i.test(tab.url)) {
+          throw new Error("Open a web page before capturing a screenshot.");
+        }
+        const image = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+        const [current] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+        if (current?.id !== tab.id || current.url !== tab.url) {
+          throw new Error("The active page changed before the screenshot was saved.");
+        }
+        payload = new FormData();
+        payload.append("file", await (await fetch(image)).blob(), "screenshot.png");
+        payload.append("title", (tab.title || "Browser screenshot").slice(0, 500));
+        payload.append("url", tab.url.slice(0, 4000));
+      }
       if (["page", "selection", "reader"].includes(message.mode)) {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab?.id) throw new Error("No active browser tab.");

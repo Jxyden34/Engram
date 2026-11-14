@@ -5,7 +5,7 @@ from uuid import UUID
 from time import perf_counter
 from starlette.concurrency import run_in_threadpool
 
-from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
@@ -26,7 +26,7 @@ from app import consolidation
 from app import observability
 from app import document_memory_import as doc_mem
 from app.audit import log
-from app.capture import create_capture
+from app.capture import create_capture, create_screenshot
 from app.chatgpt_import import (
     accept_candidate,
     accept_safe_candidates,
@@ -40,7 +40,7 @@ from app.chatgpt_import import (
 )
 from app.config import settings
 from app.database import connect, current_project_id, project_scope
-from app.documents import bulk_upload, get_document, list_documents, minio_client, search_chunks, upload
+from app.documents import bulk_upload, get_document, list_documents, minio_client, read_limited, search_chunks, upload
 from app.mcp_server import mcp, mcp_principal
 from app.rate_limit import check_rate
 from app.request_limits import RequestLimitMiddleware
@@ -1265,6 +1265,20 @@ def browser_capture(body: CaptureCreate, request: Request):
         },
     )
     return row
+
+
+@app.post("/api/v1/capture/screenshot", status_code=202)
+async def browser_screenshot(request: Request, file: UploadFile = File(...),
+                             title: str = Form(min_length=1, max_length=500),
+                             url: str | None = Form(default=None, max_length=4000)):
+    principal = require(request, "capture:write")
+    try:
+        raw = await read_limited(file, min(10, cfg.max_upload_mb) * 1024 * 1024)
+        document = await run_in_threadpool(create_screenshot, raw, title, url, principal.actor, principal.user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    log(principal.actor, "browser.screenshot", "document", str(document["id"]), request)
+    return document
 
 
 @app.get("/.well-known/oauth-protected-resource")

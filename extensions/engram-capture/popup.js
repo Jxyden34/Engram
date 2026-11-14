@@ -52,6 +52,7 @@ document.getElementById("save").addEventListener("click", save);
 document.getElementById("page").addEventListener("click", () => send({ type: "capture", mode: "page" }));
 document.getElementById("selection").addEventListener("click", () => send({ type: "capture", mode: "selection" }));
 document.getElementById("reader").addEventListener("click", () => send({ type: "capture", mode: "reader" }));
+document.getElementById("screenshot").addEventListener("click", () => send({ type: "capture", mode: "screenshot" }));
 document.getElementById("noteButton").addEventListener("click", () => {
   const text = note.value.trim();
   if (!text) {

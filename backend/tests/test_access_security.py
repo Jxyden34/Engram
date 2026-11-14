@@ -98,6 +98,23 @@ def test_key_manager_cannot_issue_permissions_it_does_not_hold(client):
     assert response.status_code == 400
 
 
+def test_screenshot_capture_checks_scope_and_image_dimensions(client, monkeypatch):
+    http, principal = client
+    image = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + (1).to_bytes(4, "big") * 2 + b"\0" * 9
+    files = {"file": ("screenshot.png", image, "image/png")}
+    data = {"title": "Example"}
+    assert http.post("/api/v1/capture/screenshot", files=files, data=data).status_code == 403
+    principal.scopes.add("capture:write")
+    large = image[:16] + (100_000).to_bytes(4, "big") * 2 + image[24:]
+    assert http.post("/api/v1/capture/screenshot", files={"file": ("large.png", large)}, data=data).status_code == 415
+    saved = []
+    monkeypatch.setattr("app.capture.store_bytes", lambda *args, **kwargs: saved.append(kwargs) or {"id": "test"})
+    response = http.post("/api/v1/capture/screenshot", files=files, data=data)
+    assert response.status_code == 202
+    assert saved[0]["source_type"] == "browser_capture"
+    assert saved[0]["source_metadata"]["capture_type"] == "screenshot"
+
+
 def test_rotate_key_preserves_project_and_permissions(records, client):
     from app.security import api_key_principal
 

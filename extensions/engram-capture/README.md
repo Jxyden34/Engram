@@ -27,6 +27,7 @@ to captures from the popup and context menu.
 
 - toolbar popup → Capture page
 - toolbar popup → Reader view
+- toolbar popup → Capture visible screenshot (PNG with local English OCR)
 - toolbar popup → Selection
 - toolbar popup → Quick note
 - right click page → Save page to Engram
