@@ -222,6 +222,19 @@ Open:
 
 and configure the installation ID and repositories.
 
+Commit and release ingestion use Contents read access. Enable Discussions read
+access on the GitHub App to ingest discussion posts. In Connectors, choose
+content types, optional branch and content overrides for individual repositories,
+file ignore patterns, and allowed source extensions.
+
+For event-triggered sync, set `GITHUB_WEBHOOK_SECRET` in the server environment
+and configure the same secret in the GitHub App webhook settings. Use
+`https://YOUR-HOST/api/webhooks/github` as the payload URL and subscribe to Push,
+Issues, Pull request, Release, and Discussion events as needed. Signed events
+queue enabled connectors for the matching installation and repository. Events
+within a minute for the same connector are coalesced, and the normal schedule
+continues to run. [GitHub webhook setup](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)
+
 ---
 
 ## Browser Capture extension

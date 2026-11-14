@@ -198,9 +198,9 @@ Remaining GitHub work:
 
 - 🧪 Signed GitHub App webhooks queue matching connectors in the v3.1.0 draft. Live provider verification is pending.
 - 🧪 Optional commit and published-release ingestion in the v3.1.0 draft. Both share the connector's existing sync budget.
-- 🟡 Discussions
+- 🧪 Optional discussion post ingestion in the v3.1.0 draft. It requires GitHub App Discussions read access.
 - 🧪 Per-repository branch overrides, file ignore patterns, and source extension filters in the v3.1.0 draft.
-- 🟡 Per-repository content filters beyond branch selection
+- 🧪 Per-repository content filters override connector defaults in the v3.1.0 draft.
 - 🧪 Sync history shows error counts, failure details, and completion times in the v3.1.0 draft.
 
 ### Browser Capture ✅

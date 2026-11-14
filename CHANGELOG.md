@@ -3,7 +3,7 @@
 ## 3.1.0 — 2026-11-14
 
 - Improve the knowledge graph with a larger interactive map, clearer relationship modes, and labels that avoid overlap.
-- Add optional GitHub commit and release ingestion, branch overrides for selected repositories, glob ignore patterns, and source file extension filters.
+- Add optional GitHub commit, release, and discussion ingestion, branch overrides for selected repositories, glob ignore patterns, and source file extension filters.
 - Support opt-in GitHub App webhook sync using signature verification and burst coalescing.
 - Add reader view and source tags to the browser capture extension.
 - Add a Personal API Gateway with selectable permissions and rotation for project API keys, alongside OAuth client and grant controls.

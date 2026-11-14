@@ -27,6 +27,15 @@ from app.documents import store_bytes
 
 
 GITHUB_API_VERSION = "2026-03-10"
+GITHUB_DISCUSSIONS_QUERY = """
+query RepositoryDiscussions($owner: String!, $name: String!, $limit: Int!) {
+  repository(owner: $owner, name: $name) {
+    discussions(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      nodes { number title body url updatedAt category { name } }
+    }
+  }
+}
+"""
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 GMAIL_CALLBACK_PATH = "/api/v1/connectors/gmail/callback"
 
@@ -38,6 +47,7 @@ CODE_EXTENSIONS = {
     ".go", ".rs", ".java", ".cs", ".c", ".cc", ".cpp", ".h", ".hpp",
     ".sql", ".toml", ".ini", ".cfg", ".conf", ".xml", ".html", ".css",
 }
+GITHUB_CONTENT_TYPES = ("readme", "docs", "issues", "pulls", "code", "commits", "releases", "discussions")
 
 
 def queue():
@@ -268,6 +278,15 @@ def _validate_github_config(config: dict[str, Any]) -> dict[str, Any]:
     ):
         raise HTTPException(status_code=400, detail="Invalid GitHub repository branches")
 
+    content_filters = config.get("repository_content", {})
+    if not isinstance(content_filters, dict) or len(content_filters) > 100 or any(
+        repo.lower() not in clean_repositories or not isinstance(sources, list)
+        or len(sources) > len(GITHUB_CONTENT_TYPES)
+        or any(source not in GITHUB_CONTENT_TYPES for source in sources)
+        for repo, sources in content_filters.items()
+    ):
+        raise HTTPException(status_code=400, detail="Invalid GitHub repository content filters")
+
     return {
         "installation_id": installation_id,
         "repositories": clean_repositories,
@@ -278,7 +297,9 @@ def _validate_github_config(config: dict[str, Any]) -> dict[str, Any]:
         "sync_code": bool(config.get("sync_code", False)),
         "sync_commits": bool(config.get("sync_commits", False)),
         "sync_releases": bool(config.get("sync_releases", False)),
+        "sync_discussions": bool(config.get("sync_discussions", False)),
         "branches": {repo.lower(): branch for repo, branch in branches.items()},
+        "repository_content": {repo.lower(): sources for repo, sources in content_filters.items()},
         "ignore_patterns": filters("ignore_patterns"),
         "code_extensions": [value.lower() for value in filters("code_extensions")],
         "max_items_per_sync": min(
@@ -954,6 +975,9 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
     prefix = f"github/{repo_name}"
     branch_override = config["branches"].get(repo_name.lower())
     branch = branch_override or repo.get("default_branch") or "main"
+    selected_content = config["repository_content"].get(repo_name.lower())
+    if selected_content is not None:
+        config = {**config, **{f"sync_{source}": source in selected_content for source in GITHUB_CONTENT_TYPES}}
 
     def ignored(path):
         return any(fnmatchcase(path, pattern) for pattern in config["ignore_patterns"])
@@ -1087,6 +1111,37 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                 item.get("html_url"), raw, f"{prefix}/{endpoint}/{identity}.md",
                 "text/markdown", updated, metadata,
             )
+
+    remaining = config["max_items_per_sync"] - counters["seen"]
+    if config["sync_discussions"] and repo.get("has_discussions") and remaining > 0:
+        owner, name = repo_name.split("/", 1)
+        response = client.post("/graphql", json={
+            "query": GITHUB_DISCUSSIONS_QUERY,
+            "variables": {"owner": owner, "name": name, "limit": min(50, remaining)},
+        })
+        if response.status_code != 200:
+            counters["errors"] += 1
+        else:
+            payload = response.json()
+            repository = (payload.get("data") or {}).get("repository")
+            if payload.get("errors") or not repository:
+                counters["errors"] += 1
+            else:
+                for discussion in repository["discussions"]["nodes"][:remaining]:
+                    number = discussion["number"]
+                    title = discussion["title"]
+                    body = (f"# {repo_name} discussion #{number}: {title}\n\n"
+                            f"{discussion.get('body') or ''}\n").encode("utf-8")
+                    if len(body) > config["max_file_kb"] * 1024:
+                        counters["skipped"] += 1
+                        continue
+                    ingest(
+                        f"discussion:{repo_name}:{number}", "discussion", title,
+                        discussion["url"], body, f"{prefix}/discussions/{number}.md",
+                        "text/markdown", discussion["updatedAt"],
+                        {"repository": repo_name, "number": number,
+                         "category": (discussion.get("category") or {}).get("name")},
+                    )
 
     if (config["sync_docs"] or config["sync_code"]) and counters["seen"] < config["max_items_per_sync"]:
         response = client.get(

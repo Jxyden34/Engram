@@ -82,6 +82,13 @@ export default function ConnectorsPage() {
           return [value.slice(0, separator).trim(), value.slice(separator + 1).trim()];
         })
       );
+      const repositoryContent = Object.fromEntries(
+        String(f.get("repository_content") || "").split(/\r?\n/).map(value => value.trim()).filter(Boolean).map(value => {
+          const separator = value.indexOf("=");
+          if (separator < 1) throw new Error("Use owner/repo=content types for each repository filter.");
+          return [value.slice(0, separator).trim(), value.slice(separator + 1).split(",").map(source => source.trim()).filter(Boolean)];
+        })
+      );
       const connector: any = await api("/api/v1/connectors", {
         method: "POST",
         body: JSON.stringify({
@@ -92,6 +99,7 @@ export default function ConnectorsPage() {
             installation_id: f.get("installation_id"),
             repositories,
             branches,
+            repository_content: repositoryContent,
             ignore_patterns: String(f.get("ignore_patterns") || "").split(/\r?\n/).map(value => value.trim()).filter(Boolean),
             code_extensions: String(f.get("code_extensions") || "").split(",").map(value => value.trim()).filter(Boolean),
             sync_readme: true,
@@ -101,6 +109,7 @@ export default function ConnectorsPage() {
             sync_code: Boolean(f.get("sync_code")),
             sync_commits: Boolean(f.get("sync_commits")),
             sync_releases: Boolean(f.get("sync_releases")),
+            sync_discussions: Boolean(f.get("sync_discussions")),
             max_items_per_sync: Number(f.get("max_items_per_sync")),
           },
         }),
@@ -304,12 +313,18 @@ export default function ConnectorsPage() {
               <label className="check"><input type="checkbox" name="sync_code" /> source code</label>
               <label className="check"><input type="checkbox" name="sync_commits" /> commits</label>
               <label className="check"><input type="checkbox" name="sync_releases" /> releases</label>
+              <label className="check"><input type="checkbox" name="sync_discussions" /> discussions</label>
             </div>
           </div>
 
           <div className="field full">
             <label htmlFor="github-branches">Branch overrides for listed repositories</label>
             <textarea className="textarea" id="github-branches" name="branches" placeholder="owner/repo=release/current" />
+          </div>
+          <div className="field full">
+            <label htmlFor="github-content">Content overrides for listed repositories</label>
+            <textarea className="textarea" id="github-content" name="repository_content" placeholder="owner/repo=readme,docs,releases" />
+            <div className="meta">Types: readme, docs, issues, pulls, code, commits, releases, discussions.</div>
           </div>
           <div className="field">
             <label htmlFor="github-ignore">Ignore file patterns (one per line)</label>

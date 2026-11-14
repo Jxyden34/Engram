@@ -15,7 +15,7 @@ from app.database import current_project_id
 def test_selected_branch_filters_and_new_sources_share_the_sync_budget():
     requests = []
     source_items = []
-    repo = {"full_name": "example/project", "default_branch": "main",
+    repo = {"full_name": "example/project", "default_branch": "main", "has_discussions": True,
             "html_url": "https://github.com/example/project"}
     config = connectors._validate_github_config({
         "installation_id": "12",
@@ -26,6 +26,7 @@ def test_selected_branch_filters_and_new_sources_share_the_sync_budget():
         "sync_pulls": False,
         "sync_commits": True,
         "sync_releases": True,
+        "repository_content": {"example/project": ["readme", "code", "commits", "releases", "discussions"]},
         "ignore_patterns": ["vendor/*"],
         "code_extensions": [".PY"],
         "max_items_per_sync": 10,
@@ -33,6 +34,15 @@ def test_selected_branch_filters_and_new_sources_share_the_sync_budget():
 
     def handle(request):
         requests.append(request)
+        if request.url.path == "/graphql":
+            assert json.loads(request.content)["variables"] == {
+                "owner": "example", "name": "project", "limit": 6,
+            }
+            return httpx.Response(200, json={"data": {"repository": {"discussions": {"nodes": [{
+                "number": 4, "title": "Design notes", "body": "Discuss the design",
+                "url": "https://github.com/example/project/discussions/4",
+                "updatedAt": "2026-11-01T00:00:00Z", "category": {"name": "Ideas"},
+            }]}}}})
         endpoint = request.url.path.split("/repos/example/project/")[1]
         payloads = {
             "readme": {"path": "README.md", "content": base64.b64encode(b"readme").decode()},
@@ -58,13 +68,13 @@ def test_selected_branch_filters_and_new_sources_share_the_sync_budget():
     with httpx.Client(base_url="https://api.github.com", transport=httpx.MockTransport(handle)) as client:
         with patch.object(connectors, "_upsert_source_item", side_effect=store):
             connectors._sync_repo(client, {}, "run", repo, config, counters)
-            assert counters == {"seen": 5, "changed": 5, "skipped": 0, "errors": 0}
+            assert counters == {"seen": 6, "changed": 6, "skipped": 0, "errors": 0}
             assert [item[1] for item in source_items] == [
-                "repository", "readme", "commit", "release", "repository_file",
+                "repository", "readme", "commit", "release", "discussion", "repository_file",
             ]
             assert requests[0].url.params["ref"] == "release/current"
             assert requests[1].url.params["sha"] == "release/current"
-            assert b"/git/trees/release%2Fcurrent" in requests[3].url.raw_path
+            assert b"/git/trees/release%2Fcurrent" in requests[4].url.raw_path
             assert source_items[-1][0] == "file:example/project:release/current:main.py"
             assert not any("private" in item[0] for item in source_items)
 
