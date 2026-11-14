@@ -76,12 +76,14 @@ def test_project_ingestion_and_candidate_denominator_use_rls(projects):
             conn.commit()
         result=obs.project_snapshot()
         assert result['documents']['ready_24h']==1
+        assert result['documents']['stored_document_bytes']==10
         assert result['candidates']['acceptance_rate_24h']==pytest.approx(1/3)
         assert result['candidates']['pending']==1
         assert 'private title' not in str(result) and 'Do not expose' not in str(result)
     with project_scope(projects[1]):
         result=obs.project_snapshot()
         assert result['documents']['ready_24h']==0
+        assert result['documents']['stored_document_bytes']==0
         assert result['candidates']['acceptance_rate_24h'] is None
 
 
@@ -107,6 +109,17 @@ def test_metrics_require_admin_session_and_api_timings_are_project_scoped(projec
             allowed=client.get('/api/v1/observability',headers=headers)
         assert allowed.status_code==200 and allowed.json()['project_id']==projects[0]
         assert allowed.json()['queue']['status']=='ok'
+        assert client.get('/api/v1/metrics',headers={'Authorization':f'Bearer {key}'}).status_code==403
+        with project_scope(projects[0]),connect() as conn:
+            metrics_key, prefix, digest = generate_api_key()
+            conn.execute("INSERT INTO api_keys(name,key_prefix,key_hash,scopes) VALUES ('scraper',%s,%s,ARRAY['metrics:read'])",
+                         (prefix,digest))
+            conn.commit()
+        scraper = {'Authorization':f'Bearer {metrics_key}'}
+        metrics = client.get('/api/v1/metrics',headers=scraper)
+        assert metrics.status_code==200 and metrics.headers['content-type'].startswith('text/plain; version=0.0.4')
+        assert 'engram_project_document_bytes 0\n' in metrics.text
+        assert client.get('/api/v1/metrics',headers={**scraper,'X-Engram-Project':projects[1]}).status_code==403
         assert client.get('/api/v1/memories',headers=headers).status_code==200
         with project_scope(projects[0]):
             assert obs.latency_snapshot()['operations']['api']['count']==1

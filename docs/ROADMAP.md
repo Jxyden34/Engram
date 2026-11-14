@@ -602,7 +602,7 @@ Metrics for:
 
 Potential integrations:
 
-- Prometheus
+- 🧪 Authenticated Prometheus project metrics in the v3.1.0 draft
 - Grafana
 - alerting
 - health notifications

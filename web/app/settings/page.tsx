@@ -13,6 +13,7 @@ const KEY_SCOPES = [
   ["capture:write", "Submit browser captures"],
   ["mcp:use", "Connect through MCP"],
   ["memory:delete_request", "Request memory deletion"],
+  ["metrics:read", "Scrape project metrics"],
 ] as const;
 
 export default function SettingsPage() {

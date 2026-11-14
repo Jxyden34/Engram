@@ -38,6 +38,7 @@ ADMIN_SCOPES = {
     "document:read",
     "document:write",
     "audit:read",
+    "metrics:read",
     "keys:admin",
     "mcp:use",
     "capture:write",

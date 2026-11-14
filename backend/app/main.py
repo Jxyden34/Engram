@@ -247,7 +247,7 @@ async def security_middleware(request: Request, call_next):
                 status = response.status_code
                 return response
             finally:
-                if selected_project and path.startswith('/api/v1/') and path != '/api/v1/observability':
+                if selected_project and path.startswith('/api/v1/') and path not in {'/api/v1/observability', '/api/v1/metrics'}:
                     await run_in_threadpool(observability.observe,'api',perf_counter()-started,status>=400)
     finally:
         if token is not None:
@@ -276,6 +276,12 @@ def operational_metrics(request: Request):
     if not p.is_admin or p.auth_type != 'session':
         raise HTTPException(status_code=403,detail='Administrator session required')
     return observability.snapshot()
+
+
+@app.get("/api/v1/metrics")
+def prometheus_metrics(request: Request):
+    require(request, "metrics:read")
+    return Response(observability.prometheus_metrics(), media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 def _check_login(body: LoginRequest):

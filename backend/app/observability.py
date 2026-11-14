@@ -152,6 +152,46 @@ def queue_snapshot():
         return {'status':'unavailable', 'scope':'deployment'}
 
 
+def prometheus_metrics() -> str:
+    project = project_snapshot()
+    latency = latency_snapshot()
+    lines = [
+        '# TYPE engram_project_metrics_available gauge',
+        f'engram_project_metrics_available {int(project["status"] == "ok")}',
+        '# TYPE engram_project_latency_available gauge',
+        f'engram_project_latency_available {int(latency["status"] == "ok")}',
+    ]
+    if project["status"] == "ok":
+        for name, value in (
+            ("memory_count", project["usage"]["memories"]),
+            ("document_count", project["usage"]["documents"]),
+            ("document_bytes", project["documents"]["stored_document_bytes"]),
+            ("failed_documents", project["documents"]["failed"]),
+            ("documents_ready_24h", project["documents"]["ready_24h"]),
+            ("failed_connector_runs_24h", project["connector_runs_24h"]["failed"]),
+            ("overdue_connectors", project["connectors"]["overdue"]),
+            ("candidate_acceptance_ratio_24h", project["candidates"]["acceptance_rate_24h"]),
+        ):
+            if value is not None:
+                metric = f"engram_project_{name}"
+                lines.extend((f"# TYPE {metric} gauge", f"{metric} {value}"))
+    for field, name, scale in (
+        ("count", "samples_24h", 1),
+        ("errors", "errors_24h", 1),
+        ("mean_ms", "mean_seconds_24h", 1000),
+        ("p95_upper_ms", "p95_upper_seconds_24h", 1000),
+    ):
+        metric = f"engram_project_operation_{name}"
+        samples = [
+            f'{metric}{{operation="{op}"}} {rollup[field] / scale}'
+            for op, rollup in latency["operations"].items()
+            if op in OPERATIONS and rollup[field] is not None
+        ]
+        if samples:
+            lines.extend((f"# TYPE {metric} gauge", *samples))
+    return "\n".join(lines) + "\n"
+
+
 def _probe(url):
     start = perf_counter()
     try:

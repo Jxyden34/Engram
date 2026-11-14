@@ -44,9 +44,16 @@ The page refreshes on request rather than polling or running a background monito
 
 ## Remaining roadmap
 
-- Prometheus export with an explicit authenticated access model.
-- Grafana dashboard/provisioning after export definitions are stable.
-- Alert thresholds, deduplication and delivery preferences before notifications.
+The v3.1.0 draft exports Prometheus text at `GET /api/v1/metrics`. Create a
+project API key with only **Scrape project metrics** and give Prometheus that
+key as a Bearer credential. The key fixes the project for the scrape. The
+export contains aggregate project gauges with bounded operation labels.
+Dashboard queries can use `engram_project_document_bytes`,
+`engram_project_documents_ready_24h`, and
+`engram_project_operation_p95_upper_seconds_24h`.
+[Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/)
+
+- Grafana provisioning and notification delivery remain to be qualified.
 - Longer-term durable trends, explicit worker liveness and richer ingestion stages.
 
 These follow-ups are not part of the initial dashboard and are not marked shipped.
