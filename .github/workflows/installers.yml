@@ -6,16 +6,22 @@ on:
   pull_request:
     paths: ['VERSION', 'install.py', 'install.sh', 'scripts/*installer*', '.github/workflows/installers.yml']
   workflow_dispatch:
+    inputs:
+      existing_release:
+        description: Published v3 tag to attest without rebuilding
+        type: string
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: installers-${{ github.ref }}
+  group: installers-${{ github.ref }}-${{ inputs.existing_release || 'build' }}
   cancel-in-progress: true
 
 jobs:
   payload:
+    if: inputs.existing_release == ''
     strategy:
       fail-fast: false
       matrix:
@@ -107,7 +113,7 @@ jobs:
           compression-level: 0
           retention-days: 7
 
-  linux-provenance:
+  package-provenance:
     needs: native
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
@@ -119,51 +125,56 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8.0.2
         with:
-          pattern: installer-package-linux*
+          pattern: installer-package-*
           merge-multiple: true
-          path: dist/linux
-      - name: Sign Linux archive provenance with GitHub's public Sigstore identity
+          path: dist/native
+      - name: Sign installer provenance with GitHub's public Sigstore identity
         uses: actions/attest@v4.2.2
         id: attest
         with:
-          subject-path: dist/linux/*.tar.gz
+          subject-path: |
+            dist/native/*.tar.gz
+            dist/native/*.dmg
+            dist/native/*.zip
+            dist/native/*.msix
       - name: Verify signed archives and prepare portable verification bundles
         env:
           GH_TOKEN: ${{ github.token }}
           BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
           EXPECTED_REPOSITORY: ${{ github.repository }}
         run: |
+          set -euo pipefail
           mkdir -p dist/provenance
-          for archive in dist/linux/*.tar.gz; do
+          for archive in dist/native/*.{tar.gz,dmg,zip,msix}; do
             bundle="dist/provenance/$(basename "$archive").sigstore.json"
             cp "$BUNDLE_PATH" "$bundle"
             gh attestation verify "$archive" --bundle "$bundle" --repo "$EXPECTED_REPOSITORY" \
               --signer-workflow "$EXPECTED_REPOSITORY/.github/workflows/installers.yml" \
               --source-ref "$GITHUB_REF" --source-digest "$GITHUB_SHA" --deny-self-hosted-runners
           done
-          cat >dist/provenance/VERIFY-LINUX.txt <<EOF
-          These signed Sigstore bundles attest the Linux archives built by:
+          cat >dist/provenance/VERIFY-INSTALLERS.txt <<EOF
+          These signed Sigstore bundles attest the installers built by:
           Repository: $EXPECTED_REPOSITORY
           Workflow: .github/workflows/installers.yml
           Source ref: $GITHUB_REF
           Source digest: $GITHUB_SHA
 
           Download the archive and its .sigstore.json bundle. With GitHub CLI:
-          gh attestation verify ARCHIVE.tar.gz --bundle ARCHIVE.tar.gz.sigstore.json --repo $EXPECTED_REPOSITORY --signer-workflow $EXPECTED_REPOSITORY/.github/workflows/installers.yml --source-ref $GITHUB_REF --source-digest $GITHUB_SHA --deny-self-hosted-runners
+          gh attestation verify PACKAGE --bundle PACKAGE.sigstore.json --repo $EXPECTED_REPOSITORY --signer-workflow $EXPECTED_REPOSITORY/.github/workflows/installers.yml --source-ref $GITHUB_REF --source-digest $GITHUB_SHA --deny-self-hosted-runners
 
           Check the source ref and digest against the release or PR you intended to use.
-          Provenance authenticates build origin and contents; it does not install a trusted Linux code-signing certificate.
+          Provenance authenticates build origin and contents; platform code signing and notarization are separate.
           EOF
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: installer-package-linux-provenance
+          name: installer-package-provenance
           path: dist/provenance/
           if-no-files-found: error
           retention-days: 7
 
   release-assets:
     if: startsWith(github.ref, 'refs/tags/v3.')
-    needs: [native, linux-provenance]
+    needs: [native, package-provenance]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -184,3 +195,61 @@ jobs:
             gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "Engram $GITHUB_REF_NAME" --notes "Native Windows, Linux and macOS installer packages. Review the qualification and signing status before publishing."
           fi
           gh release upload "$GITHUB_REF_NAME" dist/packages/* --clobber
+
+  published-package-signatures:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.existing_release != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      RELEASE_TAG: ${{ inputs.existing_release }}
+      REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Download public packages and verify their release checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v3\.[0-9]+\.[0-9]+$ ]]
+          gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json isDraft,isPrerelease \
+            --jq 'if .isDraft or .isPrerelease then error("Expected a stable published release") else . end'
+          mkdir packages
+          cd packages
+          for suffix in macos-amd64.dmg macos-arm64.dmg windows-amd64.zip windows-amd64-store-submission.msix; do
+            package="engram-$RELEASE_TAG-$suffix"
+            gh release download "$RELEASE_TAG" --repo "$REPOSITORY" --pattern "$package" --pattern "$package.sha256"
+            read -r digest filename < <(tr -d '\r' < "$package.sha256")
+            [[ "$filename" == "$package" && "$digest" =~ ^[0-9a-fA-F]{64}$ ]]
+            printf '%s  %s\n' "$digest" "$package" | sha256sum -c -
+          done
+          jq -n --arg tag "$RELEASE_TAG" --arg repo "$REPOSITORY" \
+            '{releaseTag:$tag,repository:$repo,scope:"Published installer bytes"}' > "${RUNNER_TEMP}/release-package.json"
+      - name: Sign the published package digests
+        uses: actions/attest@v4.2.2
+        id: attest
+        with:
+          subject-path: |
+            packages/*.dmg
+            packages/*.zip
+            packages/*.msix
+          predicate-type: https://engram.hindley.tech/attestations/published-installer/v1
+          predicate-path: ${{ runner.temp }}/release-package.json
+      - name: Verify signatures and attach only the bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          for package in packages/*.{dmg,zip,msix}; do
+            bundle="$package.sigstore.json"
+            cp "$BUNDLE_PATH" "$bundle"
+            gh attestation verify "$package" --bundle "$bundle" --repo "$REPOSITORY" \
+              --predicate-type https://engram.hindley.tech/attestations/published-installer/v1 \
+              --signer-workflow "$REPOSITORY/.github/workflows/installers.yml" \
+              --source-ref refs/heads/main --source-digest "$GITHUB_SHA" --deny-self-hosted-runners
+          done
+          gh release upload "$RELEASE_TAG" packages/*.sigstore.json --repo "$REPOSITORY"
