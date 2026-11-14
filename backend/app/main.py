@@ -583,7 +583,7 @@ def relation_create(memory_id: str, body: RelationCreate, request: Request):
 def ask_memories(body: AskRequest, request: Request):
     require(request, "memory:read")
     check_rate(request, "ask", 6, 60)
-    return ask.answer(body.question, body.memory_type, body.since, body.until)
+    return ask.answer(body.question, body.memory_type, body.since, body.until, source_type=body.source_type)
 
 
 @app.post('/api/v1/memories/{memory_id}/pin')

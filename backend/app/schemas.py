@@ -74,6 +74,7 @@ class ClusterApproveRequest(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     memory_type: str | None = Field(default=None, min_length=1, max_length=80)
+    source_type: str | None = Field(default=None, min_length=1, max_length=80)
     since: date | None = None
     until: date | None = None
 

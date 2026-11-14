@@ -528,7 +528,7 @@ The Agent remains proposal-only: it must not silently rewrite memories or cross
 project boundaries.
 
 - ✅ scan and proposal workflow
-- 🟡 alpha1 Ask filters for source, memory type and date range
+- 🧪 Alpha1 Ask filters for source, memory type, and date range in the v3.1.0 draft. Native device qualification is pending.
 - 🟡 alpha1 suggested memory links with explicit approval
 - 🟡 alpha1 mobile review, edit, approve and dismiss flow for Agent proposals
 

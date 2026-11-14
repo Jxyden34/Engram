@@ -105,7 +105,8 @@ def rank_row(row: dict[str, Any], graph_score: float, intent: str) -> dict[str, 
 
 
 def search_memories(query: str, limit: int, memory_type: str | None = None, include_historical: bool = False,
-                    *, since=None, until=None, infer_history: bool = True, include_archived: bool = False) -> list[dict]:
+                    *, since=None, until=None, infer_history: bool = True, include_archived: bool = False,
+                    source_type: str | None = None) -> list[dict]:
     plan = plan_query(query)
     history = "" if include_historical or (infer_history and plan["include_historical"]) else "AND (valid_to IS NULL OR valid_to > now())"
     if not include_archived:
@@ -121,11 +122,13 @@ def search_memories(query: str, limit: int, memory_type: str | None = None, incl
         rows = conn.execute(f"""
           WITH semantic AS (
             SELECT id FROM memories WHERE deleted_at IS NULL AND embedding IS NOT NULL {history}
-              AND (%s::text IS NULL OR memory_type=%s) {dates}
+              AND (%s::text IS NULL OR memory_type=%s)
+              AND (%s::text IS NULL OR source_type=%s) {dates}
             ORDER BY embedding <=> %s::vector LIMIT %s
           ), lexical AS (
             SELECT id FROM memories WHERE deleted_at IS NULL {history}
-              AND (%s::text IS NULL OR memory_type=%s) {dates}
+              AND (%s::text IS NULL OR memory_type=%s)
+              AND (%s::text IS NULL OR source_type=%s) {dates}
               AND search_vector @@ websearch_to_tsquery('english', %s)
             ORDER BY ts_rank_cd(search_vector, websearch_to_tsquery('english', %s)) DESC LIMIT %s
           ), candidates AS (SELECT id FROM semantic UNION SELECT id FROM lexical)
@@ -134,8 +137,9 @@ def search_memories(query: str, limit: int, memory_type: str | None = None, incl
             ts_rank_cd(m.search_vector,websearch_to_tsquery('english',%s)) AS lexical_score,
             {MEMORY_SCORE_SQL} AS memory_score
           FROM memories m JOIN candidates c ON c.id=m.id
-        """, (memory_type, memory_type, since, since, until, until, qvec, pool,
-              memory_type, memory_type, since, since, until, until, query, query, pool, qvec, query)).fetchall()
+        """, (memory_type, memory_type, source_type, source_type, since, since, until, until, qvec, pool,
+              memory_type, memory_type, source_type, source_type, since, since, until, until,
+              query, query, pool, qvec, query)).fetchall()
         ids = [r["id"] for r in rows]
         direct: dict[Any, list[str]] = {key: [] for key in ids}
         related: dict[Any, list[str]] = {key: [] for key in ids}
