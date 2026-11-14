@@ -66,15 +66,14 @@ and v3 tags:
    follows [PyInstaller's build model](https://pyinstaller.org/en/stable/usage.html);
    platform runners use [GitHub's documented labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
 3. Windows also uses the Windows SDK to pack/unpack an unsigned MSIX and execute
-   the unpacked installer's self-test. Linux archives receive signed Sigstore build
+   the unpacked installer's self-test. Windows, Linux, and macOS packages receive signed Sigstore build
    provenance, which the pipeline verifies against its workflow, source ref and commit.
 4. Packages remain downloadable Actions artifacts for development. A v3 tag matching
    VERSION attaches all packages to a draft GitHub release; it does not silently
    publish stable. Payload intermediates expire after one day, packages after seven.
 
 Direct-download Windows ZIPs and macOS DMGs remain unsigned. The MSIX is an unsigned
-Store submission candidate, not a trusted sideload package. Linux archives have signed
-build provenance; the executable itself does not acquire an OS-trusted signature.
+Store submission candidate, not a trusted sideload package. Sigstore verifies the download using GitHub's workflow identity. Platform code signing and notarization use separate trust systems.
 Apple Developer signing/notarization, Windows Store acceptance or direct-download
 Authenticode, and real Docker Desktop device qualification remain required before
 claiming frictionless trusted installation.
@@ -119,14 +118,28 @@ Choose a folder outside AppData if changing that default. Uninstalling the Store
 does not stop/remove the Docker server or delete its data. Use Docker Compose in the
 installation folder to manage the server; retain the directory and volumes for backups.
 
-## Free Linux provenance verification
+## Free package signature verification
 
-The `installer-package-linux-provenance` Actions artifact contains a `.sigstore.json`
-bundle for each Linux archive and `VERIFY-LINUX.txt` with the expected source ref and
-digest. Tagged v3 draft releases receive these files alongside the archives/checksums.
-This uses [GitHub artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
-with public Sigstore signing; no signing-key secret or paid signing account is needed.
-Fork PRs can build packages but cannot run the privileged signing job.
+The installer workflow signs the Windows ZIP and MSIX, macOS DMGs, and Linux
+archives. Download the matching `.sigstore.json` bundle for each package.
+[GitHub artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) use
+public Sigstore signing without a local signing key or paid signing account.
+
+For packages that already shipped, maintainers can manually run **v3 Installer
+Packages** on `main` with the `existing_release` input. It verifies the release
+checksums and attaches signatures for the originally published Windows and
+macOS bytes. These attestations use the published-installer predicate and
+record the release tag. They leave the original packages and Git tag intact.
+
+```sh
+gh attestation verify PACKAGE --bundle PACKAGE.sigstore.json \
+  --repo Jxyden34/Engram \
+  --signer-workflow Jxyden34/Engram/.github/workflows/installers.yml \
+  --source-ref refs/heads/main --deny-self-hosted-runners \
+  --predicate-type https://engram.hindley.tech/attestations/published-installer/v1
+```
+
+For build provenance on a release using the standard installer workflow:
 
 Download the archive and matching bundle. Use a current GitHub CLI, replacing the
 filename, ref and full commit with the release/PR you intended to install:
@@ -140,7 +153,7 @@ gh attestation verify ARCHIVE.tar.gz \
   --deny-self-hosted-runners
 ```
 
-For development artifacts, use the ref/digest recorded in `VERIFY-LINUX.txt` and
+For development artifacts, use the ref/digest recorded in `VERIFY-INSTALLERS.txt` (or `VERIFY-LINUX.txt` for v3.1.0 Linux packages) and
 confirm them against the Actions run. Verification checks the archive content and
 the signing workflow's identity. It does not audit the application or configure a
 Linux package-manager trust store. The one-line bootstrap still checks SHA256;
