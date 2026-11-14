@@ -1,6 +1,6 @@
 # Engram mobile beta (iOS and Android)
 
-The v3.1.0 draft adds incoming text and URL sharing to the mobile preview.
+v3.1.0 adds incoming text and URL sharing to the mobile preview.
 Explicitly save the shared item to the device-local Inbox, then choose a project
 when sending it to Engram. The share extension and Android intent filters require
 runtime `2.7.0-alpha1-native2` (Android build 9 and iOS build 7).
