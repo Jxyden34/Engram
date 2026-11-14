@@ -105,8 +105,13 @@ def project_snapshot():
             documents = dict(conn.execute("""SELECT count(*) FILTER(WHERE status='queued') AS queued,
                 count(*) FILTER(WHERE status='processing') AS processing,
                 count(*) FILTER(WHERE status='failed') AS failed,
+                coalesce(sum(byte_size), 0)::bigint AS stored_document_bytes,
                 count(*) FILTER(WHERE status='ready' AND processed_at>now()-interval '24 hours') AS ready_24h
                 FROM documents WHERE deleted_at IS NULL""").fetchone())
+            usage = dict(conn.execute("""SELECT
+                (SELECT count(*) FROM memories WHERE deleted_at IS NULL) AS memories,
+                (SELECT count(*) FROM documents WHERE deleted_at IS NULL) AS documents
+            """).fetchone())
             candidates = dict(conn.execute("""WITH candidates AS (
                 SELECT status,reviewed_at FROM candidate_memories UNION ALL
                 SELECT status,reviewed_at FROM document_candidate_memories)
@@ -126,7 +131,7 @@ def project_snapshot():
         reviewed = candidates['accepted_24h'] + candidates['rejected_24h']
         candidates['acceptance_rate_24h'] = candidates['accepted_24h']/reviewed if reviewed else None
         documents['ready_per_hour_24h'] = round(documents['ready_24h']/24, 2)
-        return {'status':'ok', 'documents':documents, 'candidates':candidates,
+        return {'status':'ok', 'documents':documents, 'candidates':candidates, 'usage':usage,
                 'connectors':connectors, 'connector_runs_24h':runs}
     except Exception:
         return {'status':'unavailable'}

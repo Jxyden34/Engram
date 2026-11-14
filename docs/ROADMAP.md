@@ -506,8 +506,8 @@ Features:
 - ✅ namespace-specific memories and project switching
 - ✅ project context propagated through the API and MCP
 - ✅ project-scoped connector and candidate-memory boundaries
-- 🟡 project-specific API keys and retention
-- 🟡 explicit, auditable cross-project search
+- 🧪 Project API keys are bound to one project and support scoped issue, rotate, and revoke. Project retention controls are still planned.
+- 🧪 Cross-project search accepts explicitly selected projects, checks administrator access, and records an audit event. CI covers project boundaries.
 - 🟡 isolation testing across memory, document, connector, OAuth callback and
   import paths
 
@@ -530,8 +530,8 @@ project boundaries.
 
 - ✅ scan and proposal workflow
 - 🧪 Alpha1 Ask filters for source, memory type, and date range in the v3.1.0 draft. Native device qualification is pending.
-- 🟡 alpha1 suggested memory links with explicit approval
-- 🟡 alpha1 mobile review, edit, approve and dismiss flow for Agent proposals
+- 🧪 Alpha1 implements suggested memory links with explicit approval. Populated device qualification is pending.
+- 🧪 Alpha1 implements mobile review, editable consolidation drafts, approval, and dismissal. Populated device qualification is pending.
 
 ---
 
@@ -616,8 +616,8 @@ promising enterprise operations before they are proven.
 
 ### Activation and product operations
 
-- guided first-run path to capture or import, then retrieve, a first memory
-- visible usage for memories, documents, storage, connectors and backup status
+- 🧪 The draft guides empty projects to capture or import and search their first memory.
+- 🧪 Observability shows project memory, document, source storage, and connector usage and links to backup status.
 - documented managed-hosting boundaries for upgrades, backups, recovery and
   support
 - privacy-respecting activation measurement: first captured or imported memory
@@ -647,10 +647,10 @@ not a promise of a hosted service date.
 
 ### Native installation packages
 
-The v3.0 distribution track adds compiled Windows/Linux/macOS setup packages,
-prebuilt application images, the host installer moved from draft PR #85 and a
-native build/qualification/release-artifact pipeline. This is development work;
-stable/version promotion and platform signing/device qualification remain separate.
+The v3.0 distribution track shipped compiled Windows/Linux/macOS setup packages,
+prebuilt application images, the host installer moved from draft PR #85, and a
+native build and packaging pipeline. Platform signing and device qualification
+remain pending for the Windows and macOS previews.
 See [native installation packages](V3-INSTALLERS.md).
 
 A controlled autonomous maintenance agent.
