@@ -1,8 +1,12 @@
+import hashlib
+import json
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
 
 import httpx
+import pytest
+from fastapi import HTTPException
 
 from app import connectors
 
@@ -48,3 +52,31 @@ def test_calendar_sync_preserves_event_details_and_paginates():
     assert b"2026-11-20" in args[6] and b"Review notes" in args[6]
     assert args[-1]["recurring_event_id"] == "series"
     assert kwargs["source_type"] == "google_calendar"
+
+@pytest.mark.parametrize(
+    ("kind", "project_id", "session", "expected_status"),
+    [
+        ("gmail", "project-a", "browser-a", 400),
+        ("google_calendar", "project-b", "browser-a", 409),
+        ("google_calendar", "project-a", "browser-b", 403),
+    ],
+)
+def test_calendar_rejects_mismatched_oauth_context(
+    monkeypatch, kind, project_id, session, expected_status
+):
+    state_hash = hashlib.sha256(b"state").hexdigest()
+    states = {f"google_calendar:oauth:{state_hash}": json.dumps({
+        "project_id": "project-a", "session_hash": "browser-a", "verifier": "pkce",
+    })}
+    monkeypatch.setattr(connectors, "settings", lambda: SimpleNamespace(redis_url="redis://test"))
+    monkeypatch.setattr(connectors, "_google_client_credentials", lambda _: ("client", "secret"))
+    monkeypatch.setattr(connectors, "current_project_id", lambda: project_id)
+    monkeypatch.setattr(connectors.Redis, "from_url", lambda _: SimpleNamespace(
+        getdel=lambda key: states.pop(key, None),
+    ))
+
+    with patch.object(connectors.httpx, "post") as exchange:
+        with pytest.raises(HTTPException) as error:
+            connectors.finish_google_oauth(kind, "state", "code", session)
+        assert error.value.status_code == expected_status
+        exchange.assert_not_called()
