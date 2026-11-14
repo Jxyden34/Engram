@@ -18,6 +18,7 @@ from app.embeddings import embed_literal
 
 
 SUPPORTED_EXTENSIONS = {
+    ".ics",
     ".png",
     ".pdf",
     ".docx",
