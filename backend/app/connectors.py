@@ -60,6 +60,13 @@ def queue():
     return Queue("document-ingest", connection=Redis.from_url(settings().redis_url))
 
 
+def _google_client_credentials(kind: str) -> tuple[str | None, str | None]:
+    cfg = settings()
+    if kind == "google_calendar":
+        return cfg.google_calendar_client_id, cfg.google_calendar_client_secret
+    return cfg.google_oauth_client_id, cfg.google_oauth_client_secret
+
+
 def capabilities():
     cfg = settings()
     key_path = Path(cfg.github_app_private_key_path)
@@ -76,11 +83,7 @@ def capabilities():
             "scope": "capture:write",
         },
         **{kind: {
-            "available": bool(
-                cfg.google_oauth_client_id
-                and cfg.google_oauth_client_secret
-                and _google_encryption_key()
-            ),
+            "available": bool(all(_google_client_credentials(kind)) and _google_encryption_key()),
             "scope": scope,
             "redirect_uri": f"{cfg.public_origin.rstrip('/')}{callback}",
         } for kind, (_, scope, callback) in GOOGLE_CONNECTORS.items()},
@@ -146,7 +149,8 @@ def _calendar_config(config: dict[str, Any]) -> dict[str, Any]:
 def start_google_oauth(kind: str, data: dict[str, Any], actor: str, owner_id: str, session_hash: str) -> str:
     cfg = settings()
     label, scope, callback = GOOGLE_CONNECTORS[kind]
-    if not cfg.google_oauth_client_id or not cfg.google_oauth_client_secret:
+    client_id, client_secret = _google_client_credentials(kind)
+    if not client_id or not client_secret:
         raise HTTPException(status_code=503, detail="Google OAuth client is not configured")
     if not _google_encryption_key():
         raise HTTPException(status_code=503, detail="Google token encryption key is not configured")
@@ -166,7 +170,7 @@ def start_google_oauth(kind: str, data: dict[str, Any], actor: str, owner_id: st
         raise HTTPException(status_code=503, detail="Could not start Google authorization")
     redirect_uri = f"{cfg.public_origin.rstrip('/')}{callback}"
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode({
-        "client_id": cfg.google_oauth_client_id,
+        "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": scope,
@@ -185,7 +189,8 @@ def start_gmail_oauth(data: dict[str, Any], actor: str, owner_id: str, session_h
 def finish_google_oauth(kind: str, state: str, code: str, session_hash: str) -> tuple[str, str | None]:
     cfg = settings()
     label, scope, callback = GOOGLE_CONNECTORS[kind]
-    if not cfg.google_oauth_client_id or not cfg.google_oauth_client_secret:
+    client_id, client_secret = _google_client_credentials(kind)
+    if not client_id or not client_secret:
         raise HTTPException(status_code=503, detail="Google OAuth client is not configured")
     state_hash = hashlib.sha256(state.encode()).hexdigest()
     value = Redis.from_url(cfg.redis_url).getdel(f"{kind}:oauth:{state_hash}")
@@ -202,8 +207,8 @@ def finish_google_oauth(kind: str, state: str, code: str, session_hash: str) -> 
     try:
         response = httpx.post("https://oauth2.googleapis.com/token", data={
             "code": code,
-            "client_id": cfg.google_oauth_client_id,
-            "client_secret": cfg.google_oauth_client_secret,
+            "client_id": client_id,
+            "client_secret": client_secret,
             "redirect_uri": redirect_uri,
             "grant_type": "authorization_code",
             **({"code_verifier": data["verifier"]} if data.get("verifier") else {}),
@@ -777,10 +782,10 @@ def _google_access_token(connector: dict[str, Any]) -> str:
     refresh_token = _decrypt_google_token(
         connector["credential_ciphertext"], str(connector["id"])
     )
-    cfg = settings()
+    client_id, client_secret = _google_client_credentials(connector.get("connector_type", "gmail"))
     response = httpx.post("https://oauth2.googleapis.com/token", data={
-        "client_id": cfg.google_oauth_client_id,
-        "client_secret": cfg.google_oauth_client_secret,
+        "client_id": client_id,
+        "client_secret": client_secret,
         "refresh_token": refresh_token,
         "grant_type": "refresh_token",
     }, timeout=30)

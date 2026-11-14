@@ -9,7 +9,7 @@ from app import connectors
 
 def test_calendar_requests_its_own_read_only_scope_and_pkce(monkeypatch):
     monkeypatch.setattr(connectors, "settings", lambda: SimpleNamespace(
-        google_oauth_client_id="test", google_oauth_client_secret="test",
+        google_calendar_client_id="calendar-test", google_calendar_client_secret="test",
         public_origin="https://engram.example.invalid", redis_url="redis://test",
     ))
     monkeypatch.setattr(connectors, "_google_encryption_key", lambda: b"x" * 32)
@@ -17,6 +17,7 @@ def test_calendar_requests_its_own_read_only_scope_and_pkce(monkeypatch):
     url = connectors.start_google_oauth("google_calendar", {}, "test", "test", "session")
     params = parse_qs(urlsplit(url).query)
     assert params["scope"] == [connectors.CALENDAR_SCOPE]
+    assert params["client_id"] == ["calendar-test"]
     assert params["code_challenge_method"] == ["S256"]
     assert params["redirect_uri"] == ["https://engram.example.invalid" + connectors.CALENDAR_CALLBACK_PATH]
 
