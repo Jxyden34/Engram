@@ -376,16 +376,23 @@ export default function ConnectorsPage() {
         </div>
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Connector</th><th>Status</th><th>Seen</th><th>Changed</th><th>Skipped</th><th>Started</th></tr></thead>
+            <thead><tr><th>Connector</th><th>Status</th><th>Seen</th><th>Changed</th><th>Skipped</th><th>Errors</th><th>Started</th><th>Completed</th></tr></thead>
             <tbody>
               {runs.map((run) => (
                 <tr key={run.id}>
                   <td><strong>{run.connector_name}</strong></td>
-                  <td><span className={`badge ${run.status}`}>{run.status}</span></td>
+                  <td>
+                    <span className={`badge ${run.status === "ready" && run.error_count > 0 ? "warn" : run.status}`}>
+                      {run.status === "ready" && run.error_count > 0 ? "Completed with errors" : run.status}
+                    </span>
+                    {run.error_message && <div className="meta">{run.error_message}</div>}
+                  </td>
                   <td>{run.items_seen}</td>
                   <td>{run.items_changed}</td>
                   <td>{run.items_skipped}</td>
+                  <td>{run.error_count}</td>
                   <td className="meta">{dateText(run.started_at || run.created_at)}</td>
+                  <td className="meta">{run.completed_at ? dateText(run.completed_at) : "—"}</td>
                 </tr>
               ))}
             </tbody>

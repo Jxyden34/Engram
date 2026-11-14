@@ -201,7 +201,7 @@ Remaining GitHub work:
 - 🟡 Discussions
 - 🧪 Per-repository branch overrides, file ignore patterns, and source extension filters in the v3.1.0 draft.
 - 🟡 Per-repository content filters beyond branch selection
-- 🟡 Connector health diagnostics
+- 🧪 Sync history shows error counts, failure details, and completion times in the v3.1.0 draft.
 
 ### Browser Capture ✅
 
