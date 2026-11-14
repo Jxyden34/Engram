@@ -1,3 +1,4 @@
+import { colors } from './theme';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Memory, MemoryRelation, MemoryVersion } from './api';
@@ -50,7 +51,7 @@ export default function MemoryDetail({ memory, request, onOpen, onCapture, disab
     </View>
     <Text style={styles.hint}>Full content, history and connections need a server connection.</Text>
     {!!error && <Text style={styles.error}>{error}</Text>}
-    {busy && <ActivityIndicator color="#7ccaff" />}
+    {busy && <ActivityIndicator color={colors.accent} />}
     {versions !== null && <>
       <Text style={styles.section}>Previous versions ({versions.length})</Text>
       {!versions.length && <Text style={styles.hint}>No previous edits recorded for this memory.</Text>}
@@ -86,15 +87,15 @@ export default function MemoryDetail({ memory, request, onOpen, onCapture, disab
 }
 
 const styles = StyleSheet.create({
-  title: { color: '#f2f7ff', fontSize: 26, fontWeight: '800', marginTop: 8, marginBottom: 10 },
-  subtitle: { color: '#f2f7ff', fontSize: 18, fontWeight: '700', marginTop: 16 },
-  section: { color: '#dbe8f4', fontSize: 18, fontWeight: '800', marginVertical: 18 },
-  meta: { color: '#96a9bf', fontSize: 12, marginTop: 8 },
-  content: { color: '#dce9f5', fontSize: 16, lineHeight: 25, marginVertical: 14 },
-  hint: { color: '#96a9bf', lineHeight: 20, marginTop: 14, marginBottom: 10 },
-  error: { color: '#ff9b9b', marginVertical: 12 },
+  title: { color: colors.text, fontSize: 26, fontWeight: '800', marginTop: 8, marginBottom: 10 },
+  subtitle: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 16 },
+  section: { color: colors.body, fontSize: 18, fontWeight: '800', marginVertical: 18 },
+  meta: { color: colors.muted, fontSize: 12, marginTop: 8 },
+  content: { color: colors.body, fontSize: 16, lineHeight: 25, marginVertical: 14 },
+  hint: { color: colors.muted, lineHeight: 20, marginTop: 14, marginBottom: 10 },
+  error: { color: colors.danger, marginVertical: 12 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  button: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: '#416887', marginTop: 12, alignItems: 'center' },
-  link: { color: '#7ccaff', fontWeight: '800' },
-  card: { backgroundColor: '#172536', borderWidth: 1, borderColor: '#2b4157', borderRadius: 16, padding: 17, marginBottom: 12 },
+  button: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: colors.controlBorder, marginTop: 12, alignItems: 'center' },
+  link: { color: colors.accent, fontWeight: '800' },
+  card: { backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 17, marginBottom: 12 },
 });
