@@ -754,16 +754,17 @@ Features:
    preview work into the stable track.
 3. 🟡 Qualify v2.7 project isolation, mobile flows and proposal-only Agent
    boundaries; then sequence alpha1 Ask filters, memory links and Agent review.
-4. 🟡 GitHub webhook-triggered sync, commit/release ingestion and connector
-   diagnostics.
-5. 🟡 Disaster Recovery dashboard, automated restore testing and backup
-   replication.
+4. 🧪 Qualify v3.1.0 GitHub webhook sync, additional source types, repository
+   filters, and connector diagnostics with a real GitHub App installation.
+5. 🟢 The Disaster Recovery dashboard, automated restore tests, and replication
+   are implemented. Verify the configured backup targets on each deployment.
 6. 🟡 Gmail read-only connector qualification, then calendar and cloud-storage
    connectors.
-7. 🟡 Universal search and the explicit cross-project search/audit model.
+7. 🧪 Verify v3.1.0 project search with populated source types and filters.
+   Cross-project memory search requires an explicit selection and audit record.
 8. ✅ v2.8 reflection, briefs, consolidation, decay, archival, pinning and audited undo.
-9. 🔵 Managed-service readiness: onboarding, usage visibility, team governance
-   and operational commitments.
+9. 🔵 Managed-service readiness: verify onboarding and usage, then complete
+   team governance, quota controls, provisioning, and operational commitments.
 10. 🔵 v3 autonomous maintenance and notification capabilities.
 
 ---
