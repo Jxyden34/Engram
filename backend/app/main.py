@@ -44,6 +44,7 @@ from app.documents import bulk_upload, get_document, list_documents, minio_clien
 from app.mcp_server import mcp, mcp_principal
 from app.rate_limit import check_rate
 from app.request_limits import RequestLimitMiddleware
+from app.util import json_text
 from app.schemas import (
     ApiKeyCreate,
     ArchiveRequest,
@@ -87,6 +88,7 @@ from app.security import (
     SESSION_COOKIE,
     api_key_principal,
     bearer_principal,
+    client_ip,
     authenticate,
     create_session,
     generate_api_key,
@@ -139,6 +141,8 @@ async def security_middleware(request: Request, call_next):
 
         if path.startswith("/oauth/"):
             check_rate(request, "oauth", 120, 60)
+        if path == "/api/webhooks/github":
+            check_rate(request, "github_webhook", 120, 60)
 
         if path in {"/api/v1/auth/login", "/api/v1/mobile/login"}:
             check_rate(request, "login", 12, 300)
@@ -1106,6 +1110,17 @@ def memory_health(request: Request):
     return health_checks.summary()
 
 
+@app.post("/api/webhooks/github", status_code=202, include_in_schema=False)
+async def github_webhook(request: Request):
+    queued = await run_in_threadpool(
+        connectors.process_github_webhook,
+        await request.body(),
+        request.headers.get("x-hub-signature-256", ""),
+        request.headers.get("x-github-event", ""),
+    )
+    return {"queued": queued}
+
+
 @app.get("/api/v1/connectors/capabilities")
 def connector_capabilities(request: Request):
     require(request, "connector:admin")
@@ -1584,6 +1599,41 @@ def key_create(body: ApiKeyCreate, request: Request):
     result["warning"] = "Shown once. Store this token securely."
     log(p.actor, "api_key.created", "api_key", str(row["id"]), request, new_data={k: v for k, v in result.items() if k != "token"})
     return result
+
+
+@app.post("/api/v1/keys/{key_id}/rotate")
+def key_rotate(key_id: UUID, request: Request):
+    principal = require(request, "keys:admin")
+    token, prefix, digest = generate_api_key()
+    with connect() as conn:
+        current = conn.execute(
+            """
+            UPDATE api_keys SET revoked_at=now()
+            WHERE id=%s AND project_id=%s AND revoked_at IS NULL
+            RETURNING owner_id, name, scopes
+            """,
+            (key_id, current_project_id()),
+        ).fetchone()
+        if not current:
+            raise HTTPException(status_code=404, detail="Active key not found")
+        if not set(current["scopes"]).issubset(principal.scopes):
+            raise HTTPException(status_code=403, detail="Cannot rotate a key with additional permissions")
+        replacement = conn.execute(
+            """
+            INSERT INTO api_keys(owner_id, name, key_prefix, key_hash, scopes, project_id)
+            VALUES (%s,%s,%s,%s,%s,%s)
+            RETURNING id, name, key_prefix, scopes, created_at
+            """,
+            (current["owner_id"], current["name"], prefix, digest, current["scopes"], current_project_id()),
+        ).fetchone()
+        conn.execute(
+            """INSERT INTO audit_log(actor, action, entity_type, entity_id, ip_address, new_data)
+               VALUES (%s, 'api_key.rotated', 'api_key', %s, %s, %s::jsonb)""",
+            (principal.actor, str(key_id), client_ip(request),
+             json_text({"replacement_id": str(replacement["id"]), "key_prefix": prefix})),
+        )
+        conn.commit()
+    return {**replacement, "token": token, "warning": "Shown once. Store this token securely."}
 
 
 @app.delete("/api/v1/keys/{key_id}")

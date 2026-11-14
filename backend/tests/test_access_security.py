@@ -33,7 +33,7 @@ def records():
         yield dict(project=project,memory=memory,other=other,candidate=candidate,chat_candidate=chat_candidate)
     finally:
         with project_scope(project),connect() as conn:
-            for table in ['candidate_memories','chat_import_conversations','chat_import_jobs','document_candidate_memories','document_memory_jobs','documents','memory_relations','memory_versions','memories']:
+            for table in ['api_keys','candidate_memories','chat_import_conversations','chat_import_jobs','document_candidate_memories','document_memory_jobs','documents','memory_relations','memory_versions','memories']:
                 conn.execute('DELETE FROM '+table)
             conn.commit()
         with connect() as conn:
@@ -96,6 +96,31 @@ def test_key_manager_cannot_issue_permissions_it_does_not_hold(client):
     principal.scopes.add("keys:admin")
     response = http.post("/api/v1/keys", json={"name": "limited", "scopes": ["oauth:admin"]})
     assert response.status_code == 400
+
+
+def test_rotate_key_preserves_project_and_permissions(records, client):
+    from app.security import api_key_principal
+
+    http, principal = client
+    principal.scopes.add("keys:admin")
+    initial = http.post("/api/v1/keys", json={"name": "rotation", "scopes": ["memory:read"]})
+    assert initial.status_code == 201
+    old = initial.json()
+    principal.scopes.remove("memory:read")
+    assert http.post(f"/api/v1/keys/{old['id']}/rotate").status_code == 403
+    with project_scope(records["project"]):
+        assert api_key_principal(old["token"]) is not None
+
+    principal.scopes.add("memory:read")
+    rotated = http.post(f"/api/v1/keys/{old['id']}/rotate")
+    assert rotated.status_code == 200
+    replacement = rotated.json()
+    with project_scope(records["project"]):
+        assert api_key_principal(old["token"]) is None
+        replacement_principal = api_key_principal(replacement["token"])
+        assert replacement_principal.project_id == records["project"]
+        assert replacement_principal.scopes == {"memory:read"}
+    assert http.post(f"/api/v1/keys/{old['id']}/rotate").status_code == 404
 
 
 def test_import_source_scope_covers_lists_jobs_updates_and_review(records,client):

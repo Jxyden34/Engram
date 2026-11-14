@@ -1,9 +1,15 @@
 import base64
+import hmac
+import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
+import pytest
+from fastapi import HTTPException
 
 from app import connectors
+from app.database import current_project_id
 
 
 def test_selected_branch_filters_and_new_sources_share_the_sync_budget():
@@ -67,3 +73,53 @@ def test_selected_branch_filters_and_new_sources_share_the_sync_budget():
             connectors._sync_repo(client, {}, "run", repo, config, counters)
             assert counters["seen"] == 10
             assert requests == []
+
+
+def test_webhook_only_queues_enabled_matching_installation_and_branch(monkeypatch):
+    projects = [{"id": "project-a"}, {"id": "project-b"}]
+    matched = {"id": "connector-a", "config": {
+        "repositories": ["example/project"],
+        "branches": {"example/project": "release/current"},
+    }}
+    other_repo = {"id": "connector-b", "config": {"repositories": ["example/other"]}}
+    queued = []
+    seen = set()
+    monkeypatch.setattr(connectors, "settings", lambda: SimpleNamespace(
+        github_webhook_secret="test-webhook-key", redis_url="redis://test",
+    ))
+
+    def redis_set(key, *_args, **_kwargs):
+        if key in seen:
+            return False
+        seen.add(key)
+        return True
+
+    monkeypatch.setattr(connectors.Redis, "from_url", lambda _url: SimpleNamespace(set=redis_set))
+    monkeypatch.setattr(connectors, "queue_sync", lambda cid: queued.append((current_project_id(), cid)))
+
+    def execute(sql, params=()):
+        if "FROM projects" in sql:
+            rows = projects
+        else:
+            assert "enabled AND connector_type='github'" in sql
+            assert params == ("12",)
+            rows = [matched] if current_project_id() == "project-a" else [other_repo]
+        return SimpleNamespace(fetchall=lambda: rows)
+
+    from contextlib import nullcontext
+    monkeypatch.setattr(connectors, "connect", lambda: nullcontext(SimpleNamespace(execute=execute)))
+
+    def delivery(branch):
+        raw = json.dumps({"installation": {"id": 12}, "repository": {"full_name": "Example/Project"},
+                          "ref": f"refs/heads/{branch}"}).encode()
+        return raw, "sha256=" + hmac.digest(b"test-webhook-key", raw, "sha256").hex()
+
+    raw, signature = delivery("release/current")
+    with pytest.raises(HTTPException) as invalid:
+        connectors.process_github_webhook(raw, "wrong", "push")
+    assert invalid.value.status_code == 401
+    assert connectors.process_github_webhook(*delivery("main"), "push") == 0
+    assert connectors.process_github_webhook(raw, signature, "ping") == 0
+    assert connectors.process_github_webhook(raw, signature, "push") == 1
+    assert connectors.process_github_webhook(raw, signature, "push") == 0
+    assert queued == [("project-a", "connector-a")]

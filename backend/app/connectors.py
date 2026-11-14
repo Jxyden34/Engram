@@ -2,6 +2,7 @@ import base64
 import binascii
 import email.header
 import hashlib
+import hmac
 from html.parser import HTMLParser
 import json
 import re
@@ -52,6 +53,7 @@ def capabilities():
             "app_id_configured": bool(cfg.github_app_id),
             "private_key_present": key_path.is_file(),
             "private_key_path": cfg.github_app_private_key_path,
+            "webhook_configured": bool(cfg.github_webhook_secret),
         },
         "browser_capture": {
             "available": True,
@@ -471,6 +473,58 @@ def queue_due_connectors():
     with connect() as conn:
         project_ids = [str(row["id"]) for row in conn.execute("SELECT id FROM projects").fetchall()]
     return sum(_queue_due_connectors_in_project(project_id) for project_id in project_ids)
+
+
+def process_github_webhook(raw: bytes, signature: str, event: str) -> int:
+    secret = settings().github_webhook_secret
+    if not secret:
+        raise HTTPException(status_code=404, detail="GitHub webhooks are disabled")
+    expected = "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected.encode(), signature.encode()):
+        raise HTTPException(status_code=401, detail="Invalid GitHub webhook signature")
+    if event not in {"push", "issues", "pull_request", "release", "discussion"}:
+        return 0
+    try:
+        payload = json.loads(raw)
+        installation = str(payload["installation"]["id"])
+        repository = payload["repository"]["full_name"].lower()
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid GitHub webhook payload") from exc
+    if not installation.isdigit() or not re.fullmatch(r"[a-z0-9_.-]+/[a-z0-9_.-]+", repository):
+        raise HTTPException(status_code=400, detail="Invalid GitHub webhook source")
+
+    # Coalesce bursts across API workers after matching the connector's filters.
+    redis = Redis.from_url(settings().redis_url)
+    with connect() as conn:
+        projects = conn.execute("SELECT id FROM projects").fetchall()
+    queued = 0
+    for project in projects:
+        with project_scope(str(project["id"])):
+            with connect() as conn:
+                matches = conn.execute(
+                    """SELECT id, config FROM connectors WHERE enabled AND connector_type='github'
+                       AND config->>'installation_id'=%s""",
+                    (installation,),
+                ).fetchall()
+            for connector in matches:
+                config = connector["config"]
+                if config.get("repositories") and repository not in config["repositories"]:
+                    continue
+                branch = config.get("branches", {}).get(repository)
+                if event == "push" and (payload.get("deleted") or (
+                    branch and payload.get("ref") != f"refs/heads/{branch}"
+                )):
+                    continue
+                throttle = f"github:webhook:{connector['id']}"
+                if not redis.set(throttle, "1", ex=60, nx=True):
+                    continue
+                try:
+                    queue_sync(str(connector["id"]))
+                except Exception:
+                    redis.delete(throttle)
+                    raise
+                queued += 1
+    return queued
 
 
 def _queue_due_connectors_in_project(project_id: str):

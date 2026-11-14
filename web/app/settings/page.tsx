@@ -83,6 +83,21 @@ export default function SettingsPage() {
     } catch (e: any) { setError(e.message); }
   }
 
+  async function rotate(id: string) {
+    if (!confirm("Rotate this key? Update its connected clients with the replacement immediately.")) return;
+    setError("");
+    setNewToken("");
+    try {
+      const replacement = await api<{token: string}>(`/api/v1/keys/${id}/rotate`, { method: "POST" });
+      setNewToken(replacement.token);
+      setNotice("Key rotated. Copy the replacement below.");
+      await load();
+      document.getElementById("gateway-new-key")?.scrollIntoView({ block: "center" });
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }
+
   async function createOAuthClient(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
@@ -189,7 +204,7 @@ export default function SettingsPage() {
           </form>
 
           {newToken && (
-            <div className="successBox">
+            <div id="gateway-new-key" className="successBox">
               <strong>Copy this now. It will not be shown again.</strong><br /><br />{newToken}
             </div>
           )}
@@ -366,7 +381,12 @@ export default function SettingsPage() {
                   <td className="meta">{k.scopes.join(", ")}</td>
                   <td className="meta">{dateText(k.last_used_at)}</td>
                   <td>
-                    {!k.revoked_at && <button className="dangerButton" onClick={() => revoke(k.id)}>Revoke</button>}
+                    {!k.revoked_at && (
+                      <div className="row">
+                        <button className="ghostButton" onClick={() => rotate(k.id)}>Rotate</button>
+                        <button className="dangerButton" onClick={() => revoke(k.id)}>Revoke</button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

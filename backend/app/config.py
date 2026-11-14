@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     chat_import_max_candidates_per_chunk: int = 12
     github_app_id: str | None = None
     github_app_private_key_path: str = "/run/secrets/github-app.pem"
+    github_webhook_secret: str | None = None
     google_oauth_client_id: str | None = None
     google_oauth_client_secret: str | None = None
     google_token_encryption_key: str | None = None

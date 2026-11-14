@@ -196,7 +196,7 @@ Supported ingestion:
 
 Remaining GitHub work:
 
-- 🟡 Webhook-triggered instant sync
+- 🧪 Signed GitHub App webhooks queue matching connectors in the v3.1.0 draft. Live provider verification is pending.
 - 🧪 Optional commit and published-release ingestion in the v3.1.0 draft. Both share the connector's existing sync budget.
 - 🟡 Discussions
 - 🧪 Per-repository branch overrides, file ignore patterns, and source extension filters in the v3.1.0 draft.
@@ -670,7 +670,8 @@ The agent proposes changes. It does not silently rewrite personal history.
 
 🧪 The v3.1.0 draft brings project-bound API keys, OAuth clients and grants into
 the Personal API Gateway settings. New API keys start with memory read access,
-with additional permissions selected explicitly.
+with additional permissions selected explicitly. Rotation issues a replacement
+with the same project and scopes and revokes the previous key in one transaction.
 
 Unified permission layer for:
 
