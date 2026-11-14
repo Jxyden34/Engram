@@ -23,11 +23,12 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 async function settings() {
-  const cfg = await chrome.storage.local.get(["engramUrl", "engramKey", "memorybankUrl", "memorybankKey", "engramTags"]);
+  const cfg = await chrome.storage.local.get(["engramUrl", "engramKey", "memorybankUrl", "memorybankKey", "engramTags", "engramProject"]);
   return {
     url: cfg.engramUrl || cfg.memorybankUrl,
     key: cfg.engramKey || cfg.memorybankKey,
     tags: cfg.engramTags || [],
+    project: cfg.engramProject,
   };
 }
 
@@ -59,12 +60,11 @@ async function sendCapture(payload) {
     throw new Error("Configure the Engram URL and capture key in the extension popup.");
   }
 
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+  if (cfg.project) headers["X-Engram-Project"] = cfg.project;
   const response = await fetch(`${base}/api/v1/capture`, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({ ...payload, tags: payload.tags ?? cfg.tags }),
   });
 

@@ -224,9 +224,9 @@ Planned:
 - 🟡 Screenshot capture
 - 🟡 Image OCR
 - 🧪 Capture tags are saved with the source document in the v3.1.0 draft.
-- 🟡 Project / namespace selection
+- 🧪 Browser captures can specify the target project ID and require a key bound to that project.
 - 🟡 Mobile share-sheet support
-- 🟡 Firefox extension
+- 🧪 Firefox extension support in the v3.1.0 draft. Browser installation and signed distribution are pending.
 
 ---
 

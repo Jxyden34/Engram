@@ -3,20 +3,27 @@ const key = document.getElementById("key");
 const status = document.getElementById("status");
 const note = document.getElementById("note");
 const tags = document.getElementById("tags");
+const project = document.getElementById("project");
 
 function captureTags() {
   return [...new Set(tags.value.split(",").map(tag => tag.trim()).filter(Boolean))];
 }
 
 async function load() {
-  const cfg = await chrome.storage.local.get(["engramUrl", "engramKey", "memorybankUrl", "memorybankKey", "engramTags"]);
+  const cfg = await chrome.storage.local.get(["engramUrl", "engramKey", "memorybankUrl", "memorybankKey", "engramTags", "engramProject"]);
   url.value = cfg.engramUrl || cfg.memorybankUrl || "";
   key.value = cfg.engramKey || cfg.memorybankKey || "";
   tags.value = (cfg.engramTags || []).join(", ");
+  project.value = cfg.engramProject || "";
 }
 
 async function save() {
   const values = captureTags();
+  const projectId = project.value.trim().toLowerCase();
+  if (projectId && !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(projectId)) {
+    status.textContent = "Enter a valid Engram project ID.";
+    return;
+  }
   if (values.length > 20 || values.some(tag => Array.from(tag).length > 64)) {
     status.textContent = "Use up to 20 tags, each 64 characters or fewer.";
     return;
@@ -25,6 +32,7 @@ async function save() {
     engramUrl: url.value.trim().replace(/\/+$/, ""),
     engramKey: key.value.trim(),
     engramTags: values,
+    engramProject: projectId,
   });
   status.textContent = "Connection saved.";
 }
