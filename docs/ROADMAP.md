@@ -357,6 +357,10 @@ Ingest:
 
 ### Calendar
 
+Calendar export import indexes selected `.ics` files as source documents.
+Event times, locations, attendees, recurrence rules, and notes are searchable.
+Recurring events retain their rules and exceptions. Live provider sync is planned.
+
 Potential sources:
 
 - Google Calendar
