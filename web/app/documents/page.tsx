@@ -215,7 +215,7 @@ export default function DocumentsPage() {
             multiple
             hidden
             onChange={chooseFiles}
-            accept=".pdf,.docx,.txt,.md,.csv,.json,.log,.yaml,.yml,.zip"
+            accept=".pdf,.docx,.txt,.md,.csv,.json,.log,.yaml,.yml,.ics,.zip"
           />
           <input
             ref={folderInput}
@@ -332,7 +332,7 @@ export default function DocumentsPage() {
               type="file"
               name="file"
               required
-              accept=".pdf,.docx,.txt,.md,.csv,.json,.log,.yaml,.yml"
+              accept=".pdf,.docx,.txt,.md,.csv,.json,.log,.yaml,.yml,.ics"
             />
             <button className="button primary">Upload</button>
           </form>
