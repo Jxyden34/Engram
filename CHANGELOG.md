@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.1.0 — 2026-11-14
+
+- Improve the knowledge graph with a larger interactive map, clearer relationship modes, and labels that avoid overlap.
+- Strengthen access to imported document evidence and deleted memory history. Tighten OAuth consent, token rotation, client registration, and login redirects.
+- Enforce request and archive limits before buffering uploads. Preserve client identity through trusted proxies for rate limiting, and accept valid browser extension preflight requests.
+- Update server and web dependencies, qualify RQ 3 workers, and backport dependency protections for the Expo mobile preview.
+- Build Windows, Linux, and macOS packages with v3.1.0 metadata. Linux packages include signed build provenance. Windows and macOS packages are unsigned previews.
+
+Existing v3.0.2 deployments with migrations through 017 applied can upgrade without a schema migration. See [upgrading](docs/UPGRADING.md) and [native packages](docs/V3-INSTALLERS.md).
+
+
 ## 3.0.2 — 2026-10-26
 
 - Reduce the main sidebar from sixteen page links to four section tabs: Library, Workspace, Capture & review, and System. Each section shows only its own page subtabs inside the main view; every existing destination and URL remains available.

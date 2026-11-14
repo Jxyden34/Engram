@@ -83,13 +83,13 @@ container stack. Neither native self-tests nor readiness substitute for device t
 
 The pipeline contains no signing keys, licence issuer private keys or owner dashboard.
 All packages retain the repository licence and recorded source commit. The server,
-MCP, web package and DR monitor report version 3.0.2; native mobile retains its
+MCP, web package and DR monitor report version 3.1.0; native mobile retains its
 separate preview channel.
 
 ## Free Windows Store signing route
 
 Without an account, the build uses a clearly marked preview package identity and
-MSIX version `3.0.2.0`, corresponding to server version 3.0.2.
+MSIX version `3.1.0.0`, corresponding to server version 3.1.0.
 The accompanying `*-store-identity.json` records whether real Store values were used.
 An unsigned preview MSIX cannot be installed as a publicly trusted Store application.
 
@@ -136,7 +136,7 @@ gh attestation verify ARCHIVE.tar.gz \
   --bundle ARCHIVE.tar.gz.sigstore.json \
   --repo Jxyden34/Engram \
   --signer-workflow Jxyden34/Engram/.github/workflows/installers.yml \
-  --source-ref refs/tags/v3.0.2 --source-digest FULL_COMMIT_SHA \
+  --source-ref refs/tags/v3.1.0 --source-digest FULL_COMMIT_SHA \
   --deny-self-hosted-runners
 ```
 
