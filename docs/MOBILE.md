@@ -9,7 +9,8 @@ Distribution and device testing are pending. [Expo Sharing](https://docs.expo.de
 
 ## Full workspace
 
-Use the **Workspace** tab to open the connected Engram server in your browser.
+Open **Workspace** and choose a tool to open it on your connected server.
+On a server with the workspace sign-in update, signing in returns you to that tool.
 Its web interface includes documents and imports, the knowledge graph,
 timeline, connectors, project tools, Memory Agent, lifecycle history,
 observability, recovery, audit and the Personal API Gateway. The browser
