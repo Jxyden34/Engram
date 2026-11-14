@@ -603,8 +603,8 @@ Metrics for:
 Potential integrations:
 
 - 🧪 Authenticated Prometheus project metrics in the v3.1.0 draft
-- Grafana
-- alerting
+- 🧪 Importable Grafana dashboard and Prometheus alert rules
+- 🟡 End-to-end alert delivery qualification
 - health notifications
 
 ---

@@ -11,6 +11,7 @@
 - Guide empty projects to create a memory or import a source document from the dashboard.
 - Show memory and document usage, source storage, and connector counts with a link to backup status.
 - Export aggregate Prometheus metrics using a dedicated, project-bound permission.
+- Include an importable Grafana dashboard and sample Prometheus alert rules.
 - Set an inactivity window per project and review memories for manual archival. Pinned memories are excluded.
 - Search project entities and events alongside memories and document excerpts, with match explanations and source, date, content type, entity, importance, and confidence filters.
 - Add source filtering to the mobile Ask preview, alongside its memory type and date filters.

@@ -42,7 +42,7 @@ existing authentication/rate-limit/queue responsibilities. Readiness probes are
 read-only, bounded and never return raw exception strings or configured addresses.
 The page refreshes on request rather than polling or running a background monitor.
 
-## Remaining roadmap
+## External monitoring
 
 The v3.1.0 draft exports Prometheus text at `GET /api/v1/metrics`. Create a
 project API key with only **Scrape project metrics** and give Prometheus that
@@ -53,7 +53,17 @@ Dashboard queries can use `engram_project_document_bytes`,
 `engram_project_operation_p95_upper_seconds_24h`.
 [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/)
 
-- Grafana provisioning and notification delivery remain to be qualified.
+Name the Prometheus scrape job `engram` to use the sample
+[alert rules](../ops/observability/engram-alerts.yml). The rules use sustained
+conditions for scrape and project metrics failures and overdue connectors.
+Configure Alertmanager destinations separately for delivery.
+Import the [Grafana dashboard](../ops/observability/engram-grafana.json) and select
+the Prometheus data source when prompted. Use a distinct scrape target label
+for each project when monitoring more than one.
+
+## Remaining roadmap
+
+- Verify Prometheus, Grafana, and Alertmanager together on a real deployment.
 - Longer-term durable trends, explicit worker liveness and richer ingestion stages.
 
 These follow-ups are not part of the initial dashboard and are not marked shipped.
