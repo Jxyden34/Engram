@@ -33,8 +33,7 @@ companion distribution keeps its preview channel and recorded device gates.
 
 | Track | Current position | Scope |
 | --- | --- | --- |
-| Stable server | **v3.0.2** | Projects, Memory Agent, lifecycle tools, observability, and native installers. |
-| Roadmap release | **v3.1.0 draft** | Search, Personal API Gateway, connectors, capture, and project operations. See [PR #127](https://github.com/Jxyden34/Engram/pull/127). |
+| Stable server | **[v3.1.0](https://github.com/Jxyden34/Engram/releases/tag/v3.1.0)** | Project search, Personal API Gateway, connector improvements, browser capture, and project operations. |
 | Native companion | **v2.7.0-alpha1 preview** | Companion source is on `main`; build 8 and native iOS speech still need device qualification. Installed-app runtime and update channels are unchanged. |
 
 v2.7.0 returns to the 2.x numbering by user approval after v6.5.0. Earlier
@@ -195,14 +194,14 @@ Supported ingestion:
 - Pull requests
 - Source code optionally
 
-Remaining GitHub work:
+GitHub connector capabilities in v3.1.0
 
-- 🧪 Signed GitHub App webhooks queue matching connectors in the v3.1.0 draft. Live provider verification is pending.
-- 🧪 Optional commit and published-release ingestion in the v3.1.0 draft. Both share the connector's existing sync budget.
-- 🧪 Optional discussion post ingestion in the v3.1.0 draft. It requires GitHub App Discussions read access.
-- 🧪 Per-repository branch overrides, file ignore patterns, and source extension filters in the v3.1.0 draft.
-- 🧪 Per-repository content filters override connector defaults in the v3.1.0 draft.
-- 🧪 Sync history shows error counts, failure details, and completion times in the v3.1.0 draft.
+- 🧪 Signed GitHub App webhooks queue matching connectors in v3.1.0. Live provider verification is pending.
+- ✅ Optional commit and published-release ingestion in v3.1.0. Both share the connector's existing sync budget.
+- ✅ Optional discussion post ingestion in v3.1.0. It requires GitHub App Discussions read access.
+- ✅ Per-repository branch overrides, file ignore patterns, and source extension filters in v3.1.0.
+- ✅ Per-repository content filters override connector defaults in v3.1.0.
+- ✅ Sync history shows error counts, failure details, and completion times in v3.1.0.
 
 ### Browser Capture ✅
 
@@ -219,15 +218,15 @@ Supported:
 - Source provenance
 - Automatic candidate-memory analysis
 
-Planned:
+Available in v3.1.0 and the companion previews
 
-- 🧪 Reader view extracts the main article or content landmark in the v3.1.0 draft.
-- 🧪 Capture the visible web page as a PNG and save it as a project source in the v3.1.0 draft.
+- ✅ Reader view extracts the main article or content landmark in v3.1.0.
+- ✅ Capture the visible web page as a PNG and save it as a project source in v3.1.0.
 - 🧪 Local English-language OCR indexes text in PNG sources. Browser capture and OCR qualification are pending.
-- 🧪 Capture tags are saved with the source document in the v3.1.0 draft.
-- 🧪 Browser captures can specify the target project ID and require a key bound to that project.
+- ✅ Capture tags are saved with the source document in v3.1.0.
+- ✅ Browser captures can specify the target project ID and require a key bound to that project.
 - 🧪 Mobile share-sheet support for text and links, with explicit saving to the device-local Inbox. Native device qualification is pending.
-- 🧪 Firefox extension support in the v3.1.0 draft. Browser installation and signed distribution are pending.
+- 🧪 Firefox extension support in v3.1.0. Browser installation and signed distribution are pending.
 
 ---
 
@@ -350,14 +349,14 @@ Ingest:
 - 🟡 OAuth authorization with `gmail.readonly` only.
 - 🟡 User-selected Gmail query, label and sync limit.
 - 🟡 Scheduled bounded-query sync with idempotent document updates.
-- 🧪 Each run reads up to 500 matches. A manual, bounded date-range backfill is available in the v3.1.0 draft.
+- 🧪 Each run reads up to 500 matches. A manual, bounded date-range backfill is available in v3.1.0.
 - 🟡 Encrypted refresh-token storage and account disconnect / revocation.
 - 🟡 Message provenance, search indexing and candidate-memory review.
 - 🟡 No compose, send, modify, delete, attachment or mailbox-wide default sync.
 
 ### Calendar
 
-Calendar export import indexes selected `.ics` files as source documents.
+✅ Calendar export import indexes selected `.ics` files as source documents.
 Event times, locations, attendees, recurrence rules, and notes are searchable.
 Recurring exports retain their rules and exceptions. The Google Calendar sync
 branch adds read-only polling of one owned calendar, including recurring
@@ -461,9 +460,9 @@ for v2.7.
 
 ---
 
-## v2.6 — Personal Search Engine 🔵
+## v2.6 — Personal Search Engine 🟢
 
-🧪 The v3.1.0 draft expands project search in Memories to include entity and
+✅ v3.1.0 expands project search in Memories to include entity and
 event results alongside memories and document excerpts. Results include a match
 explanation. Project selection scopes the search, with filters for source,
 date, result type, linked entity, memory importance, and confidence.
@@ -537,7 +536,7 @@ The Agent remains proposal-only: it must not silently rewrite memories or cross
 project boundaries.
 
 - ✅ scan and proposal workflow
-- 🧪 Alpha1 Ask filters for source, memory type, and date range in the v3.1.0 draft. Native device qualification is pending.
+- 🧪 Alpha1 Ask filters for source, memory type, and date range in v3.1.0. Native device qualification is pending.
 - 🧪 Alpha1 implements suggested memory links with explicit approval. Populated device qualification is pending.
 - 🧪 Alpha1 implements mobile review, editable consolidation drafts, approval, and dismissal. Populated device qualification is pending.
 
@@ -608,10 +607,10 @@ Metrics for:
 - connector sync status
 - candidate acceptance rate
 
-Potential integrations:
+Metrics and alerts
 
-- 🧪 Authenticated Prometheus project metrics in the v3.1.0 draft
-- 🧪 Importable Grafana dashboard and Prometheus alert rules
+- ✅ Authenticated Prometheus project metrics in v3.1.0
+- ✅ Importable Grafana dashboard and Prometheus alert rules
 - 🟡 End-to-end alert delivery qualification
 - health notifications
 
@@ -624,9 +623,9 @@ promising enterprise operations before they are proven.
 
 ### Activation and product operations
 
-- 🧪 The draft guides empty projects to capture or import and search their first memory.
-- 🧪 Observability shows project memory, document, source storage, and connector usage and links to backup status.
-- 🧪 [Managed-hosting boundaries](MANAGED-READINESS.md) for upgrades, backups, recovery, and support.
+- ✅ v3.1.0 guides empty projects to capture or import and search their first memory.
+- ✅ Observability shows project memory, document, source storage, and connector usage and links to backup status.
+- ✅ [Managed-hosting boundaries](MANAGED-READINESS.md) for upgrades, backups, recovery, and support.
 - privacy-respecting activation measurement: first captured or imported memory
   successfully retrieved
 
@@ -650,7 +649,7 @@ not a promise of a hosted service date.
 
 # v3 — Personal Knowledge OS 🔵
 
-## v3.0 — Memory Agent
+## v3.0 — Memory Agent ✅
 
 ### Native installation packages
 
@@ -674,9 +673,9 @@ Responsibilities:
 
 The agent proposes changes. It does not silently rewrite personal history.
 
-## v3.1 — Personal API Gateway
+## v3.1 — Personal API Gateway ✅
 
-🧪 The v3.1.0 draft brings project-bound API keys, OAuth clients and grants into
+v3.1.0 brings project-bound API keys, OAuth clients and grants into
 the Personal API Gateway settings. New API keys start with memory read access,
 with additional permissions selected explicitly. Rotation issues a replacement
 with the same project and scopes and revokes the previous key in one transaction.

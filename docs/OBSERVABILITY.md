@@ -44,7 +44,7 @@ The page refreshes on request rather than polling or running a background monito
 
 ## External monitoring
 
-The v3.1.0 draft exports Prometheus text at `GET /api/v1/metrics`. Create a
+v3.1.0 exports Prometheus text at `GET /api/v1/metrics`. Create a
 project API key with only **Scrape project metrics** and give Prometheus that
 key as a Bearer credential. The key fixes the project for the scrape. The
 export contains aggregate project gauges with bounded operation labels.
