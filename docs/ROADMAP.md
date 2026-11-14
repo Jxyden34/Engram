@@ -506,7 +506,7 @@ Features:
 - ✅ namespace-specific memories and project switching
 - ✅ project context propagated through the API and MCP
 - ✅ project-scoped connector and candidate-memory boundaries
-- 🧪 Project API keys are bound to one project and support scoped issue, rotate, and revoke. Project retention controls are still planned.
+- 🧪 Project API keys are bound to one project and support scoped issue, rotate, and revoke. An optional inactivity policy lists eligible memories for manual archival review.
 - 🧪 Cross-project search accepts explicitly selected projects, checks administrator access, and records an audit event. CI covers project boundaries.
 - 🟡 isolation testing across memory, document, connector, OAuth callback and
   import paths

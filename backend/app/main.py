@@ -69,6 +69,7 @@ from app.schemas import (
     OAuthClientCreate,
     OAuthClientUpdate,
     ProjectCreate,
+    ProjectRetentionUpdate,
     RejectRequest,
     RelationCreate,
     SearchRequest,
@@ -404,6 +405,22 @@ def project_search(body: CrossProjectSearchRequest, request: Request):
     log(p.actor, "project.cross_search", "project", current_project_id(), request,
         new_data={"project_ids": [str(value) for value in body.project_ids], "result_count": len(results)})
     return results
+
+
+@app.get("/api/v1/projects/{project_id}/retention")
+def project_retention(project_id: UUID, request: Request):
+    principal = require(request, "memory:read")
+    if not principal.is_admin or principal.auth_type != "session":
+        raise HTTPException(status_code=403, detail="Administrator session required")
+    return projects.get_retention(str(project_id))
+
+
+@app.put("/api/v1/projects/{project_id}/retention")
+def project_retention_update(project_id: UUID, body: ProjectRetentionUpdate, request: Request):
+    principal = require(request, "memory:write")
+    if not principal.is_admin or principal.auth_type != "session":
+        raise HTTPException(status_code=403, detail="Administrator session required")
+    return projects.set_retention(str(project_id), body.retention_days, principal.actor)
 
 
 @app.get("/api/v1/agent/proposals")

@@ -98,6 +98,30 @@ def test_key_manager_cannot_issue_permissions_it_does_not_hold(client):
     assert response.status_code == 400
 
 
+def test_retention_review_is_project_scoped_and_leaves_memories_intact(records, client):
+    http, principal = client
+    project = records["project"]
+    path = f"/api/v1/projects/{project}/retention"
+    assert http.get(path).status_code == 403
+    principal.is_admin = True
+    principal.auth_type = "session"
+    # This fixture's Bearer header skips CSRF while the authenticated principal
+    # exercises the administrator-session boundary in the route.
+    with project_scope(project), connect() as conn:
+        conn.execute("UPDATE memories SET updated_at=now()-interval '60 days'")
+        conn.execute("UPDATE memories SET pinned=true WHERE id=%s", (records["memory"],))
+        conn.commit()
+    assert http.put(path, json={"retention_days": 3}).status_code == 422
+    assert http.put(path, json={"retention_days": 30}).json() == {"retention_days": 30}
+    response = http.get(path)
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["candidates"]] == [records["other"]]
+    with project_scope(project), connect() as conn:
+        assert conn.execute("SELECT count(*) AS n FROM memories WHERE archived_at IS NOT NULL").fetchone()["n"] == 0
+    assert http.put(path, json={"retention_days": None}).status_code == 200
+    assert http.get(path).json() == {"retention_days": None, "candidates": []}
+
+
 def test_screenshot_capture_checks_scope_and_image_dimensions(client, monkeypatch):
     http, principal = client
     image = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + (1).to_bytes(4, "big") * 2 + b"\0" * 9

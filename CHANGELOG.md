@@ -10,6 +10,7 @@
 - Add a Personal API Gateway with selectable permissions and rotation for project API keys, alongside OAuth client and grant controls.
 - Guide empty projects to create a memory or import a source document from the dashboard.
 - Show memory and document usage, source storage, and connector counts with a link to backup status.
+- Set an inactivity window per project and review memories for manual archival. Pinned memories are excluded.
 - Search project entities and events alongside memories and document excerpts, with match explanations and source, date, content type, entity, importance, and confidence filters.
 - Add source filtering to the mobile Ask preview, alongside its memory type and date filters.
 - Receive shared text and links from iOS and Android into the local Inbox for review.
@@ -18,7 +19,7 @@
 - Update server and web dependencies, qualify RQ 3 workers, and backport dependency protections for the Expo mobile preview.
 - Build Windows, Linux, and macOS packages with v3.1.0 metadata. Linux packages include signed build provenance. Windows and macOS packages are unsigned previews.
 
-Existing v3.0.2 deployments with migrations through 017 applied can upgrade without a schema migration. See [upgrading](docs/UPGRADING.md) and [native packages](docs/V3-INSTALLERS.md).
+Existing v3.0.2 deployments must apply `020_project_retention.sql` before starting v3.1.0. It adds an optional review policy with no changes to existing memory contents. See [upgrading](docs/UPGRADING.md) and [native packages](docs/V3-INSTALLERS.md).
 
 
 ## 3.0.2 — 2026-10-26

@@ -231,6 +231,10 @@ class ProjectCreate(BaseModel):
     slug: str = Field(min_length=1, max_length=63)
 
 
+class ProjectRetentionUpdate(BaseModel):
+    retention_days: int | None = Field(ge=30, le=36500)
+
+
 class ChatImportCreate(BaseModel):
     source_document_id: str
 

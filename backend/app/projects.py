@@ -3,10 +3,11 @@ from uuid import UUID
 
 from fastapi import HTTPException
 
-from app.database import DEFAULT_PROJECT_ID, connect, project_scope
+from app.database import DEFAULT_PROJECT_ID, connect, current_project_id, project_scope
 from app.embeddings import embed_literal
 from app import memories
 from app.security import Principal
+from app.util import json_text
 
 
 def list_projects(principal: Principal) -> list[dict]:
@@ -87,3 +88,40 @@ def search_across(principal: Principal, project_ids: list[str], query: str,
                 results.append(item)
     results.sort(key=lambda item: item["search_score"], reverse=True)
     return results[:limit]
+
+
+def get_retention(project_id: str) -> dict:
+    with connect() as conn:
+        project = conn.execute("SELECT retention_days FROM projects WHERE id=%s", (project_id,)).fetchone()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        days = project["retention_days"]
+        candidates = []
+        if days:
+            with project_scope(project_id), connect() as scoped:
+                candidates = scoped.execute(
+                    """SELECT id, title, updated_at FROM memories
+                       WHERE deleted_at IS NULL AND archived_at IS NULL AND NOT pinned
+                         AND greatest(updated_at, coalesce(last_accessed_at, updated_at))
+                             < now() - make_interval(days => %s)
+                       ORDER BY updated_at, id LIMIT 50""",
+                    (days,),
+                ).fetchall()
+        return {"retention_days": days, "candidates": candidates}
+
+
+def set_retention(project_id: str, days: int | None, actor: str) -> dict:
+    with project_scope(project_id), connect() as conn:
+        row = conn.execute(
+            "UPDATE projects SET retention_days=%s WHERE id=%s RETURNING id",
+            (days, current_project_id()),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Project not found")
+        conn.execute(
+            """INSERT INTO audit_log(actor, action, entity_type, entity_id, new_data)
+               VALUES (%s, 'project.retention.updated', 'project', %s, %s::jsonb)""",
+            (actor, project_id, json_text({"retention_days": days})),
+        )
+        conn.commit()
+        return {"retention_days": days}
