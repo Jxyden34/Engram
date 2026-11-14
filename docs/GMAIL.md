@@ -66,7 +66,7 @@ and [testing-mode token expiry](https://support.google.com/cloud/answer/15549945
   update their connector item and queue document reprocessing. Search labels,
   sender, subject, date, thread ID and the Gmail web link are retained as
   provenance.
-- Scheduled polling keeps the saved search query. In the v3.1.0 draft,
+- Scheduled polling keeps the saved search query. In v3.1.0,
   **Import older mail** runs once for a reviewed range of completed UTC days.
   It preserves the connector's selected labels and substitutes the date range
   for its normal query. Each run honors the connector's message cap (at most
