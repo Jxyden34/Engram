@@ -7,6 +7,15 @@ runtime `2.7.0-alpha1-native2`. Engram displays version `3.1.0` in Android build
 10 and iOS build 8. The native preview keeps the `alpha1` update channel.
 Distribution and device testing are pending. [Expo Sharing](https://docs.expo.dev/versions/latest/sdk/sharing/)
 
+## Full workspace
+
+Use the **Workspace** tab to open the connected Engram server in your browser.
+Its web interface includes documents and imports, the knowledge graph,
+timeline, connectors, project tools, Memory Agent, lifecycle history,
+observability, recovery, audit and the Personal API Gateway. The browser
+uses its own sign-in and project selector. The app keeps capture, offline
+drafts, favourites, search, Ask and basic Agent review in the native interface.
+
 ## Companion preview for the v2.7.0 server
 
 The companion source is promoted with PR #36 to the v2.7.0 server on `main`. Native distribution remains an `alpha1` preview. The public app version follows the desktop release, and the update channel and runtime identifiers handle compatibility. Beta4 remains available at commit `9f34cd1` and Android build 6 for rollback. Tested Alpha1 Android build 7 uses `2.7.0-beta4-native1`. The October 6 Expo compatibility patches require Android build 8 / iOS build 6 with `2.7.0-alpha1-native1`. Build 8 has not yet been qualified; build 7 remains the tested rollback. Updates for the new runtime cannot be delivered to build 7. Build with `eas build --platform android --profile alpha1`. Publish compatible Alpha1 updates with `eas update --channel alpha1 --platform android --environment preview` after checks. Do not publish Alpha1 to beta4's `preview` channel.
