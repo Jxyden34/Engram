@@ -193,6 +193,16 @@ jobs:
         run: npm install --global pnpm@11.19.0
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check mobile release version
+        run: |
+          node -e '
+            const assert = require("node:assert/strict");
+            const version = require("node:fs").readFileSync("../VERSION", "utf8").trim();
+            const { expo } = require("./app.json");
+            assert.equal(expo.version, version, "Expo app version must match VERSION");
+            assert.equal(expo.extra.release, version, "Expo release metadata must match VERSION");
+            assert.equal(require("./package.json").version, version, "Mobile package version must match VERSION");
+          '
       - name: Check TypeScript
         run: pnpm check
       - name: Check offline draft storage

@@ -10,10 +10,11 @@ import Ask from './src/Ask';
 import Inbox from './src/Inbox';
 import VoiceCapture from './src/VoiceCapture';
 import { captureTemplates } from './src/memoryTools';
+import appConfig from './app.json';
 
 const KEY = 'engram_mobile_session';
-type Tab = 'Capture' | 'Inbox' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Settings';
-const tabs: Tab[] = ['Capture', 'Inbox', 'Memories', 'Search', 'Ask', 'Agent', 'Settings'];
+type Tab = 'Capture' | 'Inbox' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Workspace' | 'Settings';
+const tabs: Tab[] = ['Capture', 'Inbox', 'Memories', 'Search', 'Ask', 'Agent', 'Workspace', 'Settings'];
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -358,7 +359,7 @@ export default function App() {
   if (!session) return <SafeAreaView style={styles.root}><StatusBar style="light" /><KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView contentContainerStyle={styles.login} keyboardShouldPersistTaps="handled">
       <Text style={styles.brand}>ENGRAM</Text><Text style={styles.hero}>Your memory, anywhere.</Text>
-      <Text style={styles.sub}>2.7 alpha 1 · iOS + Android</Text>
+      <Text style={styles.sub}>v{appConfig.expo.version} · Mobile preview</Text>
       <Text style={styles.label}>Server URL</Text><TextInput style={styles.input} value={server} onChangeText={setServer} placeholder="https://engram.example.com" placeholderTextColor="#718094" autoCapitalize="none" keyboardType="url" />
       <Text style={styles.label}>Username</Text><TextInput style={styles.input} value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Username" placeholderTextColor="#718094" />
       <Text style={styles.label}>Password</Text><TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor="#718094" onSubmitEditing={signIn} />
@@ -369,7 +370,7 @@ export default function App() {
   </KeyboardAvoidingView></SafeAreaView>;
 
   return <SafeAreaView style={styles.root}><StatusBar style="light" />
-    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>ALPHA 1</Text></View>
+    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>v{appConfig.expo.version}</Text></View>
     {!!incomingShare && <View style={{ padding: 12 }}>
       <Text style={styles.hint}>Shared text or link is ready for the local Inbox.</Text>
       <Pressable disabled={busy} style={styles.secondary} accessibilityRole="button" onPress={() => void act(async () => {
@@ -466,6 +467,15 @@ export default function App() {
         {runs.map(run => <View key={run.id} style={styles.card}><Text style={styles.cardTitle}>{run.trigger_type === 'scheduled' ? 'Automatic' : 'Manual'} scan · {run.status}</Text><Text style={styles.meta}>{new Date(run.created_at).toLocaleString()}</Text>{run.result && <Text style={styles.preview}>{run.result.total} new findings</Text>}{!!run.error_message && <Text style={styles.error}>{run.error_message}</Text>}</View>)}
         {!runs.length && <Text style={styles.empty}>No scans yet.</Text>}
       </>}
+      {tab === 'Workspace' && <View style={styles.card}>
+        <Text style={styles.cardTitle}>Full Engram workspace</Text>
+        <Text style={styles.preview}>Open documents, the knowledge graph, connectors, approvals, lifecycle tools, observability and the Personal API Gateway on your Engram server.</Text>
+        <Text style={styles.hint}>This opens your browser. Sign in there if needed and select the project you want to use.</Text>
+        <Pressable style={styles.primary} disabled={busy} accessibilityRole="button" onPress={() => void act(async () => {
+          await Linking.openURL(normalizeOrigin(session.origin));
+        })}><Text style={styles.primaryText}>Open workspace in browser</Text></Pressable>
+      </View>}
+
       {tab === 'Settings' && <><Text style={styles.section}>Account</Text><Text style={styles.content}>{session.username}</Text><Text style={styles.meta}>{session.origin}</Text><Text style={styles.hint}>Project: {projects.find(p => p.id === session.projectId)?.name || 'Personal'}</Text>
         <Pressable style={styles.secondary} disabled={busy || libraryLoading || !offlineLibrary.savedAt} onPress={() => Alert.alert('Clear offline library?', 'Remove saved copies and favourites for this project from this device? Memories on the server are unaffected.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: () => { void act(async () => { await clearOfflineLibrary(SecureStore, session); setOfflineLibrary({ items: [], savedAt: null }); setSelected(null); setResults(null); if (usingOffline) setMemories([]); }); } }])} accessibilityRole="button"><Text style={styles.link}>Clear this project’s offline copies</Text></Pressable>
         <Pressable style={styles.secondary} onPress={signOut} disabled={busy}><Text style={styles.link}>Sign out and revoke session</Text></Pressable></>}
