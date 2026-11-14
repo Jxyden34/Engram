@@ -24,7 +24,6 @@ minimumReleaseAgeExclude:
 
 patchedDependencies:
   braces@3.0.3: patches/braces@3.0.3.patch
-  glob@13.0.6: patches/glob@13.0.6.patch
   glob@14.0.3: patches/glob@14.0.3.patch
   minimatch@10.2.6: patches/minimatch@10.2.6.patch
   minimatch@11.0.4: patches/minimatch@11.0.4.patch

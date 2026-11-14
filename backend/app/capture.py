@@ -5,11 +5,25 @@ from uuid import uuid4
 from app.config import settings
 from app.database import connect
 from app.documents import store_bytes
+from app.jobs import validate_png
 
 
 def _slug(value: str) -> str:
     clean = re.sub(r"[^a-zA-Z0-9._-]+", "-", value.strip()).strip("-")
     return (clean or "capture")[:120]
+
+
+def create_screenshot(raw: bytes, title: str, url: str | None, actor: str, owner_id: str | None):
+    validate_png(raw)
+    captured_at = datetime.now(timezone.utc)
+    filename = f"browser/{captured_at:%Y/%m/%d}/{_slug(title)}-{uuid4().hex[:8]}.png"
+    return store_bytes(
+        raw, filename, "image/png", actor, owner_id,
+        source_type="browser_capture", source_ref=url,
+        source_metadata={"capture_type": "screenshot", "title": title,
+                         "url": url, "captured_at": captured_at.isoformat()},
+        dedupe=False,
+    )
 
 
 def create_capture(data: dict, actor: str, owner_id: str | None):
@@ -22,6 +36,7 @@ def create_capture(data: dict, actor: str, owner_id: str | None):
     url = str(data.get("url") or "").strip() or None
     capture_type = data.get("capture_type") or "page"
     captured_at = datetime.now(timezone.utc)
+    tags = list(dict.fromkeys(tag.strip() for tag in data.get("tags", []) if tag.strip()))
 
     front = [
         f"# {title}",
@@ -31,6 +46,8 @@ def create_capture(data: dict, actor: str, owner_id: str | None):
     ]
     if url:
         front.append(f"- Source URL: {url}")
+    if tags:
+        front.append(f"- Tags: {', '.join(tags)}")
 
     body = "\n".join(front) + "\n\n" + text + "\n"
     filename = (
@@ -52,6 +69,7 @@ def create_capture(data: dict, actor: str, owner_id: str | None):
             "url": url,
             "captured_at": captured_at.isoformat(),
             **(data.get("metadata") or {}),
+            "tags": tags,
         },
         dedupe=False,
     )

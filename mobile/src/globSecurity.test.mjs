@@ -24,12 +24,15 @@ for (const importer of [cli, fingerprint]) {
     await import(pathToFileURL(join(minimatchRoot, 'dist/esm/index.js')).href));
 }
 
-test('Expo glob entry points use the cancellation repair for both dependency versions', () => {
+const fingerprintMatcherRoot = dirname(fingerprint.resolve('minimatch/package.json'));
+minimatchVariants.push(fingerprint('minimatch'),
+  await import(pathToFileURL(join(fingerprintMatcherRoot, 'dist/esm/index.js')).href));
+
+test('Expo glob entry points use the cancellation repair in both importers', () => {
   for (const offset of [0, 4]) {
     assert.equal(globVariants[offset].Glob, globVariants[offset + 1].Glob);
     assert.equal(globVariants[offset + 2].Glob, globVariants[offset + 3].Glob);
   }
-  assert.equal(createRequire(fingerprint.resolve('glob')).resolve('minimatch'), fingerprint.resolve('minimatch'));
 });
 
 function fixture(t) {

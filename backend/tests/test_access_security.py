@@ -33,7 +33,7 @@ def records():
         yield dict(project=project,memory=memory,other=other,candidate=candidate,chat_candidate=chat_candidate)
     finally:
         with project_scope(project),connect() as conn:
-            for table in ['candidate_memories','chat_import_conversations','chat_import_jobs','document_candidate_memories','document_memory_jobs','documents','memory_relations','memory_versions','memories']:
+            for table in ['api_keys','candidate_memories','chat_import_conversations','chat_import_jobs','document_candidate_memories','document_memory_jobs','documents','memory_relations','memory_versions','memories']:
                 conn.execute('DELETE FROM '+table)
             conn.commit()
         with connect() as conn:
@@ -48,6 +48,120 @@ def client(records,monkeypatch):
     monkeypatch.setattr(main,'check_rate',lambda *args:None)
     monkeypatch.setattr(main.observability,'observe',lambda *args:None)
     return TestClient(main.app,base_url='http://localhost',headers={'Authorization':'Bearer test'}),principal
+
+
+def test_knowledge_search_requires_opt_in_and_keeps_project_boundaries(records, client, monkeypatch):
+    http, principal = client
+    project = records["project"]
+    term = "search" + uuid4().hex
+    monkeypatch.setattr(main.intelligence, "search_memories", lambda *args, **kwargs: [])
+
+    try:
+        with project_scope(project), connect() as conn:
+            conn.execute(
+                """INSERT INTO entities(name,normalized_name,aliases,created_by,updated_by)
+                   VALUES ('Visible entity',%s,ARRAY[%s],'test','test')""",
+                (term, term),
+            )
+            conn.execute(
+                "INSERT INTO events(title,description,created_by) VALUES ('Visible event',%s,'test')",
+                (term,),
+            )
+            conn.commit()
+        with connect() as conn:
+            conn.execute(
+                "INSERT INTO events(title,description,created_by) VALUES ('Other project event',%s,'test')",
+                (term,),
+            )
+            conn.commit()
+
+        assert http.post("/api/v1/search", json={"query": term}).json() == []
+        response = http.post("/api/v1/search", json={"query": term, "include_knowledge": True})
+        assert response.status_code == 200
+        assert {result["title"] for result in response.json()} == {"Visible entity", "Visible event"}
+        assert all(result["match_reasons"] for result in response.json())
+
+        principal.scopes.remove("memory:read")
+        assert http.post("/api/v1/search", json={"query": term, "include_knowledge": True}).status_code == 403
+    finally:
+        for project_id in (project, "00000000-0000-0000-0000-000000000001"):
+            with project_scope(project_id), connect() as conn:
+                conn.execute("DELETE FROM events WHERE description=%s", (term,))
+                conn.execute("DELETE FROM entities WHERE normalized_name=%s", (term,))
+                conn.commit()
+
+
+def test_key_manager_cannot_issue_permissions_it_does_not_hold(client):
+    http, principal = client
+    principal.scopes.add("keys:admin")
+    response = http.post("/api/v1/keys", json={"name": "limited", "scopes": ["oauth:admin"]})
+    assert response.status_code == 400
+
+
+def test_retention_review_is_project_scoped_and_leaves_memories_intact(records, client):
+    http, principal = client
+    project = records["project"]
+    path = f"/api/v1/projects/{project}/retention"
+    assert http.get(path).status_code == 403
+    principal.is_admin = True
+    principal.auth_type = "session"
+    # This fixture's Bearer header skips CSRF while the authenticated principal
+    # exercises the administrator-session boundary in the route.
+    with project_scope(project), connect() as conn:
+        conn.execute("UPDATE memories SET updated_at=now()-interval '60 days'")
+        conn.execute("UPDATE memories SET pinned=true WHERE id=%s", (records["memory"],))
+        conn.commit()
+    assert http.put(path, json={"retention_days": 3}).status_code == 422
+    assert http.put(path, json={"retention_days": 30}).json() == {"retention_days": 30}
+    response = http.get(path)
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["candidates"]] == [records["other"]]
+    with project_scope(project), connect() as conn:
+        assert conn.execute("SELECT count(*) AS n FROM memories WHERE archived_at IS NOT NULL").fetchone()["n"] == 0
+    assert http.put(path, json={"retention_days": None}).status_code == 200
+    assert http.get(path).json() == {"retention_days": None, "candidates": []}
+
+
+def test_screenshot_capture_checks_scope_and_image_dimensions(client, monkeypatch):
+    http, principal = client
+    image = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + (1).to_bytes(4, "big") * 2 + b"\0" * 9
+    files = {"file": ("screenshot.png", image, "image/png")}
+    data = {"title": "Example"}
+    assert http.post("/api/v1/capture/screenshot", files=files, data=data).status_code == 403
+    principal.scopes.add("capture:write")
+    large = image[:16] + (100_000).to_bytes(4, "big") * 2 + image[24:]
+    assert http.post("/api/v1/capture/screenshot", files={"file": ("large.png", large)}, data=data).status_code == 415
+    saved = []
+    monkeypatch.setattr("app.capture.store_bytes", lambda *args, **kwargs: saved.append(kwargs) or {"id": "test"})
+    response = http.post("/api/v1/capture/screenshot", files=files, data=data)
+    assert response.status_code == 202
+    assert saved[0]["source_type"] == "browser_capture"
+    assert saved[0]["source_metadata"]["capture_type"] == "screenshot"
+
+
+def test_rotate_key_preserves_project_and_permissions(records, client):
+    from app.security import api_key_principal
+
+    http, principal = client
+    principal.scopes.add("keys:admin")
+    initial = http.post("/api/v1/keys", json={"name": "rotation", "scopes": ["memory:read"]})
+    assert initial.status_code == 201
+    old = initial.json()
+    principal.scopes.remove("memory:read")
+    assert http.post(f"/api/v1/keys/{old['id']}/rotate").status_code == 403
+    with project_scope(records["project"]):
+        assert api_key_principal(old["token"]) is not None
+
+    principal.scopes.add("memory:read")
+    rotated = http.post(f"/api/v1/keys/{old['id']}/rotate")
+    assert rotated.status_code == 200
+    replacement = rotated.json()
+    with project_scope(records["project"]):
+        assert api_key_principal(old["token"]) is None
+        replacement_principal = api_key_principal(replacement["token"])
+        assert replacement_principal.project_id == records["project"]
+        assert replacement_principal.scopes == {"memory:read"}
+    assert http.post(f"/api/v1/keys/{old['id']}/rotate").status_code == 404
 
 
 def test_import_source_scope_covers_lists_jobs_updates_and_review(records,client):

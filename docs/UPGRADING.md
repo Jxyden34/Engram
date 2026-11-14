@@ -97,6 +97,10 @@ db/migrations/
 
 Apply only migrations that have not previously been applied.
 
+For v3.1.0, apply `020_project_retention.sql` after the existing migrations
+through `017_lifecycle_undo.sql`. Existing projects start with retention review
+disabled. The migration adds a nullable policy field and does not update memories.
+
 Example:
 
 ```bash

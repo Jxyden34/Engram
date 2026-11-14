@@ -71,7 +71,7 @@ jobs:
           - {runner: ubuntu-22.04, architecture: amd64, python: x64, label: linux}
           - {runner: ubuntu-22.04-arm, architecture: arm64, python: arm64, label: linux-arm}
           - {runner: macos-15-intel, architecture: amd64, python: x64, label: macos-intel}
-          - {runner: macos-14, architecture: arm64, python: arm64, label: macos-apple}
+          - {runner: macos-15, architecture: arm64, python: arm64, label: macos-apple}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:

@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useState} from 'react';
+import Link from 'next/link';
 import Topbar from '@/components/Topbar';
 import {api,dateText} from '@/lib/api';
 
@@ -8,7 +9,7 @@ type Timing={count:number;errors:number;error_rate:number|null;mean_ms:number|nu
 type Snapshot={project_id:string;generated_at:string;latency:{status:string;window_started_at?:string;operations:Record<string,Timing>};
   services:Record<string,{status:string;latency_ms?:number|null}>;
   queue:{status:string;scope:string;queued?:number;started_registry?:number;failed_registry?:number};
-  project:{status:string;documents?:{queued:number;processing:number;failed:number;ready_24h:number;ready_per_hour_24h:number};
+  project:{status:string;usage?:{memories:number;documents:number};documents?:{queued:number;processing:number;failed:number;ready_24h:number;ready_per_hour_24h:number;stored_document_bytes:number};
     candidates?:{pending:number;accepted_24h:number;rejected_24h:number;acceptance_rate_24h:number|null};
     connectors?:{total:number;enabled:number;failing:number;overdue:number;last_sync_at:string|null};
     connector_runs_24h?:{ready:number;failed:number;items_changed:number}}};
@@ -31,6 +32,16 @@ export default function ObservabilityPage(){
       </section>
       <section className="panel"><h2>Shared job queue</h2><p className="meta">Deployment-wide document-ingest queue; registry sizes can include entries awaiting worker cleanup.</p>{data.queue.status==='ok'?<div className="grid4">{[['Queued',data.queue.queued],['Started registry',data.queue.started_registry],['Failed registry',data.queue.failed_registry]].map(([label,value])=><div className="miniStat" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>:<p role="status">Queue metrics unavailable.</p>}</section>
       {data.project.status!=='ok'?<p className="errorBox" role="status">Project metrics unavailable.</p>:<>
+        <section className="panel">
+          <div className="panelHead"><h2>Project usage</h2><Link className="ghostButton" href="/disaster-recovery">Backup status</Link></div>
+          <div className="grid4">
+            <div className="miniStat"><span>Memories</span><strong>{data.project.usage?.memories ?? '—'}</strong></div>
+            <div className="miniStat"><span>Documents</span><strong>{data.project.usage?.documents ?? '—'}</strong></div>
+            <div className="miniStat"><span>Source document storage</span><strong>{data.project.documents?.stored_document_bytes == null ? '—' : `${(data.project.documents.stored_document_bytes / 1048576).toLocaleString(undefined, {maximumFractionDigits: 2})} MiB`}</strong></div>
+            <div className="miniStat"><span>Enabled connectors</span><strong>{data.project.connectors?.enabled ?? '—'}</strong></div>
+          </div>
+          <p className="meta">Storage counts source document bytes. Database, embedding, object version, and backup overhead are tracked separately from this total.</p>
+        </section>
         <section className="panel"><h2>Project ingestion</h2><div className="grid4">{[['Ready in 24h',data.project.documents?.ready_24h],['Average ready/hour',data.project.documents?.ready_per_hour_24h],['Queued / processing',`${data.project.documents?.queued} / ${data.project.documents?.processing}`],['Failed documents',data.project.documents?.failed]].map(([label,value])=><div className="miniStat" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div></section>
         <section className="panel"><h2>Candidate review · last 24 hours</h2><div className="grid4">{[['Pending',data.project.candidates?.pending],['Accepted',data.project.candidates?.accepted_24h],['Rejected',data.project.candidates?.rejected_24h],['Acceptance rate',percent(data.project.candidates?.acceptance_rate_24h)]].map(([label,value])=><div className="miniStat" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div><p className="meta">Accepted ÷ (accepted + rejected) across conversation and document candidates reviewed in this period.</p></section>
         <section className="panel"><h2>Project connectors</h2><div className="grid4">{[['Enabled / total',`${data.project.connectors?.enabled} / ${data.project.connectors?.total}`],['Failing enabled',data.project.connectors?.failing],['Overdue by 5+ minutes',data.project.connectors?.overdue],['Failed runs in 24h',data.project.connector_runs_24h?.failed]].map(([label,value])=><div className="miniStat" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div><p className="meta">Latest recorded sync: {data.project.connectors?.last_sync_at?dateText(data.project.connectors.last_sync_at):'none'}. Completed runs in 24h: {data.project.connector_runs_24h?.ready}; items changed: {data.project.connector_runs_24h?.items_changed}.</p></section>

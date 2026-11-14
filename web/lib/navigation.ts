@@ -11,7 +11,7 @@ export const navigationGroups = [
   ]},
   {title:"System",icon:"⌘",links:[
     ["/system","Health & about"],["/observability","Observability"],
-    ["/disaster-recovery","Disaster Recovery"],["/audit","Audit trail"],["/settings","AI, API & OAuth"],
+    ["/disaster-recovery","Disaster Recovery"],["/audit","Audit trail"],["/settings","Personal API Gateway"],
   ]},
 ];
 

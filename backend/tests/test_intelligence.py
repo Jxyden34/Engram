@@ -102,6 +102,7 @@ def test_ask_hybrid_filters_candidates_before_limits_and_preserves_project_scope
                 lexical = str(conn.execute("""INSERT INTO memories(title,content,memory_type,updated_at,created_by,updated_by)
                     VALUES (%s,'End boundary without embedding','decision','2026-09-30T23:59:59.999999Z','test','test') RETURNING id""",
                     (token,)).fetchone()["id"])
+                conn.execute("UPDATE memories SET source_type='github_import' WHERE id=%s", (lexical,))
                 # More excluded near-neighbours than the semantic candidate limit.
                 conn.execute("""INSERT INTO memories(title,content,memory_type,embedding,updated_at,created_by,updated_by)
                     SELECT %s,'Outside date window','decision',%s::vector,'2026-10-01T00:00:00Z','test','test'
@@ -125,6 +126,8 @@ def test_ask_hybrid_filters_candidates_before_limits_and_preserves_project_scope
             assert {str(row["id"]) for row in result["sources"]} == {semantic, lexical}
             assert result["project_id"] == projects[0]
             assert result["filters"]["since"] == "2026-09-30"
+            filtered = ask.answer(token, "decision", "2026-09-30", "2026-09-30", source_type="github_import")
+            assert [str(row["id"]) for row in filtered["sources"]] == [lexical]
         with project_scope(projects[1]):
             result = ask.answer(token, "decision", "2026-09-30", "2026-09-30")
             assert [str(row["id"]) for row in result["sources"]] == [foreign]

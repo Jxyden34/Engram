@@ -21,16 +21,19 @@ ANSWER_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["
             "quote": {"type": "string", "minLength": 12, "maxLength": 400}}}}}}
 
 
-def answer(question: str, memory_type: str | None = None, since=None, until=None) -> dict:
+def answer(question: str, memory_type: str | None = None, since=None, until=None,
+           *, source_type: str | None = None) -> dict:
     question = question.strip()
     if not question:
         raise HTTPException(status_code=422, detail="Enter a question first")
-    rows = intelligence.search_memories(question, 5, memory_type, since=since, until=until, infer_history=False)
+    rows = intelligence.search_memories(question, 5, memory_type, since=since, until=until,
+                                        infer_history=False, source_type=source_type)
     sources = [{"number": i + 1, "id": str(row["id"]), "title": row["title"],
                 "content": row["content"][:1600], "updated_at": row["updated_at"]}
                for i, row in enumerate(rows)]
     result = {"project_id": current_project_id(), "question": question, "sources": sources,
-              "filters": {"memory_type": memory_type, "since": str(since) if since else None, "until": str(until) if until else None}}
+              "filters": {"memory_type": memory_type, "source_type": source_type,
+                          "since": str(since) if since else None, "until": str(until) if until else None}}
     if not sources:
         return {**result, "claims": [], "insufficient": True}
     try:

@@ -1,0 +1,19 @@
+groups:
+  - name: engram-project
+    rules:
+      - alert: EngramProjectMetricsUnavailable
+        expr: (up{job="engram"} == 0) or (engram_project_metrics_available{job="engram"} == 0)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Engram project metrics are unavailable
+          description: Check the scrape credential, API availability, and PostgreSQL readiness.
+      - alert: EngramConnectorsOverdue
+        expr: engram_project_overdue_connectors{job="engram"} > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Engram has overdue connectors
+          description: Check the connector scheduler and recent sync runs.

@@ -14,6 +14,10 @@ def request_limit(path: str) -> int:
         return cfg.bulk_max_total_mb * 1024 * 1024 + 1024 * 1024
     if path.startswith("/oauth/"):
         return 16 * 1024
+    if path == "/api/webhooks/github":
+        return 1024 * 1024
+    if path == "/api/v1/capture/screenshot":
+        return min(10, cfg.max_upload_mb) * 1024 * 1024 + 64 * 1024
     # Capture accepts up to capture_max_chars, including JSON Unicode escapes.
     return max(4 * 1024 * 1024, cfg.capture_max_chars * 6 + 64 * 1024)
 

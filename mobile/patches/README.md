@@ -18,7 +18,7 @@ transitive importer. Use pnpm 11.19.0; do not use npm or an unpatched installati
   Unbounded containers are unchanged; Zod 3 maps have no built-in size constraint.
   The unused bundled Zod 4 exports are not patched. Expo CLI still requires Zod 3;
   forcing Zod 4 or an Expo SDK major upgrade would change its schema contracts.
-- `glob@13.0.6`: GHSA-3g3m-2fjr-6pw4. Backports upstream commit
+- `glob@14.0.3`: GHSA-3g3m-2fjr-6pw4. Backports upstream commit
   `4682e8c9babee1b385202ede36389634e12076d7`: four abort branches return
   immediately, and resumed callbacks still complete after cancellation.
   Additional guards stop sibling-directory and metadata work after cancellation,

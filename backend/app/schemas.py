@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 from datetime import date, datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -47,6 +47,20 @@ class SearchRequest(BaseModel):
     include_documents: bool = True
     include_historical: bool = False
     include_archived: bool = False
+    include_knowledge: bool = False
+    source_type: str | None = Field(default=None, min_length=1, max_length=80)
+    since: date | None = None
+    until: date | None = None
+    min_importance: int | None = Field(default=None, ge=1, le=10)
+    min_confidence: float | None = Field(default=None, ge=0, le=1)
+    result_type: Literal["memory", "document_chunk", "entity", "event"] | None = None
+    entity_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def ordered_dates(self):
+        if self.since and self.until and self.since > self.until:
+            raise ValueError("Start date must be on or before end date")
+        return self
 
 
 class ArchiveRequest(BaseModel):
@@ -73,6 +87,7 @@ class ClusterApproveRequest(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     memory_type: str | None = Field(default=None, min_length=1, max_length=80)
+    source_type: str | None = Field(default=None, min_length=1, max_length=80)
     since: date | None = None
     until: date | None = None
 
@@ -216,6 +231,10 @@ class ProjectCreate(BaseModel):
     slug: str = Field(min_length=1, max_length=63)
 
 
+class ProjectRetentionUpdate(BaseModel):
+    retention_days: int | None = Field(ge=30, le=36500)
+
+
 class ChatImportCreate(BaseModel):
     source_document_id: str
 
@@ -293,11 +312,28 @@ class GmailOAuthStart(BaseModel):
     max_messages_per_sync: int = Field(default=100, ge=1, le=500)
 
 
+class GmailBackfillRequest(BaseModel):
+    start_date: date = Field(ge=date(1970, 1, 1))
+    end_date: date
+
+    @model_validator(mode="after")
+    def bounded_window(self):
+        days = (self.end_date - self.start_date).days
+        if not 0 <= days <= 365:
+            raise ValueError("Select an ordered date range of at most 366 days")
+        if self.end_date >= datetime.now(timezone.utc).date():
+            raise ValueError("Backfill must end before today")
+        return self
+
+
 class CaptureCreate(BaseModel):
     capture_type: str = Field(default="page", pattern="^(page|selection|link|note)$")
     title: str = Field(min_length=1, max_length=500)
     url: str | None = Field(default=None, max_length=4000)
     text: str = Field(min_length=1)
+    tags: list[Annotated[str, Field(min_length=1, max_length=64)]] = Field(
+        default_factory=list, max_length=20
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

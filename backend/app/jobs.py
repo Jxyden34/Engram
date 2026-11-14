@@ -1,6 +1,6 @@
 import io
+import subprocess
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from docx import Document
 from pypdf import PdfReader
@@ -11,8 +11,27 @@ from app.documents import minio_client
 from app.embeddings import embed_literal
 
 
+def validate_png(raw: bytes) -> None:
+    if len(raw) < 33 or raw[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR":
+        raise ValueError("Expected a PNG image")
+    width = int.from_bytes(raw[16:20], "big")
+    height = int.from_bytes(raw[20:24], "big")
+    if not width or not height or width * height > 25_000_000:
+        raise ValueError("PNG must contain at most 25 million pixels")
+
+
 def extract_text(filename: str, raw: bytes) -> str:
     suffix = Path(filename).suffix.lower()
+
+    if suffix == ".png":
+        validate_png(raw)
+        result = subprocess.run(
+            ["tesseract", "stdin", "stdout", "-l", "eng"],
+            input=raw, capture_output=True, timeout=30, check=False,
+        )
+        if result.returncode:
+            raise ValueError("PNG text recognition failed")
+        return result.stdout.decode("utf-8", errors="replace")[:settings().capture_max_chars]
 
     if suffix in {
         ".txt", ".md", ".csv", ".json", ".log", ".yaml", ".yml",
@@ -67,7 +86,7 @@ def process_document(document_id: str):
         raw = response.read()
         text = extract_text(doc["filename"], raw)
         parts = chunks(text)
-        if not parts:
+        if not parts and Path(doc["filename"]).suffix.lower() != ".png":
             raise ValueError("No extractable text found")
 
         with connect() as conn:
@@ -86,7 +105,7 @@ def process_document(document_id: str):
             )
             conn.commit()
 
-        if doc.get("source_type") in {"browser_capture", "github", "gmail"}:
+        if parts and doc.get("source_type") in {"browser_capture", "github", "gmail"}:
             try:
                 from app.document_memory_import import create_job
                 create_job(

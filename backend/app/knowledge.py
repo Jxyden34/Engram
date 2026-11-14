@@ -247,6 +247,47 @@ def graph(limit: int = 60):
     return {"nodes": nodes, "edges": edges}
 
 
+def search_knowledge(query: str, limit: int, *, result_type: str | None = None,
+                     since=None, until=None) -> list[dict]:
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            WITH query AS (SELECT websearch_to_tsquery('english', %s) AS terms),
+            knowledge AS (
+                SELECT id, 'entity' AS result_type, name AS title,
+                       coalesce(description, '') AS content, updated_at,
+                       setweight(to_tsvector('english', name), 'A') ||
+                       to_tsvector('english', concat_ws(' ', description, array_to_string(aliases, ' '))) AS searchable
+                FROM entities
+                UNION ALL
+                SELECT e.id, 'event', e.title, coalesce(e.description, ''),
+                       coalesce(e.occurred_at, e.created_at),
+                       setweight(to_tsvector('english', e.title), 'A') ||
+                       to_tsvector('english', coalesce(e.description, ''))
+                FROM events e
+                WHERE e.source_memory_id IS NULL OR EXISTS (
+                    SELECT 1 FROM memories m
+                    WHERE m.id=e.source_memory_id AND m.deleted_at IS NULL
+                      AND m.archived_at IS NULL
+                )
+            )
+            SELECT id, result_type, title, content, updated_at,
+                   ts_rank_cd(searchable, terms, 32) AS retrieval_score
+            FROM knowledge CROSS JOIN query WHERE searchable @@ terms
+              AND (%s::text IS NULL OR result_type=%s)
+              AND (%s::date IS NULL OR updated_at >= (%s::date::timestamp AT TIME ZONE 'UTC'))
+              AND (%s::date IS NULL OR updated_at < ((%s::date + 1)::timestamp AT TIME ZONE 'UTC'))
+            ORDER BY retrieval_score DESC, updated_at DESC, id LIMIT %s
+            """,
+            (query, result_type, result_type, since, since, until, until, limit),
+        ).fetchall()
+    return [
+        {**row, "match_reasons": ["entity name, alias or description" if row["result_type"] == "entity"
+                                   else "event title or description"]}
+        for row in rows
+    ]
+
+
 def list_entities(limit: int = 150):
     with connect() as conn:
         rows = conn.execute(

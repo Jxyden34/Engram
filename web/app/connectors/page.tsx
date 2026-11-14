@@ -11,6 +11,7 @@ export default function ConnectorsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   async function load() {
     try {
@@ -65,35 +66,65 @@ export default function ConnectorsPage() {
     setError("");
     setNotice("");
 
-    const f = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const f = new FormData(form);
     const repositories = String(f.get("repositories") || "")
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean);
 
     try {
-      const connector: any = await api("/api/v1/connectors", {
-        method: "POST",
+      const branches = Object.fromEntries(
+        String(f.get("branches") || "").split(/\r?\n/).map(value => value.trim()).filter(Boolean).map(value => {
+          const separator = value.indexOf("=");
+          if (separator < 1 || !value.slice(separator + 1).trim()) {
+            throw new Error("Use owner/repo=branch for each branch selection.");
+          }
+          return [value.slice(0, separator).trim(), value.slice(separator + 1).trim()];
+        })
+      );
+      const repositoryContent = Object.fromEntries(
+        String(f.get("repository_content") || "").split(/\r?\n/).map(value => value.trim()).filter(Boolean).map(value => {
+          const separator = value.indexOf("=");
+          if (separator < 1) throw new Error("Use owner/repo=content types for each repository filter.");
+          return [value.slice(0, separator).trim(), value.slice(separator + 1).split(",").map(source => source.trim()).filter(Boolean)];
+        })
+      );
+      const connector: any = await api(editing ? `/api/v1/connectors/${editing.id}` : "/api/v1/connectors", {
+        method: editing ? "PATCH" : "POST",
         body: JSON.stringify({
           connector_type: "github",
           name: f.get("name"),
           schedule_minutes: Number(f.get("schedule_minutes")),
           config: {
+            ...editing?.config,
             installation_id: f.get("installation_id"),
             repositories,
-            sync_readme: true,
+            branches,
+            repository_content: repositoryContent,
+            ignore_patterns: String(f.get("ignore_patterns") || "").split(/\r?\n/).map(value => value.trim()).filter(Boolean),
+            code_extensions: String(f.get("code_extensions") || "").split(",").map(value => value.trim()).filter(Boolean),
+            sync_readme: Boolean(f.get("sync_readme")),
             sync_docs: Boolean(f.get("sync_docs")),
             sync_issues: Boolean(f.get("sync_issues")),
             sync_pulls: Boolean(f.get("sync_pulls")),
             sync_code: Boolean(f.get("sync_code")),
+            sync_commits: Boolean(f.get("sync_commits")),
+            sync_releases: Boolean(f.get("sync_releases")),
+            sync_discussions: Boolean(f.get("sync_discussions")),
             max_items_per_sync: Number(f.get("max_items_per_sync")),
           },
         }),
       });
 
-      await api(`/api/v1/connectors/${connector.id}/sync`, { method: "POST" });
-      setNotice("GitHub connector created and first sync queued.");
-      e.currentTarget.reset();
+      if (editing) {
+        setNotice("GitHub connector settings saved.");
+        setEditing(null);
+      } else {
+        await api(`/api/v1/connectors/${connector.id}/sync`, { method: "POST" });
+        setNotice("GitHub connector created and first sync queued.");
+        form.reset();
+      }
       await load();
     } catch (e: any) {
       setError(e.message);
@@ -113,6 +144,33 @@ export default function ConnectorsPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function backfill(event: FormEvent<HTMLFormElement>, connector: any) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    if (!confirm("Import Gmail body text for this date range and the connector's selected labels? This uses the date range instead of the saved search query.")) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await api(`/api/v1/connectors/${connector.id}/gmail-backfill`, {
+        method: "POST",
+        body: JSON.stringify({ start_date: data.get("start_date"), end_date: data.get("end_date") }),
+      });
+      setNotice("Gmail backfill queued. Check Recent sync runs for the result.");
+      form.reset();
+      await load();
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function editConnector(connector: any) {
+    setEditing(connector);
+    setError("");
+    document.getElementById("github-connector-form")?.scrollIntoView({block: "start"});
   }
 
   async function toggle(connector: any) {
@@ -226,7 +284,7 @@ export default function ConnectorsPage() {
           </div>
 
           <p className="meta">
-            Generate a Browser Capture key under AI & API, then load the extension
+            Generate a Browser Capture key under Personal API Gateway, then load the extension
             from <code>extensions/engram-capture</code>.
           </p>
 
@@ -236,23 +294,23 @@ export default function ConnectorsPage() {
         </section>
       </div>
 
-      <section className="panel">
+      <section className="panel" id="github-connector-form">
         <div className="panelHead">
           <div>
-            <h2>Add GitHub connector</h2>
+            <h2>{editing ? `Edit ${editing.name}` : "Add GitHub connector"}</h2>
             <div className="meta">Leave repositories blank to sync every repository granted to the App installation.</div>
           </div>
         </div>
 
-        <form className="formGrid" onSubmit={createConnector}>
+        <form key={editing?.id ?? "new"} className="formGrid" onSubmit={createConnector}>
           <div className="field">
             <label>Name</label>
-            <input className="input" name="name" defaultValue="github-main" required />
+            <input className="input" name="name" defaultValue={editing?.name ?? "github-main"} required />
           </div>
 
           <div className="field">
             <label>Installation ID</label>
-            <input className="input" name="installation_id" placeholder="12345678" required />
+            <input className="input" name="installation_id" defaultValue={editing?.config.installation_id} placeholder="12345678" required />
           </div>
 
           <div className="field full">
@@ -260,13 +318,17 @@ export default function ConnectorsPage() {
             <input
               className="input"
               name="repositories"
+              defaultValue={editing?.config.repositories?.join(", ")}
               placeholder="owner/repo, owner/another-repo — blank = all granted repos"
             />
           </div>
 
           <div className="field">
             <label>Sync every</label>
-            <select className="select" name="schedule_minutes" defaultValue="30">
+            <select className="select" name="schedule_minutes" defaultValue={editing?.schedule_minutes ?? 30}>
+              {editing && ![15,30,60,360,1440].includes(editing.schedule_minutes) && (
+                <option value={editing.schedule_minutes}>{editing.schedule_minutes} minutes</option>
+              )}
               <option value="15">15 minutes</option>
               <option value="30">30 minutes</option>
               <option value="60">1 hour</option>
@@ -277,23 +339,45 @@ export default function ConnectorsPage() {
 
           <div className="field">
             <label>Maximum items / sync</label>
-            <input className="input" type="number" name="max_items_per_sync" min="10" max="2000" defaultValue="300" />
+            <input className="input" type="number" name="max_items_per_sync" min="10" max="2000" defaultValue={editing?.config.max_items_per_sync ?? 300} />
           </div>
 
           <div className="field full">
             <label>Content</label>
             <div className="row" style={{ flexWrap: "wrap" }}>
-              <label className="check"><input type="checkbox" name="sync_docs" defaultChecked /> docs</label>
-              <label className="check"><input type="checkbox" name="sync_issues" defaultChecked /> issues</label>
-              <label className="check"><input type="checkbox" name="sync_pulls" defaultChecked /> pull requests</label>
-              <label className="check"><input type="checkbox" name="sync_code" /> source code</label>
+              {Object.entries({readme:"README", docs:"docs", issues:"issues", pulls:"pull requests", code:"source code", commits:"commits", releases:"releases", discussions:"discussions"}).map(([source, label]) => (
+                <label className="check" key={source}>
+                  <input type="checkbox" name={`sync_${source}`} defaultChecked={editing?.config[`sync_${source}`] ?? ["readme","docs","issues","pulls"].includes(source)} /> {label}
+                </label>
+              ))}
             </div>
           </div>
 
           <div className="field full">
+            <label htmlFor="github-branches">Branch overrides for listed repositories</label>
+            <textarea className="textarea" id="github-branches" name="branches" placeholder="owner/repo=release/current"
+              defaultValue={Object.entries(editing?.config.branches ?? {}).map(([repo, branch]) => `${repo}=${branch}`).join("\n")} />
+          </div>
+          <div className="field full">
+            <label htmlFor="github-content">Content overrides for listed repositories</label>
+            <textarea className="textarea" id="github-content" name="repository_content" placeholder="owner/repo=readme,docs,releases"
+              defaultValue={Object.entries(editing?.config.repository_content ?? {}).map(([repo, types]) => `${repo}=${types}`).join("\n")} />
+            <div className="meta">Types: readme, docs, issues, pulls, code, commits, releases, discussions.</div>
+          </div>
+          <div className="field">
+            <label htmlFor="github-ignore">Ignore file patterns (one per line)</label>
+            <textarea className="textarea" id="github-ignore" name="ignore_patterns" placeholder="vendor/*" defaultValue={editing?.config.ignore_patterns?.join("\n")} />
+          </div>
+          <div className="field">
+            <label htmlFor="github-extensions">Source file extensions</label>
+            <input className="input" id="github-extensions" name="code_extensions" placeholder=".py, .ts" defaultValue={editing?.config.code_extensions?.join(", ")} />
+          </div>
+
+          <div className="field full">
             <button className="button primary" disabled={busy || !capabilities?.github?.available}>
-              Create + sync
+              {editing ? "Save settings" : "Create + sync"}
             </button>
+            {editing && <button className="ghostButton" type="button" disabled={busy} onClick={() => setEditing(null)}>Cancel</button>}
           </div>
         </form>
       </section>
@@ -327,10 +411,19 @@ export default function ConnectorsPage() {
                   <td className="meta">{dateText(c.next_sync_at)}</td>
                   <td>
                     <div className="row">
+                      {c.connector_type === "github" && <button className="ghostButton" disabled={busy} onClick={() => editConnector(c)}>Edit</button>}
                       <button className="ghostButton" disabled={busy} onClick={() => sync(c.id)}>Sync</button>
                       <button className="ghostButton" onClick={() => toggle(c)}>{c.enabled ? "Pause" : "Resume"}</button>
                       <button className="dangerButton" onClick={() => remove(c.id)}>Delete</button>
                     </div>
+                    {c.connector_type === "gmail" && c.enabled && <details style={{marginTop: 8}}>
+                      <summary>Import older mail</summary>
+                      <form className="formGrid" onSubmit={event => void backfill(event, c)}>
+                        <label className="field">From (UTC)<input className="input" name="start_date" type="date" required /></label>
+                        <label className="field">Through (UTC)<input className="input" name="end_date" type="date" required /></label>
+                        <button className="button" disabled={busy} type="submit">Queue backfill</button>
+                      </form>
+                    </details>}
                   </td>
                 </tr>
               ))}
@@ -346,16 +439,23 @@ export default function ConnectorsPage() {
         </div>
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Connector</th><th>Status</th><th>Seen</th><th>Changed</th><th>Skipped</th><th>Started</th></tr></thead>
+            <thead><tr><th>Connector</th><th>Status</th><th>Seen</th><th>Changed</th><th>Skipped</th><th>Errors</th><th>Started</th><th>Completed</th></tr></thead>
             <tbody>
               {runs.map((run) => (
                 <tr key={run.id}>
                   <td><strong>{run.connector_name}</strong></td>
-                  <td><span className={`badge ${run.status}`}>{run.status}</span></td>
+                  <td>
+                    <span className={`badge ${run.status === "ready" && run.error_count > 0 ? "warn" : run.status}`}>
+                      {run.status === "ready" && run.error_count > 0 ? "Completed with errors" : run.status}
+                    </span>
+                    {run.error_message && <div className="meta">{run.error_message}</div>}
+                  </td>
                   <td>{run.items_seen}</td>
                   <td>{run.items_changed}</td>
                   <td>{run.items_skipped}</td>
+                  <td>{run.error_count}</td>
                   <td className="meta">{dateText(run.started_at || run.created_at)}</td>
+                  <td className="meta">{run.completed_at ? dateText(run.completed_at) : "—"}</td>
                 </tr>
               ))}
             </tbody>

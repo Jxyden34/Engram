@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.1.0 — 2026-11-14
+
+- Improve the knowledge graph with a larger interactive map, clearer relationship modes, and labels that avoid overlap.
+- Add optional GitHub commit, release, and discussion ingestion, branch overrides for selected repositories, glob ignore patterns, and source file extension filters.
+- Support opt-in GitHub App webhook sync using signature verification and burst coalescing.
+- Import older Gmail messages with an explicit date range, selected labels, and the existing message cap.
+- Add reader view, source tags, an explicit project target, and Firefox support to the browser capture extension.
+- Capture visible browser screenshots as PNG sources and index their text using local English OCR.
+- Add a Personal API Gateway with selectable permissions and rotation for project API keys, alongside OAuth client and grant controls.
+- Guide empty projects to create a memory or import a source document from the dashboard.
+- Show memory and document usage, source storage, and connector counts with a link to backup status.
+- Export aggregate Prometheus metrics using a dedicated, project-bound permission.
+- Include an importable Grafana dashboard and sample Prometheus alert rules.
+- Set an inactivity window per project and review memories for manual archival. Pinned memories are excluded.
+- Search project entities and events alongside memories and document excerpts, with match explanations and source, date, content type, entity, importance, and confidence filters.
+- Add source filtering to the mobile Ask preview, alongside its memory type and date filters.
+- Receive shared text and links from iOS and Android into the local Inbox for review.
+- Strengthen access to imported document evidence and deleted memory history. Tighten OAuth consent, token rotation, client registration, and login redirects.
+- Enforce request and archive limits before buffering uploads. Preserve client identity through trusted proxies for rate limiting, and accept valid browser extension preflight requests.
+- Update server and web dependencies, qualify RQ 3 workers, and backport dependency protections for the Expo mobile preview.
+- Build Windows, Linux, and macOS packages with v3.1.0 metadata. Linux packages include signed build provenance. Windows and macOS packages are unsigned previews.
+
+Existing v3.0.2 deployments must apply `020_project_retention.sql` before starting v3.1.0. It adds an optional review policy with no changes to existing memory contents. See [upgrading](docs/UPGRADING.md) and [native packages](docs/V3-INSTALLERS.md).
+
+
 ## 3.0.2 — 2026-10-26
 
 - Reduce the main sidebar from sixteen page links to four section tabs: Library, Workspace, Capture & review, and System. Each section shows only its own page subtabs inside the main view; every existing destination and URL remains available.
