@@ -33,6 +33,9 @@ export default function ConnectorsPage() {
     const gmail = new URLSearchParams(window.location.search).get("gmail");
     if (gmail === "connected") setNotice("Gmail connected. Your first sync will start shortly.");
     if (gmail === "cancelled") setNotice("Gmail connection was cancelled.");
+    const calendar = new URLSearchParams(window.location.search).get("calendar");
+    if (calendar === "connected") setNotice("Google Calendar connected. Your first sync will start shortly.");
+    if (calendar === "cancelled") setNotice("Google Calendar connection was cancelled.");
     const timer = setInterval(() => void load(), 8000);
     return () => clearInterval(timer);
   }, []);
@@ -56,6 +59,23 @@ export default function ConnectorsPage() {
       window.location.assign(result.authorization_url);
     } catch (e: any) {
       setError(e.message);
+      setBusy(false);
+    }
+  }
+
+  async function connectCalendar(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api<{authorization_url: string}>("/api/v1/connectors/google-calendar/authorize", {
+        method: "POST",
+        body: JSON.stringify({ calendar_id: form.get("calendar_id") }),
+      });
+      window.location.assign(result.authorization_url);
+    } catch (error: any) {
+      setError(error.message);
       setBusy(false);
     }
   }
@@ -294,6 +314,15 @@ export default function ConnectorsPage() {
         </section>
       </div>
 
+      <section className="panel">
+        <h2>Google Calendar</h2>
+        <p className="meta">Import event details from a calendar you own. Choose its ID or use your primary calendar.</p>
+        {capabilities?.google_calendar?.redirect_uri && <div className="codeBlock">{capabilities.google_calendar.redirect_uri}</div>}
+        <form className="formGrid" onSubmit={connectCalendar}>
+          <label className="field">Calendar ID<input className="input" name="calendar_id" defaultValue="primary" maxLength={320} required /></label>
+          <button className="button primary" disabled={busy || !capabilities?.google_calendar?.available}>Connect Google Calendar</button>
+        </form>
+      </section>
       <section className="panel" id="github-connector-form">
         <div className="panelHead">
           <div>
@@ -398,7 +427,7 @@ export default function ConnectorsPage() {
                 <tr key={c.id}>
                   <td>
                     <strong>{c.name}</strong>
-                    <div className="meta">{c.connector_type === "gmail" ? "Gmail" : "GitHub"} · every {c.schedule_minutes}m</div>
+                    <div className="meta">{({gmail:"Gmail",github:"GitHub",google_calendar:"Google Calendar"} as Record<string,string>)[c.connector_type] ?? c.connector_type} · every {c.schedule_minutes}m</div>
                   </td>
                   <td>
                     <span className={`badge ${c.last_status || ""}`}>
