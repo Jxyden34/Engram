@@ -492,24 +492,28 @@ def get_document(document_id: str):
     return dict(row)
 
 
-def search_chunks(query: str, limit: int):
+def search_chunks(query: str, limit: int, *, source_type: str | None = None, since=None, until=None):
     qvec = embed_literal(query)
     with connect() as conn:
         rows = conn.execute(
             """
             SELECT dc.id, dc.document_id, d.filename, dc.chunk_index, dc.content,
+                   d.source_type, d.created_at AS updated_at,
                    1 - (dc.embedding <=> %s::vector) AS semantic_score,
                    ts_rank_cd(dc.search_vector, websearch_to_tsquery('english', %s)) AS lexical_score
             FROM document_chunks dc
             JOIN documents d ON d.id=dc.document_id
             WHERE d.deleted_at IS NULL AND d.status='ready' AND dc.embedding IS NOT NULL
+              AND (%s::text IS NULL OR d.source_type=%s)
+              AND (%s::date IS NULL OR d.created_at >= (%s::date::timestamp AT TIME ZONE 'UTC'))
+              AND (%s::date IS NULL OR d.created_at < ((%s::date + 1)::timestamp AT TIME ZONE 'UTC'))
             ORDER BY (
                 (1 - (dc.embedding <=> %s::vector)) * 0.85 +
                 LEAST(ts_rank_cd(dc.search_vector, websearch_to_tsquery('english', %s)), 1.0) * 0.15
             ) DESC
             LIMIT %s
             """,
-            (qvec, query, qvec, query, limit),
+            (qvec, query, source_type, source_type, since, since, until, until, qvec, query, limit),
         ).fetchall()
 
     out = []

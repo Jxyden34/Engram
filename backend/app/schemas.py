@@ -48,6 +48,19 @@ class SearchRequest(BaseModel):
     include_historical: bool = False
     include_archived: bool = False
     include_knowledge: bool = False
+    source_type: str | None = Field(default=None, min_length=1, max_length=80)
+    since: date | None = None
+    until: date | None = None
+    min_importance: int | None = Field(default=None, ge=1, le=10)
+    min_confidence: float | None = Field(default=None, ge=0, le=1)
+    result_type: Literal["memory", "document_chunk", "entity", "event"] | None = None
+    entity_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def ordered_dates(self):
+        if self.since and self.until and self.since > self.until:
+            raise ValueError("Start date must be on or before end date")
+        return self
 
 
 class ArchiveRequest(BaseModel):

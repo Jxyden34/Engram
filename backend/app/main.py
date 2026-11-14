@@ -618,16 +618,27 @@ def lifecycle_undo(action_id: UUID, body: DeleteRequest, request: Request):
 @app.post("/api/v1/search")
 def search(body: SearchRequest, request: Request):
     p = require(request, "memory:read")
-    results = intelligence.search_memories(body.query, body.limit, body.memory_type, body.include_historical,
-                                           include_archived=body.include_archived)
-    if body.include_documents and "document:read" in p.scopes:
-        documents = search_chunks(body.query, max(3, body.limit // 2))
+    results = []
+    if body.result_type in {None, "memory"}:
+        results = intelligence.search_memories(
+            body.query, body.limit, body.memory_type, body.include_historical,
+            include_archived=body.include_archived, source_type=body.source_type,
+            since=body.since, until=body.until, min_importance=body.min_importance,
+            min_confidence=body.min_confidence, entity_id=body.entity_id,
+        )
+    memory_only = any(value is not None for value in (
+        body.memory_type, body.min_importance, body.min_confidence, body.entity_id,
+    ))
+    if not memory_only and body.include_documents and "document:read" in p.scopes and body.result_type in {None, "document_chunk"}:
+        limit = body.limit if body.result_type else max(3, body.limit // 2)
+        documents = search_chunks(body.query, limit, source_type=body.source_type, since=body.since, until=body.until)
         for item in documents:
             item["retrieval_score"] = round(0.8 * max(0, float(item.get("semantic_score") or 0)) + 0.2 * min(1, float(item.get("lexical_score") or 0)), 4)
             item["match_reasons"] = ["document excerpt"]
         results.extend(documents)
-    if body.include_knowledge:
-        results.extend(knowledge.search_knowledge(body.query, body.limit))
+    if not memory_only and not body.source_type and body.include_knowledge and body.result_type in {None, "entity", "event"}:
+        results.extend(knowledge.search_knowledge(body.query, body.limit, result_type=body.result_type,
+                                                  since=body.since, until=body.until))
     results.sort(key=lambda item: item.get("retrieval_score", 0), reverse=True)
     return results[:body.limit]
 

@@ -247,7 +247,8 @@ def graph(limit: int = 60):
     return {"nodes": nodes, "edges": edges}
 
 
-def search_knowledge(query: str, limit: int) -> list[dict]:
+def search_knowledge(query: str, limit: int, *, result_type: str | None = None,
+                     since=None, until=None) -> list[dict]:
     with connect() as conn:
         rows = conn.execute(
             """
@@ -273,9 +274,12 @@ def search_knowledge(query: str, limit: int) -> list[dict]:
             SELECT id, result_type, title, content, updated_at,
                    ts_rank_cd(searchable, terms, 32) AS retrieval_score
             FROM knowledge CROSS JOIN query WHERE searchable @@ terms
+              AND (%s::text IS NULL OR result_type=%s)
+              AND (%s::date IS NULL OR updated_at >= (%s::date::timestamp AT TIME ZONE 'UTC'))
+              AND (%s::date IS NULL OR updated_at < ((%s::date + 1)::timestamp AT TIME ZONE 'UTC'))
             ORDER BY retrieval_score DESC, updated_at DESC, id LIMIT %s
             """,
-            (query, limit),
+            (query, result_type, result_type, since, since, until, until, limit),
         ).fetchall()
     return [
         {**row, "match_reasons": ["entity name, alias or description" if row["result_type"] == "entity"

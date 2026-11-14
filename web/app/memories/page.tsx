@@ -13,6 +13,8 @@ export default function MemoriesPage() {
   const [error, setError] = useState("");
   const [historical, setHistorical] = useState(false);
   const [archived, setArchived] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [entities, setEntities] = useState<{id:string;name:string}[] | null>(null);
 
   function load() {
     api<any[]>(`/api/v1/memories?limit=100&include_historical=${historical}&include_archived=${archived}`).then(setItems).catch((e) => setError(e.message));
@@ -21,14 +23,27 @@ export default function MemoriesPage() {
 
   async function doSearch(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const query = String(new FormData(e.currentTarget).get("q") || "").trim();
+    const form = new FormData(e.currentTarget);
+    const query = String(form.get("q") || "").trim();
     if (!query) return setResults(null);
+    setError("");
+    setSearching(true);
     try {
       setResults(await api("/api/v1/search", {
         method: "POST",
-        body: JSON.stringify({ query, limit: 20, include_documents: true, include_knowledge: true, include_historical: historical, include_archived: archived }),
+        body: JSON.stringify({
+          query, limit: 20, include_documents: true, include_knowledge: true,
+          include_historical: historical, include_archived: archived,
+          result_type: form.get("result_type") || null,
+          source_type: String(form.get("source_type") || "").trim() || null,
+          since: form.get("since") || null, until: form.get("until") || null,
+          entity_id: form.get("entity_id") || null,
+          min_importance: form.get("min_importance") || null,
+          min_confidence: form.get("min_confidence") || null,
+        }),
       }));
     } catch (e: any) { setError(e.message); }
+    finally { setSearching(false); }
   }
 
   async function add(e: FormEvent<HTMLFormElement>) {
@@ -58,13 +73,47 @@ export default function MemoriesPage() {
     <>
       <Topbar eyebrow="Knowledge objects" title="Memories" />
       <div className="pageToolbar">
-        <form className="searchBar" onSubmit={doSearch}>
+        <form id="project-search" className="searchBar" onSubmit={doSearch}>
           <input className="input" name="q" aria-label="Search this project" placeholder="Search memories, documents, entities and events…" />
-          <button className="button" type="submit">Search</button>
+          <button className="button" type="submit" disabled={searching}>{searching ? "Searching…" : "Search"}</button>
           {results && <button className="ghostButton" type="button" onClick={() => setResults(null)}>Clear</button>}
         </form>
         <div className="toolbarActions"><ActionGroup label="Memory visibility"><button className="ghostButton" aria-pressed={archived} onClick={() => setArchived(!archived)}>Archived</button><button className="ghostButton" aria-pressed={historical} onClick={() => setHistorical(!historical)}>History</button></ActionGroup><button className="button primary" onClick={() => setShowAdd(true)}>+ New memory</button></div>
       </div>
+      <details className="panel" onToggle={event => {
+        if (event.currentTarget.open && entities === null) {
+          api<{id:string;name:string}[]>("/api/v1/knowledge/entities?limit=250")
+            .then(setEntities).catch((e) => setError(e.message));
+        }
+      }}>
+        <summary>Search filters</summary>
+        <div className="formGrid" style={{marginTop: 12}}>
+          <label className="field">Content type
+            <select className="select" name="result_type" form="project-search">
+              <option value="">All types</option><option value="memory">Memories</option>
+              <option value="document_chunk">Document excerpts</option>
+              <option value="entity">Entities</option><option value="event">Events</option>
+            </select>
+          </label>
+          <label className="field">Source type
+            <input className="input" name="source_type" form="project-search" maxLength={80} placeholder="e.g. browser_capture" />
+          </label>
+          <label className="field">From <input className="input" type="date" name="since" form="project-search" /></label>
+          <label className="field">Through <input className="input" type="date" name="until" form="project-search" /></label>
+          <label className="field">Linked entity (memories)
+            <select className="select" name="entity_id" form="project-search">
+              <option value="">Any entity</option>
+              {entities?.map(entity => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
+            </select>
+          </label>
+          <label className="field">Minimum importance (memories)
+            <input className="input" type="number" min={1} max={10} name="min_importance" form="project-search" />
+          </label>
+          <label className="field">Minimum confidence (memories)
+            <input className="input" type="number" min={0} max={1} step={0.01} name="min_confidence" form="project-search" />
+          </label>
+        </div>
+      </details>
       {error && <div className="errorBox">{error}</div>}
       <section className="panel">
         <div className="panelHead">

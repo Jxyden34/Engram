@@ -457,7 +457,8 @@ for v2.7.
 
 🧪 The v3.1.0 draft expands project search in Memories to include entity and
 event results alongside memories and document excerpts. Results include a match
-explanation. The full filter set below is still planned.
+explanation. Project selection scopes the search, with filters for source,
+date, result type, linked entity, memory importance, and confidence.
 
 One search interface across:
 
