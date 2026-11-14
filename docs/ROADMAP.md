@@ -350,7 +350,7 @@ Ingest:
 - 🟡 OAuth authorization with `gmail.readonly` only.
 - 🟡 User-selected Gmail query, label and sync limit.
 - 🟡 Scheduled bounded-query sync with idempotent document updates.
-- 🟡 Each run reads up to 500 newest matches; historical cursor/backfill remains future work.
+- 🧪 Each run reads up to 500 matches. A manual, bounded date-range backfill is available in the v3.1.0 draft.
 - 🟡 Encrypted refresh-token storage and account disconnect / revocation.
 - 🟡 Message provenance, search indexing and candidate-memory review.
 - 🟡 No compose, send, modify, delete, attachment or mailbox-wide default sync.

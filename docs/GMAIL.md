@@ -66,9 +66,12 @@ and [testing-mode token expiry](https://support.google.com/cloud/answer/15549945
   update their connector item and queue document reprocessing. Search labels,
   sender, subject, date, thread ID and the Gmail web link are retained as
   provenance.
-- The first release is bounded polling, not Gmail push notifications. Each run
-  selects up to the 500 newest matching messages; there is no historical cursor,
-  so increasing the limit will not page through mail beyond those 500 messages.
+- Scheduled polling keeps the saved search query. In the v3.1.0 draft,
+  **Import older mail** runs once for a reviewed range of completed UTC days.
+  It preserves the connector's selected labels and substitutes the date range
+  for its normal query. Each run honors the connector's message cap (at most
+  500). Choose smaller date windows for ranges that exceed the cap.
+  [Gmail list API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list)
 - Removing a message or label in Gmail does not delete its imported document or
   accepted memories. Remove those in Engram explicitly.
 - Gmail search terms are passed to Gmail's API as a query. Avoid queries that

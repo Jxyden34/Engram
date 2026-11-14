@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 import json
 import re
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
@@ -452,14 +452,24 @@ def list_runs(connector_id: str | None = None, limit: int = 100):
     return [dict(row) for row in rows]
 
 
-def queue_sync(connector_id: str):
+def queue_sync(connector_id: str, *, backfill: tuple[str, str] | None = None):
     with connect() as conn:
         connector = conn.execute(
-            "SELECT id, enabled FROM connectors WHERE id=%s",
+            "SELECT id, enabled, connector_type FROM connectors WHERE id=%s FOR UPDATE",
             (connector_id,),
         ).fetchone()
         if not connector:
             raise HTTPException(status_code=404, detail="Connector not found")
+        if backfill:
+            if connector["connector_type"] != "gmail" or not connector["enabled"]:
+                raise HTTPException(status_code=409, detail="Backfill requires an enabled Gmail connector")
+            running = conn.execute(
+                """SELECT 1 FROM connector_sync_runs WHERE connector_id=%s
+                   AND status IN ('queued','processing') AND created_at > now() - interval '2 hours'""",
+                (connector_id,),
+            ).fetchone()
+            if running:
+                raise HTTPException(status_code=409, detail="Wait for the current sync to finish")
 
         run = conn.execute(
             """
@@ -486,6 +496,7 @@ def queue_sync(connector_id: str):
         str(run["id"]),
         job_timeout="2h",
         meta={"project_id": current_project_id()},
+        **({"kwargs": {"backfill": backfill}} if backfill else {}),
     )
     return dict(run)
 
@@ -748,7 +759,8 @@ def _gmail_access_token(connector: dict[str, Any]) -> str:
     return token_data["access_token"]
 
 
-def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int]) -> None:
+def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int],
+                backfill: tuple[str, str] | None = None) -> None:
     config = _gmail_config(connector["config"])
     token = _gmail_access_token(connector)
     email_address = str(connector["config"]["email_address"])
@@ -757,13 +769,22 @@ def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int]) -> None:
         params["q"] = config["query"]
     if config["label_ids"]:
         params["labelIds"] = config["label_ids"]
+    epochs = None
+    if backfill:
+        start, end = (date.fromisoformat(value) for value in backfill)
+        epochs = (
+            int(datetime.combine(start, time.min, timezone.utc).timestamp()),
+            int(datetime.combine(end + timedelta(days=1), time.min, timezone.utc).timestamp()),
+        )
+        params["q"] = f"after:{max(0, epochs[0] - 1)} before:{epochs[1]}"
 
     with httpx.Client(
         base_url="https://gmail.googleapis.com/gmail/v1/users/me/",
         headers={"Authorization": f"Bearer {token}"}, timeout=45,
     ) as client:
         page_token = None
-        while counters["seen"] < config["max_messages_per_sync"]:
+        attempted = 0
+        while attempted < config["max_messages_per_sync"]:
             if page_token:
                 params["pageToken"] = page_token
             listing = client.get("messages", params=params)
@@ -773,8 +794,9 @@ def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int]) -> None:
             if not messages:
                 break
             for item in messages:
-                if counters["seen"] >= config["max_messages_per_sync"]:
+                if attempted >= config["max_messages_per_sync"]:
                     break
+                attempted += 1
                 message_id = str(item.get("id") or "")
                 if not message_id or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", message_id):
                     counters["errors"] += 1
@@ -801,6 +823,9 @@ def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int]) -> None:
                 body = body[:262144]
                 label_ids = message.get("labelIds") or []
                 internal_date = message.get("internalDate")
+                if epochs and (not internal_date or not epochs[0] * 1000 <= int(internal_date) < epochs[1] * 1000):
+                    counters["skipped"] += 1
+                    continue
                 updated = None
                 if internal_date:
                     updated = datetime.fromtimestamp(int(internal_date) / 1000, timezone.utc).isoformat()
@@ -1217,7 +1242,7 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
 
 
 @project_job
-def sync_connector(connector_id: str, run_id: str):
+def sync_connector(connector_id: str, run_id: str, *, backfill: tuple[str, str] | None = None):
     with connect() as conn:
         connector = conn.execute(
             "SELECT * FROM connectors WHERE id=%s",
@@ -1257,7 +1282,9 @@ def sync_connector(connector_id: str, run_id: str):
         elif connector["connector_type"] == "gmail":
             if not connector["credential_ciphertext"]:
                 raise RuntimeError("Gmail authorization is missing; reconnect the account")
-            _sync_gmail(dict(connector), run_id, counters)
+            if backfill and not connector["enabled"]:
+                raise RuntimeError("Gmail connector was paused before backfill ran")
+            _sync_gmail(dict(connector), run_id, counters, backfill)
         else:
             raise RuntimeError(f"Unsupported connector type: {connector['connector_type']}")
 

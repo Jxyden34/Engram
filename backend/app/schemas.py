@@ -312,6 +312,20 @@ class GmailOAuthStart(BaseModel):
     max_messages_per_sync: int = Field(default=100, ge=1, le=500)
 
 
+class GmailBackfillRequest(BaseModel):
+    start_date: date = Field(ge=date(1970, 1, 1))
+    end_date: date
+
+    @model_validator(mode="after")
+    def bounded_window(self):
+        days = (self.end_date - self.start_date).days
+        if not 0 <= days <= 365:
+            raise ValueError("Select an ordered date range of at most 366 days")
+        if self.end_date >= datetime.now(timezone.utc).date():
+            raise ValueError("Backfill must end before today")
+        return self
+
+
 class CaptureCreate(BaseModel):
     capture_type: str = Field(default="page", pattern="^(page|selection|link|note)$")
     title: str = Field(min_length=1, max_length=500)

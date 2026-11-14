@@ -59,6 +59,7 @@ from app.schemas import (
     AgentScheduleUpdate,
     CrossProjectSearchRequest,
     GmailOAuthStart,
+    GmailBackfillRequest,
     DeleteRequest,
     LoginRequest,
     MemoryCreate,
@@ -1261,6 +1262,16 @@ def connector_sync(connector_id: str, request: Request):
         request,
         new_data={"run_id": str(run["id"])},
     )
+    return run
+
+
+@app.post("/api/v1/connectors/{connector_id}/gmail-backfill", status_code=202)
+def connector_gmail_backfill(connector_id: UUID, body: GmailBackfillRequest, request: Request):
+    principal = require(request, "connector:admin")
+    dates = (body.start_date.isoformat(), body.end_date.isoformat())
+    run = connectors.queue_sync(str(connector_id), backfill=dates)
+    log(principal.actor, "connector.gmail_backfill_queued", "connector", str(connector_id), request,
+        new_data={"run_id": str(run["id"]), "start_date": dates[0], "end_date": dates[1]})
     return run
 
 

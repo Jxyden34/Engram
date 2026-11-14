@@ -146,6 +146,27 @@ export default function ConnectorsPage() {
     }
   }
 
+  async function backfill(event: FormEvent<HTMLFormElement>, connector: any) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    if (!confirm("Import Gmail body text for this date range and the connector's selected labels? This uses the date range instead of the saved search query.")) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await api(`/api/v1/connectors/${connector.id}/gmail-backfill`, {
+        method: "POST",
+        body: JSON.stringify({ start_date: data.get("start_date"), end_date: data.get("end_date") }),
+      });
+      setNotice("Gmail backfill queued. Check Recent sync runs for the result.");
+      form.reset();
+      await load();
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function editConnector(connector: any) {
     setEditing(connector);
     setError("");
@@ -395,6 +416,14 @@ export default function ConnectorsPage() {
                       <button className="ghostButton" onClick={() => toggle(c)}>{c.enabled ? "Pause" : "Resume"}</button>
                       <button className="dangerButton" onClick={() => remove(c.id)}>Delete</button>
                     </div>
+                    {c.connector_type === "gmail" && c.enabled && <details style={{marginTop: 8}}>
+                      <summary>Import older mail</summary>
+                      <form className="formGrid" onSubmit={event => void backfill(event, c)}>
+                        <label className="field">From (UTC)<input className="input" name="start_date" type="date" required /></label>
+                        <label className="field">Through (UTC)<input className="input" name="end_date" type="date" required /></label>
+                        <button className="button" disabled={busy} type="submit">Queue backfill</button>
+                      </form>
+                    </details>}
                   </td>
                 </tr>
               ))}
