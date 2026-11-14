@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Linking, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { api, AgentDraft, ApiError, login, Memory, normalizeOrigin, Project, Proposal, ScanRun, Session } from './src/api';
@@ -48,6 +48,7 @@ export default function App() {
   const captureInput = useRef<TextInput>(null);
   const [inboxTitle, setInboxTitle] = useState('');
   const [inboxContent, setInboxContent] = useState('');
+  const [incomingShare, setIncomingShare] = useState('');
   const inboxComposer = useRef({ title: '', content: '' });
   const editing = useRef<CaptureDraft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,6 +60,32 @@ export default function App() {
   const busyNow = useRef(false);
   const [error, setError] = useState('');
   const [scanMessage, setScanMessage] = useState('');
+
+  useEffect(() => {
+    if (!session || !['ios', 'android'].includes(Platform.OS)) {
+      setIncomingShare('');
+      return;
+    }
+    let active = true;
+    async function readIncomingShare() {
+      try {
+        const Sharing = await import('expo-sharing');
+        const items = Sharing.getSharedPayloads();
+        const text = items
+          .filter(item => item.shareType === 'text' || item.shareType === 'url')
+          .map(item => item.value.trim()).filter(Boolean).join('\n');
+        if (active) setIncomingShare(text);
+      } catch {
+        // Older native builds have no incoming share module.
+      }
+    }
+    readIncomingShare();
+    const link = Linking.addEventListener('url', readIncomingShare);
+    const foreground = AppState.addEventListener('change', state => {
+      if (state === 'active') readIncomingShare();
+    });
+    return () => { active = false; link.remove(); foreground.remove(); };
+  }, [session?.token]);
 
   function changeTitle(value: string) { composer.current.title = value; setTitle(value); }
   function changeContent(value: string) { composer.current.content = value; setContent(value); }
@@ -343,6 +370,20 @@ export default function App() {
 
   return <SafeAreaView style={styles.root}><StatusBar style="light" />
     <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>ALPHA 1</Text></View>
+    {!!incomingShare && <View style={{ padding: 12 }}>
+      <Text style={styles.hint}>Shared text or link is ready for the local Inbox.</Text>
+      <Pressable disabled={busy} style={styles.secondary} accessibilityRole="button" onPress={() => void act(async () => {
+        await queueInbox(session, 'Shared capture', incomingShare);
+        setIncomingShare('');
+        setSelected(null); setTab('Inbox');
+        try {
+          const Sharing = await import('expo-sharing');
+          Sharing.clearSharedPayloads();
+        } catch {
+          setError('Saved to Inbox. The shared item could not be cleared; check Inbox before saving again.');
+        }
+      })}><Text style={styles.link}>Save to local Inbox</Text></Pressable>
+    </View>}
     <ScrollView horizontal style={styles.tabBar} contentContainerStyle={styles.tabContent} showsHorizontalScrollIndicator={false}>
       {tabs.map(item => <Pressable key={item} disabled={busy} style={[styles.tab, tab === item && styles.tabActive]} onPress={() => { setTab(item); setSelected(null); setError(''); }} accessibilityRole="button"><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item === 'Inbox' ? `Inbox (${inboxFor(drafts, session).length})` : item}</Text></Pressable>)}
     </ScrollView>

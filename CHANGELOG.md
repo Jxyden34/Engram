@@ -11,6 +11,7 @@
 - Guide empty projects to create a memory or import a source document from the dashboard.
 - Search project entities and events alongside memories and document excerpts, with match explanations and source, date, content type, entity, importance, and confidence filters.
 - Add source filtering to the mobile Ask preview, alongside its memory type and date filters.
+- Receive shared text and links from iOS and Android into the local Inbox for review.
 - Strengthen access to imported document evidence and deleted memory history. Tighten OAuth consent, token rotation, client registration, and login redirects.
 - Enforce request and archive limits before buffering uploads. Preserve client identity through trusted proxies for rate limiting, and accept valid browser extension preflight requests.
 - Update server and web dependencies, qualify RQ 3 workers, and backport dependency protections for the Expo mobile preview.

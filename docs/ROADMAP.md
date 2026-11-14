@@ -225,7 +225,7 @@ Planned:
 - 🧪 Local English-language OCR indexes text in PNG sources. Browser capture and OCR qualification are pending.
 - 🧪 Capture tags are saved with the source document in the v3.1.0 draft.
 - 🧪 Browser captures can specify the target project ID and require a key bound to that project.
-- 🟡 Mobile share-sheet support
+- 🧪 Mobile share-sheet support for text and links, with explicit saving to the device-local Inbox. Native device qualification is pending.
 - 🧪 Firefox extension support in the v3.1.0 draft. Browser installation and signed distribution are pending.
 
 ---
