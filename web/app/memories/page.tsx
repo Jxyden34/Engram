@@ -26,7 +26,7 @@ export default function MemoriesPage() {
     try {
       setResults(await api("/api/v1/search", {
         method: "POST",
-        body: JSON.stringify({ query, limit: 20, include_documents: true, include_historical: historical, include_archived: archived }),
+        body: JSON.stringify({ query, limit: 20, include_documents: true, include_knowledge: true, include_historical: historical, include_archived: archived }),
       }));
     } catch (e: any) { setError(e.message); }
   }
@@ -59,7 +59,7 @@ export default function MemoriesPage() {
       <Topbar eyebrow="Knowledge objects" title="Memories" />
       <div className="pageToolbar">
         <form className="searchBar" onSubmit={doSearch}>
-          <input className="input" name="q" aria-label="Search memories" placeholder="Search by meaning, not just words…" />
+          <input className="input" name="q" aria-label="Search this project" placeholder="Search memories, documents, entities and events…" />
           <button className="button" type="submit">Search</button>
           {results && <button className="ghostButton" type="button" onClick={() => setResults(null)}>Clear</button>}
         </form>
@@ -68,7 +68,7 @@ export default function MemoriesPage() {
       {error && <div className="errorBox">{error}</div>}
       <section className="panel">
         <div className="panelHead">
-          <h2>{results ? "Semantic results" : "Active memories"}</h2>
+          <h2>{results ? "Search results" : "Active memories"}</h2>
           <span className="meta">{visible.length} visible</span>
         </div>
         <div className="tableWrap">
@@ -83,15 +83,21 @@ export default function MemoriesPage() {
                         <strong>{m.filename}</strong>
                         <div className="meta" style={{ maxWidth: 660, marginTop: 5 }}>{m.content.slice(0, 180)}…</div>
                       </>
+                    ) : m.result_type === "entity" || m.result_type === "event" ? (
+                      <Link href={m.result_type === "entity" ? "/knowledge" : "/timeline"}>
+                        <strong>{m.title}</strong>
+                        {m.content && <div className="meta">{m.content.slice(0, 180)}</div>}
+                      </Link>
                     ) : (
                       <Link href={`/memories/${m.id}`}>
                         <strong>{m.title}</strong> {m.pinned&&<span className="badge">Pinned</span>}
                         <div className="meta" style={{ maxWidth: 660, marginTop: 5 }}>{m.content.slice(0, 150)}{m.content.length > 150 ? "…" : ""}</div>
                       </Link>
                     )}
+                    {m.match_reasons?.length > 0 && <div className="meta">Matched: {m.match_reasons.join(", ")}</div>}
                   </td>
-                  <td><span className="badge">{m.result_type === "document_chunk" ? "document" : m.memory_type}</span></td>
-                  <td>{m.result_type === "document_chunk" ? "—" : Number(m.memory_score || 0).toFixed(3)}</td>
+                  <td><span className="badge">{m.result_type === "document_chunk" ? "document" : m.memory_type || m.result_type}</span></td>
+                  <td>{m.retrieval_score != null ? Number(m.retrieval_score).toFixed(3) : Number(m.memory_score || 0).toFixed(3)}</td>
                   <td>{m.importance ? `${m.importance}/10` : "—"}</td>
                   <td className="meta">{m.updated_at ? dateText(m.updated_at) : `chunk ${m.chunk_index}`}</td>
                   <td>{m.archived_at ? <span className="badge">Archived</span> : "—"}</td>

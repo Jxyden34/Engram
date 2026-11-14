@@ -4,9 +4,16 @@ import { FormEvent, useEffect, useState } from "react";
 import Topbar from "@/components/Topbar";
 import { api, dateText } from "@/lib/api";
 
-const AI_SCOPES = ["memory:read", "memory:write", "memory:delete_request", "document:read", "mcp:use"];
 const CAPTURE_SCOPES = ["capture:write"];
 const OAUTH_SCOPES = ["mcp:use", "memory:read", "document:read", "memory:write", "memory:delete_request"];
+const KEY_SCOPES = [
+  ["memory:read", "Read and search memories"],
+  ["document:read", "Read documents"],
+  ["memory:write", "Create and edit memories"],
+  ["capture:write", "Submit browser captures"],
+  ["mcp:use", "Connect through MCP"],
+  ["memory:delete_request", "Request memory deletion"],
+] as const;
 
 export default function SettingsPage() {
   const [keys, setKeys] = useState<any[]>([]);
@@ -41,10 +48,16 @@ export default function SettingsPage() {
   async function createKey(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
+    const scopes = KEY_SCOPES.map(([scope]) => scope).filter(scope => form.has(scope));
+    setError("");
+    if (!scopes.length) {
+      setError("Select at least one permission for this key.");
+      return;
+    }
     try {
       const result: any = await api("/api/v1/keys", {
         method: "POST",
-        body: JSON.stringify({ name: form.get("name"), scopes: AI_SCOPES }),
+        body: JSON.stringify({ name: form.get("name"), scopes }),
       });
       setNewToken(result.token);
       await load();
@@ -122,7 +135,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <Topbar eyebrow="Machine access" title="AI, API & OAuth" />
+      <Topbar eyebrow="Machine access" title="Personal API Gateway" />
 
       {error && <div className="errorBox">{error}</div>}
       {notice && <div className="successBox">{notice}</div>}
@@ -155,13 +168,24 @@ export default function SettingsPage() {
         </section>
 
         <section className="panel" style={{ marginTop: 0 }}>
-          <div className="panelHead"><h2>Legacy API key</h2><span className="badge">scripts / fallback</span></div>
+          <div className="panelHead"><h2>Project API key</h2></div>
           <p className="meta">
-            API keys remain supported for scripts and older clients. Interactive MCP clients should prefer OAuth.
+            Give a script, dashboard, or home automation client the permissions it needs in the selected project.
           </p>
-          <form className="row" onSubmit={createKey} style={{ marginTop: 18 }}>
-            <input className="input" name="name" placeholder="e.g. automation-script" required />
-            <button className="button primary">Generate key</button>
+          <form className="formGrid" onSubmit={createKey} style={{ marginTop: 18 }}>
+            <div className="field full">
+              <label htmlFor="gateway-key-name">Key name</label>
+              <input className="input" id="gateway-key-name" name="name" placeholder="e.g. automation-script" maxLength={120} required />
+            </div>
+            <fieldset className="field full">
+              <legend>Permissions</legend>
+              {KEY_SCOPES.map(([scope, label]) => (
+                <label className="check" key={scope}>
+                  <input type="checkbox" name={scope} defaultChecked={scope === "memory:read"} /> {label}
+                </label>
+              ))}
+            </fieldset>
+            <div className="field full"><button className="button primary">Generate key</button></div>
           </form>
 
           {newToken && (
@@ -325,7 +349,7 @@ export default function SettingsPage() {
 
       <section className="panel">
         <div className="panelHead">
-          <h2>Legacy API credentials</h2>
+          <h2>Project API credentials</h2>
           <span className="meta">{keys.filter((k) => !k.revoked_at).length} active</span>
         </div>
         <div className="tableWrap">

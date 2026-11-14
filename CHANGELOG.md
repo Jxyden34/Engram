@@ -4,6 +4,10 @@
 
 - Improve the knowledge graph with a larger interactive map, clearer relationship modes, and labels that avoid overlap.
 - Add optional GitHub commit and release ingestion, branch overrides for selected repositories, glob ignore patterns, and source file extension filters.
+- Add reader view and source tags to the browser capture extension.
+- Add a Personal API Gateway with selectable permissions for project API keys, alongside OAuth client and grant controls.
+- Guide empty projects to create a memory or import a source document from the dashboard.
+- Search project entities and events alongside memories and document excerpts, with match explanations.
 - Strengthen access to imported document evidence and deleted memory history. Tighten OAuth consent, token rotation, client registration, and login redirects.
 - Enforce request and archive limits before buffering uploads. Preserve client identity through trusted proxies for rate limiting, and accept valid browser extension preflight requests.
 - Update server and web dependencies, qualify RQ 3 workers, and backport dependency protections for the Expo mobile preview.

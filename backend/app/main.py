@@ -613,20 +613,19 @@ def lifecycle_undo(action_id: UUID, body: DeleteRequest, request: Request):
 
 @app.post("/api/v1/search")
 def search(body: SearchRequest, request: Request):
-    require(request, "memory:read")
+    p = require(request, "memory:read")
     results = intelligence.search_memories(body.query, body.limit, body.memory_type, body.include_historical,
                                            include_archived=body.include_archived)
-    if body.include_documents:
-        p = authenticate(request)
-        if "document:read" in p.scopes:
-            results.extend(search_chunks(body.query, max(3, body.limit // 2)))
-            for item in results:
-                if item.get("result_type") == "document_chunk":
-                    item["retrieval_score"] = round(0.8 * max(0, float(item.get("semantic_score") or 0)) + 0.2 * min(1, float(item.get("lexical_score") or 0)), 4)
-                    item["match_reasons"] = ["document excerpt"]
-            results.sort(key=lambda item: item.get("retrieval_score", 0), reverse=True)
-            results = results[: body.limit]
-    return results
+    if body.include_documents and "document:read" in p.scopes:
+        documents = search_chunks(body.query, max(3, body.limit // 2))
+        for item in documents:
+            item["retrieval_score"] = round(0.8 * max(0, float(item.get("semantic_score") or 0)) + 0.2 * min(1, float(item.get("lexical_score") or 0)), 4)
+            item["match_reasons"] = ["document excerpt"]
+        results.extend(documents)
+    if body.include_knowledge:
+        results.extend(knowledge.search_knowledge(body.query, body.limit))
+    results.sort(key=lambda item: item.get("retrieval_score", 0), reverse=True)
+    return results[:body.limit]
 
 
 @app.post("/api/v1/intelligence/context")
@@ -1565,10 +1564,10 @@ def keys_list(request: Request):
 @app.post("/api/v1/keys", status_code=201)
 def key_create(body: ApiKeyCreate, request: Request):
     p = require(request, "keys:admin")
-    allowed = set(ADMIN_SCOPES)
+    allowed = set(ADMIN_SCOPES) & p.scopes
     unknown = set(body.scopes) - allowed
     if unknown:
-        raise HTTPException(status_code=400, detail=f"Unknown scopes: {sorted(unknown)}")
+        raise HTTPException(status_code=400, detail=f"Unavailable scopes: {sorted(unknown)}")
     token, prefix, digest = generate_api_key()
     with connect() as conn:
         row = conn.execute(

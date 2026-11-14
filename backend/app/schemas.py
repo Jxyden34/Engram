@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 from datetime import date, datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -47,6 +47,7 @@ class SearchRequest(BaseModel):
     include_documents: bool = True
     include_historical: bool = False
     include_archived: bool = False
+    include_knowledge: bool = False
 
 
 class ArchiveRequest(BaseModel):
@@ -298,6 +299,9 @@ class CaptureCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     url: str | None = Field(default=None, max_length=4000)
     text: str = Field(min_length=1)
+    tags: list[Annotated[str, Field(min_length=1, max_length=64)]] = Field(
+        default_factory=list, max_length=20
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

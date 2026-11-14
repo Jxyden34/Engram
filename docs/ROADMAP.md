@@ -220,10 +220,10 @@ Supported:
 
 Planned:
 
-- 🟡 Reader-mode extraction
+- 🧪 Reader view extracts the main article or content landmark in the v3.1.0 draft.
 - 🟡 Screenshot capture
 - 🟡 Image OCR
-- 🟡 Capture tags
+- 🧪 Capture tags are saved with the source document in the v3.1.0 draft.
 - 🟡 Project / namespace selection
 - 🟡 Mobile share-sheet support
 - 🟡 Firefox extension
@@ -455,6 +455,10 @@ for v2.7.
 
 ## v2.6 — Personal Search Engine 🔵
 
+🧪 The v3.1.0 draft expands project search in Memories to include entity and
+event results alongside memories and document excerpts. Results include a match
+explanation. The full filter set below is still planned.
+
 One search interface across:
 
 - memories
@@ -663,6 +667,10 @@ Responsibilities:
 The agent proposes changes. It does not silently rewrite personal history.
 
 ## v3.1 — Personal API Gateway
+
+🧪 The v3.1.0 draft brings project-bound API keys, OAuth clients and grants into
+the Personal API Gateway settings. New API keys start with memory read access,
+with additional permissions selected explicitly.
 
 Unified permission layer for:
 

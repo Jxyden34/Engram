@@ -17,6 +17,17 @@ export default function Dashboard() {
     <>
       <Topbar eyebrow="System overview" title="Your memory, mapped." />
 
+      {data?.memories === 0 && (
+        <section className="panel">
+          <h2>Save your first memory</h2>
+          <p>Create a memory or import a document, then look it up in Memories.</p>
+          <div className="row">
+            <Link className="button primary" href="/memories">Open memories</Link>
+            <Link className="ghostButton" href="/documents">Import a document</Link>
+          </div>
+        </section>
+      )}
+
       <div className="grid4">
         {[
           ["Memories", data?.memories ?? "—", "active knowledge objects"],

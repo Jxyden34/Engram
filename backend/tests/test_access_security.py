@@ -50,6 +50,54 @@ def client(records,monkeypatch):
     return TestClient(main.app,base_url='http://localhost',headers={'Authorization':'Bearer test'}),principal
 
 
+def test_knowledge_search_requires_opt_in_and_keeps_project_boundaries(records, client, monkeypatch):
+    http, principal = client
+    project = records["project"]
+    term = "search" + uuid4().hex
+    monkeypatch.setattr(main.intelligence, "search_memories", lambda *args, **kwargs: [])
+
+    try:
+        with project_scope(project), connect() as conn:
+            conn.execute(
+                """INSERT INTO entities(name,normalized_name,aliases,created_by,updated_by)
+                   VALUES ('Visible entity',%s,ARRAY[%s],'test','test')""",
+                (term, term),
+            )
+            conn.execute(
+                "INSERT INTO events(title,description,created_by) VALUES ('Visible event',%s,'test')",
+                (term,),
+            )
+            conn.commit()
+        with connect() as conn:
+            conn.execute(
+                "INSERT INTO events(title,description,created_by) VALUES ('Other project event',%s,'test')",
+                (term,),
+            )
+            conn.commit()
+
+        assert http.post("/api/v1/search", json={"query": term}).json() == []
+        response = http.post("/api/v1/search", json={"query": term, "include_knowledge": True})
+        assert response.status_code == 200
+        assert {result["title"] for result in response.json()} == {"Visible entity", "Visible event"}
+        assert all(result["match_reasons"] for result in response.json())
+
+        principal.scopes.remove("memory:read")
+        assert http.post("/api/v1/search", json={"query": term, "include_knowledge": True}).status_code == 403
+    finally:
+        for project_id in (project, "00000000-0000-0000-0000-000000000001"):
+            with project_scope(project_id), connect() as conn:
+                conn.execute("DELETE FROM events WHERE description=%s", (term,))
+                conn.execute("DELETE FROM entities WHERE normalized_name=%s", (term,))
+                conn.commit()
+
+
+def test_key_manager_cannot_issue_permissions_it_does_not_hold(client):
+    http, principal = client
+    principal.scopes.add("keys:admin")
+    response = http.post("/api/v1/keys", json={"name": "limited", "scopes": ["oauth:admin"]})
+    assert response.status_code == 400
+
+
 def test_import_source_scope_covers_lists_jobs_updates_and_review(records,client):
     http,p=client
     for family,key in [('documents','candidate'),('chatgpt','chat_candidate')]:

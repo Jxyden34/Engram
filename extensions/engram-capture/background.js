@@ -23,8 +23,12 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 async function settings() {
-  const cfg = await chrome.storage.local.get(["engramUrl", "engramKey", "memorybankUrl", "memorybankKey"]);
-  return { url: cfg.engramUrl || cfg.memorybankUrl, key: cfg.engramKey || cfg.memorybankKey };
+  const cfg = await chrome.storage.local.get(["engramUrl", "engramKey", "memorybankUrl", "memorybankKey", "engramTags"]);
+  return {
+    url: cfg.engramUrl || cfg.memorybankUrl,
+    key: cfg.engramKey || cfg.memorybankKey,
+    tags: cfg.engramTags || [],
+  };
 }
 
 async function captureFromTab(tabId, mode) {
@@ -33,10 +37,12 @@ async function captureFromTab(tabId, mode) {
     func: (captureMode) => {
       const selected = window.getSelection()?.toString()?.trim() || "";
       const text = document.body?.innerText?.trim() || "";
+      const mainContent = document.querySelector("article, main, [role=main]");
+      const content = captureMode === "reader" ? mainContent?.innerText?.trim() || text : text;
       return {
         title: document.title || location.hostname,
         url: location.href,
-        text: captureMode === "selection" && selected ? selected : text,
+        text: captureMode === "selection" && selected ? selected : content,
       };
     },
     args: [mode],
@@ -59,7 +65,7 @@ async function sendCapture(payload) {
       "Authorization": `Bearer ${key}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, tags: payload.tags ?? cfg.tags }),
   });
 
   const body = await response.json().catch(() => ({}));
@@ -106,17 +112,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     try {
       let payload = message.payload;
-      if (message.mode === "page" || message.mode === "selection") {
+      if (["page", "selection", "reader"].includes(message.mode)) {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab?.id) throw new Error("No active browser tab.");
         const data = await captureFromTab(tab.id, message.mode);
         if (!data?.text) throw new Error("No readable text found.");
         payload = {
-          capture_type: message.mode,
+          capture_type: message.mode === "reader" ? "page" : message.mode,
           title: data.title,
           url: data.url,
           text: data.text,
-          metadata: {},
+          metadata: message.mode === "reader" ? { extraction: "reader" } : {},
         };
       }
 

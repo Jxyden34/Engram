@@ -22,6 +22,7 @@ def create_capture(data: dict, actor: str, owner_id: str | None):
     url = str(data.get("url") or "").strip() or None
     capture_type = data.get("capture_type") or "page"
     captured_at = datetime.now(timezone.utc)
+    tags = list(dict.fromkeys(tag.strip() for tag in data.get("tags", []) if tag.strip()))
 
     front = [
         f"# {title}",
@@ -31,6 +32,8 @@ def create_capture(data: dict, actor: str, owner_id: str | None):
     ]
     if url:
         front.append(f"- Source URL: {url}")
+    if tags:
+        front.append(f"- Tags: {', '.join(tags)}")
 
     body = "\n".join(front) + "\n\n" + text + "\n"
     filename = (
@@ -52,6 +55,7 @@ def create_capture(data: dict, actor: str, owner_id: str | None):
             "url": url,
             "captured_at": captured_at.isoformat(),
             **(data.get("metadata") or {}),
+            "tags": tags,
         },
         dedupe=False,
     )
