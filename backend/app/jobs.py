@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 
 from docx import Document
+from icalendar import Calendar
 from pypdf import PdfReader
 
 from app.config import settings
@@ -20,8 +21,53 @@ def validate_png(raw: bytes) -> None:
         raise ValueError("PNG must contain at most 25 million pixels")
 
 
+def extract_calendar_text(raw: bytes) -> str:
+    if len(raw) > 5 * 1024 * 1024:
+        raise ValueError("Calendar exports must be at most 5 MiB")
+    calendar = Calendar.from_ical(raw)
+    events = calendar.walk("VEVENT")
+    if len(events) > 1000:
+        raise ValueError("Calendar exports must contain at most 1,000 events")
+    sections = []
+    for event in events:
+        if str(event.get("STATUS", "")).upper() == "CANCELLED":
+            continue
+        lines = [f"## {event.get('SUMMARY') or 'Untitled event'}"]
+        for name, label in (
+            ("DTSTART", "Start"), ("DTEND", "End"), ("RECURRENCE-ID", "Occurrence"),
+            ("DURATION", "Duration"), ("LOCATION", "Location"), ("ORGANIZER", "Organizer"),
+        ):
+            value = event.get(name)
+            if value is not None:
+                decoded = getattr(value, "dt", value)
+                if hasattr(decoded, "isoformat"):
+                    decoded = decoded.isoformat()
+                lines.append(f"- {label}: {decoded}")
+        rule = event.get("RRULE")
+        if rule:
+            lines.append(f"- Recurrence: {rule.to_ical().decode('ascii')}")
+        for name, label in (("EXDATE", "Excluded dates"), ("RDATE", "Additional dates")):
+            if event.get(name):
+                dates = event[name]
+                if not isinstance(dates, list):
+                    dates = [dates]
+                lines.append(f"- {label}: " + ", ".join(value.to_ical().decode('utf-8') for value in dates))
+        attendees = event.get("ATTENDEE", [])
+        if not isinstance(attendees, list):
+            attendees = [attendees]
+        if attendees:
+            lines.append("- Attendees: " + ", ".join(str(attendee) for attendee in attendees))
+        if event.get("DESCRIPTION"):
+            lines.extend(("", str(event["DESCRIPTION"])))
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
 def extract_text(filename: str, raw: bytes) -> str:
     suffix = Path(filename).suffix.lower()
+
+    if suffix == ".ics":
+        return extract_calendar_text(raw)
 
     if suffix == ".png":
         validate_png(raw)
