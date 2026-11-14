@@ -1,0 +1,234 @@
+.page {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.overview {
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(125deg, #1a2417, var(--panel) 62%);
+}
+
+.overviewHeader,
+.proposalMeta,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.overviewHeader,
+.proposalMeta {
+  justify-content: space-between;
+}
+
+.overviewHeader p {
+  flex: 1 1 18rem;
+  margin: 0;
+  color: #c4cdd2;
+  line-height: 1.55;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.metrics dt,
+.proposalMeta time {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.metrics dd {
+  margin: 5px 0 0;
+  font-size: clamp(14px, 2vw, 18px);
+  font-weight: 650;
+}
+
+.views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 20px;
+  padding: 5px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.views button {
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #b8c1cd;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.views button:hover {
+  background: var(--panel2);
+}
+
+.views button[aria-pressed="true"] {
+  border-color: #425936;
+  background: #202c1b;
+  color: #d9ffb3;
+}
+
+.empty {
+  padding: 24px 16px;
+  text-align: center;
+  border: 1px dashed #383f48;
+  border-radius: 12px;
+  background: #101216;
+}
+
+.empty p,
+.related {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.empty p {
+  margin: 6px 0 0;
+}
+
+.proposal,
+.run {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding: 16px 0;
+}
+
+.proposal:last-child,
+.run:last-child {
+  padding-bottom: 0;
+}
+
+.proposal h3,
+.proposal p,
+.run p {
+  margin: 0;
+}
+
+.proposal h3 {
+  font-size: 17px;
+}
+
+.proposal p {
+  line-height: 1.55;
+}
+
+.proposal a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: #6d7b65;
+}
+
+.proposal a:hover {
+  color: var(--accent);
+}
+
+.draft {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #101216;
+}
+
+.draft blockquote {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 2px solid #597543;
+  color: #c4cdd2;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.form > label,
+.form > div {
+  width: 100%;
+}
+
+.activity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 290px);
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 680px) {
+  .activity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .views button {
+    flex: 1 1 40%;
+    padding-inline: 6px;
+  }
+}
+
+.tools h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.tools form {
+  display: grid;
+  gap: 10px;
+}
+
+.tools button {
+  justify-self: start;
+}
+
+.tools details {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.tools summary {
+  cursor: pointer;
+}
+
+.tools label:has(input[type="checkbox"]),
+.form label:has(input[type="checkbox"]) {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.tools input[type="checkbox"],
+.form input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.page [role="status"],
+.page [role="alert"] {
+  word-break: normal;
+}
+
+.draft {
+  max-width: 52rem;
+}
+
+.draft > button {
+  justify-self: start;
+}
