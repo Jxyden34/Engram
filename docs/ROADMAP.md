@@ -33,7 +33,8 @@ companion distribution keeps its preview channel and recorded device gates.
 
 | Track | Current position | Scope |
 | --- | --- | --- |
-| Stable server | **v2.7.0** | Projects, filtered Ask, Memory Agent, Memory Intelligence and all stable security/dependency maintenance. |
+| Stable server | **v3.0.2** | Projects, Memory Agent, lifecycle tools, observability, and native installers. |
+| Roadmap release | **v3.1.0 draft** | Search, Personal API Gateway, connectors, capture, and project operations. See [PR #127](https://github.com/Jxyden34/Engram/pull/127). |
 | Native companion | **v2.7.0-alpha1 preview** | Companion source is on `main`; build 8 and native iOS speech still need device qualification. Installed-app runtime and update channels are unchanged. |
 
 v2.7.0 returns to the 2.x numbering by user approval after v6.5.0. Earlier
@@ -618,8 +619,7 @@ promising enterprise operations before they are proven.
 
 - 🧪 The draft guides empty projects to capture or import and search their first memory.
 - 🧪 Observability shows project memory, document, source storage, and connector usage and links to backup status.
-- documented managed-hosting boundaries for upgrades, backups, recovery and
-  support
+- 🧪 [Managed-hosting boundaries](MANAGED-READINESS.md) for upgrades, backups, recovery, and support.
 - privacy-respecting activation measurement: first captured or imported memory
   successfully retrieved
 
