@@ -1,6 +1,6 @@
 import { colors } from './src/theme';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Linking, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Image, KeyboardAvoidingView, Linking, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { api, AgentDraft, ApiError, login, Memory, normalizeOrigin, Project, Proposal, ScanRun, Session } from './src/api';
@@ -14,6 +14,7 @@ import { captureTemplates } from './src/memoryTools';
 import appConfig from './app.json';
 
 const KEY = 'engram_mobile_session';
+const logo = require('./assets/icon.png');
 type Tab = 'Capture' | 'Inbox' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Workspace' | 'Settings';
 const sections: { title: string; tabs: Tab[] }[] = [
   { title: 'Library', tabs: ['Memories', 'Search', 'Ask'] },
@@ -377,7 +378,7 @@ export default function App() {
   if (!ready) return <SafeAreaView style={styles.center}><ActivityIndicator color={colors.accent} /></SafeAreaView>;
   if (!session) return <SafeAreaView style={styles.root}><StatusBar style="light" /><KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView contentContainerStyle={styles.login} keyboardShouldPersistTaps="handled">
-      <Text style={styles.brand}>ENGRAM</Text><Text style={styles.hero}>Enter Engram</Text>
+      <Image source={logo} style={styles.loginLogo} accessible={false} /><Text style={styles.hero}>Enter Engram</Text>
       <Text style={styles.sub}>v{appConfig.expo.version} · Mobile preview</Text>
       <Text style={styles.label}>Server URL</Text><TextInput style={styles.input} value={server} onChangeText={setServer} placeholder="https://engram.example.com" placeholderTextColor={colors.muted} autoCapitalize="none" keyboardType="url" />
       <Text style={styles.label}>Username</Text><TextInput style={styles.input} value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Username" placeholderTextColor={colors.muted} />
@@ -389,7 +390,13 @@ export default function App() {
   </KeyboardAvoidingView></SafeAreaView>;
 
   return <SafeAreaView style={styles.root}><StatusBar style="light" />
-    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>v{appConfig.expo.version}</Text></View>
+    <View style={styles.header}>
+      <View style={styles.headerTitle}>
+        <Image source={logo} style={styles.headerLogo} accessible={false} />
+        <Text style={styles.heading}>{tab}</Text>
+      </View>
+      <Text style={styles.beta}>v{appConfig.expo.version}</Text>
+    </View>
     {!!incomingShare && <View style={{ padding: 12 }}>
       <Text style={styles.hint}>Shared text or link is ready for the local Inbox.</Text>
       <Pressable disabled={busy} style={styles.secondary} accessibilityRole="button" onPress={() => void act(async () => {
@@ -530,11 +537,13 @@ export default function App() {
 const styles = StyleSheet.create({
   filterRow: { flexGrow: 0, marginVertical: 16 }, filterContent: { gap: 8 },
   root: { flex: 1, backgroundColor: colors.background }, fill: { flex: 1 }, center: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' },
-  login: { flexGrow: 1, padding: 28, justifyContent: 'center' }, brand: { color: colors.accent, fontSize: 19, fontWeight: '900', letterSpacing: 5 }, brandSmall: { color: colors.accent, fontSize: 12, fontWeight: '900', letterSpacing: 3 }, hero: { color: colors.text, fontSize: 34, fontWeight: '800', marginTop: 22 }, sub: { color: colors.muted, marginTop: 8, marginBottom: 34 },
+  login: { flexGrow: 1, padding: 28, justifyContent: 'center' }, loginLogo: { width: 56, height: 56, borderRadius: 13 }, hero: { color: colors.text, fontSize: 34, fontWeight: '800', marginTop: 22 }, sub: { color: colors.muted, marginTop: 8, marginBottom: 34 },
   label: { color: colors.body, fontWeight: '700', marginBottom: 8, marginTop: 16 }, input: { backgroundColor: colors.input, color: colors.text, borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 14, padding: 15, fontSize: 16, marginBottom: 6 }, multiline: { minHeight: 180 },
   primary: { backgroundColor: colors.accent, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 20 }, primaryText: { color: colors.onAccent, fontWeight: '800', fontSize: 16 }, secondary: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: colors.controlBorder, marginTop: 16, alignItems: 'center' },
   hint: { color: colors.muted, lineHeight: 20, marginTop: 14 }, error: { color: colors.danger, marginTop: 12 }, errorBanner: { color: colors.danger, backgroundColor: colors.dangerSurface, padding: 10 },
   header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, heading: { color: colors.text, fontSize: 26, fontWeight: '800', marginTop: 4, marginBottom: 10 }, beta: { color: colors.accent, fontSize: 11, fontWeight: '800' },
+  headerTitle: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  headerLogo: { width: 32, height: 32, borderRadius: 8 },
   projectRow: { flexGrow: 0, maxHeight: 55 }, projectContent: { paddingHorizontal: 20, paddingBottom: 12, gap: 8 }, chip: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: colors.input, borderRadius: 20 }, chipActive: { backgroundColor: colors.selected }, chipText: { color: colors.text, fontWeight: '700' },
   body: { padding: 20, paddingBottom: 40 }, section: { color: colors.body, fontSize: 18, fontWeight: '800', marginBottom: 14 }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 8 }, link: { color: colors.accent, fontWeight: '800' },
   card: { backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 17, marginBottom: 12 }, cardTitle: { color: colors.text, fontSize: 17, fontWeight: '800', marginBottom: 7 }, meta: { color: colors.muted, fontSize: 12, marginBottom: 7 }, preview: { color: colors.body, lineHeight: 21 }, content: { color: colors.body, fontSize: 16, lineHeight: 25, marginVertical: 14 }, empty: { color: colors.muted, marginTop: 28, textAlign: 'center' },
