@@ -1,7 +1,8 @@
 """Optional Telegram delivery. The server token is never returned through the API."""
 import re
 
-import httpx
+import json
+from http.client import HTTPSConnection, HTTPException as TransportError
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
@@ -46,20 +47,23 @@ def send(chat_id: str, text: str):
         raise HTTPException(status_code=503, detail="Telegram bot is not configured")
     if not re.fullmatch(r"-?[0-9]{1,20}", chat_id):
         raise HTTPException(status_code=422, detail="Invalid Telegram chat ID")
+    connection = HTTPSConnection("api.telegram.org", timeout=10)
     try:
-        # Fixed Telegram origin. No proxy inheritance or redirect to another host.
-        with httpx.Client(timeout=10, follow_redirects=False, trust_env=False) as client:
-            response = client.post(f"https://api.telegram.org/bot{token}/sendMessage", json={
-                "chat_id": chat_id, "text": text[:4000],
-                "link_preview_options": {"is_disabled": True},
-                "protect_content": True,
-            })
-            if response.is_error or not response.json().get("ok"):
-                raise HTTPException(status_code=502, detail="Telegram rejected delivery. Check the bot and chat permissions.")
-    except (httpx.HTTPError, ValueError):
-        # HTTP exceptions include the token-bearing URL, so expose a generic failure.
+        # Direct HTTPS avoids proxy inheritance, redirects, and token-bearing HTTP logs.
+        connection.request("POST", f"/bot{token}/sendMessage", body=json.dumps({
+            "chat_id": chat_id, "text": text[:4000],
+            "link_preview_options": {"is_disabled": True}, "protect_content": True,
+        }), headers={"Content-Type": "application/json"})
+        response = connection.getresponse()
+        body = response.read(65537)
+        if len(body) > 65536:
+            raise ValueError("Response too large")
+        if response.status != 200 or not json.loads(body).get("ok"):
+            raise HTTPException(status_code=502, detail="Telegram rejected delivery. Check the bot and chat permissions.")
+    except (OSError, TransportError, ValueError):
         raise HTTPException(status_code=502, detail="Telegram delivery failed. Check connectivity and chat permissions.") from None
-
+    finally:
+        connection.close()
 
 def test_delivery():
     config = configuration()
