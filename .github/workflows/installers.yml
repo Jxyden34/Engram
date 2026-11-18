@@ -5,6 +5,8 @@ on:
     tags: ['v3.*']
   pull_request:
     paths: ['VERSION', 'install.py', 'install.sh', 'scripts/*installer*', '.github/workflows/installers.yml']
+    # Build installer changes on draft PRs too.
+    types: [opened, synchronize, reopened, converted_to_draft, ready_for_review]
   workflow_dispatch:
     inputs:
       existing_release:
