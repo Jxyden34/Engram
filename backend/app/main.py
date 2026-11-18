@@ -1748,7 +1748,7 @@ def key_revoke(key_id: str, request: Request):
     return dict(row)
 
 
-app.mount("/", mcp_app)
+
 
 
 def notification_user(request: Request):
@@ -1779,3 +1779,5 @@ def notification_read(notification_id: UUID, request: Request):
 @app.post("/api/v1/notifications/{notification_id}/dismiss")
 def notification_dismiss(notification_id: UUID, request: Request):
     return notifications.mark(str(notification_id), notification_user(request).user_id, dismiss=True)
+
+app.mount("/", mcp_app)
