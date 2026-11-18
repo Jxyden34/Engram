@@ -1,0 +1,60 @@
+name: Scheduled integration tests
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-trixie
+        env:
+          POSTGRES_DB: engram
+          POSTGRES_USER: engram
+          POSTGRES_PASSWORD: engram-ci-postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U engram -d engram"
+          --health-interval 10s --health-timeout 5s --health-retries 15
+      redis:
+        image: redis:8-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s --health-timeout 5s --health-retries 15
+
+    env:
+      DATABASE_URL: postgresql://engram:engram-ci-postgres@127.0.0.1:5432/engram
+      REDIS_URL: redis://127.0.0.1:6379/0
+      POSTGRES_DB: engram
+      POSTGRES_USER: engram
+      POSTGRES_PASSWORD: engram-ci-postgres
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Initialize database schema and migrations
+        run: |
+          for migration in db/init.sql db/migrations/*.sql; do
+            docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U engram -d engram < "$migration"
+          done
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.15"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - name: Install backend test dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+      - name: Run integration tests
+        working-directory: backend
+        run: python -m pytest -q tests/test_integration_services.py
