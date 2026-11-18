@@ -42,8 +42,7 @@ def collect(conn):
           AND (m.valid_to IS NULL OR m.valid_to>now())
           AND m.updated_at>now()-interval '30 days'
           AND (m.content IS DISTINCT FROM v.snapshot->>'content'
-            OR m.title IS DISTINCT FROM v.snapshot->>'title'
-)
+            OR m.title IS DISTINCT FROM v.snapshot->>'title')
         ORDER BY m.updated_at DESC LIMIT 100
     """):
         add("important_update", f'{row["id"]}:{row["updated_at"].isoformat()}',

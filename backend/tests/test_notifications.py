@@ -56,6 +56,14 @@ def test_notification_sources_receipts_resolution_and_project_isolation():
                 "telegram_bot_token": "fixture", "public_origin": "https://engram.invalid"
             })()):
                 telegram.configure(telegram.TelegramSettings(enabled=True, chat_id="123"))
+                with patch.object(telegram, "send", side_effect=HTTPException(status_code=502)) as failed:
+                    telegram.deliver()
+                    assert failed.call_count == 5
+                    telegram.deliver()
+                    assert failed.call_count == 5, "Backoff must prevent an immediate retry"
+                with connect() as conn:
+                    conn.execute("UPDATE notification_deliveries SET next_attempt_at=now()")
+                    conn.commit()
                 with patch.object(telegram, "send") as send:
                     telegram.deliver()
                     assert send.call_count == 5

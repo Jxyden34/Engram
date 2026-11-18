@@ -33,7 +33,7 @@ companion distribution keeps its preview channel and recorded device gates.
 
 | Track | Current position | Scope |
 | --- | --- | --- |
-| Stable server | **[v3.1.0](https://github.com/Jxyden34/Engram/releases/tag/v3.1.0)** | Project search, Personal API Gateway, connector improvements, browser capture, and project operations. |
+| Stable server | **[v3.2.0](https://github.com/Jxyden34/Engram/releases/tag/v3.2.0)** | Notifications, optional Telegram delivery, Calendar sync, and the v3.1 workspace. |
 | Native companion | **v2.7.0-alpha1 preview** | Companion source is on `main`; build 8 and native iOS speech still need device qualification. Installed-app runtime and update channels are unchanged. |
 
 v2.7.0 returns to the 2.x numbering by user approval after v6.5.0. Earlier
@@ -358,8 +358,7 @@ Ingest:
 
 ✅ Calendar export import indexes selected `.ics` files as source documents.
 Event times, locations, attendees, recurrence rules, and notes are searchable.
-Recurring exports retain their rules and exceptions. The Google Calendar sync
-branch adds read-only polling of one owned calendar, including recurring
+Recurring exports retain their rules and exceptions. Google Calendar sync adds read-only polling of one owned calendar, including recurring
 occurrences in a bounded date window. Live OAuth and provider sync qualification
 are pending. Microsoft 365 sync remains planned.
 
@@ -690,11 +689,12 @@ Unified permission layer for:
 - developer tools
 - dashboards
 
-## v3.2 — Notifications 🧪
+## v3.2 — Notifications ✅
 
-The v3.2.0 candidate adds project notification inboxes in the web and native
+v3.2.0 adds project notification inboxes in the web and native
 mobile interfaces. Admin users can review sources, mark items read, and dismiss
-them. Scheduled checks deduplicate active issues and reopen recovered issues
+them. Optional Telegram delivery sends generic notifications to a configured chat.
+Scheduled checks deduplicate active issues and reopen recovered issues
 if they recur. Backup alerts appear in Personal because backups cover the server.
 
 Notify on:

@@ -9,11 +9,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jxyden34.engram.beta",
-      "buildNumber": "9"
+      "buildNumber": "10"
     },
     "android": {
       "package": "com.jxyden34.engram.beta",
-      "versionCode": 12,
+      "versionCode": 13,
       "adaptiveIcon": {
         "backgroundColor": "#111317",
         "foregroundImage": "./assets/android-icon-foreground.png",

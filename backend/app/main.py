@@ -1749,9 +1749,6 @@ def key_revoke(key_id: str, request: Request):
     return dict(row)
 
 
-
-
-
 def notification_user(request: Request):
     principal = require(request, "memory:read")
     if principal.auth_type not in {"session", "mobile"} or not principal.is_admin or not principal.user_id:
