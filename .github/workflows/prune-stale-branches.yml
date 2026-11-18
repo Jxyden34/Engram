@@ -1,0 +1,94 @@
+name: Prune stale branches
+
+on:
+  schedule:
+    # Weekly, Sunday at 03:00 UTC.
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report candidates without deleting branches"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete inactive branches
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const inactivityDays = 30;
+            const cutoff = Date.now() - inactivityDays * 24 * 60 * 60 * 1000;
+            const dryRun = context.eventName === 'workflow_dispatch' &&
+              '${{ inputs.dry_run }}' === 'true';
+
+            const repoInfo = await github.rest.repos.get({ owner, repo });
+            const defaultBranch = repoInfo.data.default_branch;
+
+            const branches = await github.paginate(
+              github.rest.repos.listBranches,
+              { owner, repo, per_page: 100 }
+            );
+            const openPulls = await github.paginate(
+              github.rest.pulls.list,
+              { owner, repo, state: 'open', per_page: 100 }
+            );
+            const openHeadRefs = new Set(
+              openPulls
+                .filter((pull) => pull.head.repo?.full_name === `${owner}/${repo}`)
+                .map((pull) => pull.head.ref)
+            );
+
+            const protectedPattern = /^(main|master|develop|release(?:\/|-)|v\d|codex\/v\d|codex\/release[-\/])/i;
+            const candidates = [];
+
+            for (const branch of branches) {
+              const name = branch.name;
+              if (
+                branch.protected ||
+                name === defaultBranch ||
+                protectedPattern.test(name) ||
+                openHeadRefs.has(name)
+              ) continue;
+
+              const commit = await github.rest.repos.getCommit({
+                owner,
+                repo,
+                ref: branch.commit.sha
+              });
+              const authored = commit.data.commit.author?.date;
+              const committed = commit.data.commit.committer?.date;
+              const lastActivity = Math.max(
+                Date.parse(authored || 0),
+                Date.parse(committed || 0)
+              );
+
+              if (lastActivity < cutoff) {
+                candidates.push({ name, lastActivity: new Date(lastActivity).toISOString() });
+              }
+            }
+
+            core.info(`Found ${candidates.length} branch(es) inactive for ${inactivityDays}+ days.`);
+            for (const candidate of candidates) {
+              if (dryRun) {
+                core.info(`[dry-run] ${candidate.name} (last activity: ${candidate.lastActivity})`);
+                continue;
+              }
+
+              await github.rest.git.deleteRef({
+                owner,
+                repo,
+                ref: `heads/${candidate.name}`
+              });
+              core.info(`Deleted ${candidate.name} (last activity: ${candidate.lastActivity})`);
+            }
