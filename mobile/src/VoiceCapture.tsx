@@ -1,3 +1,4 @@
+import { colors } from './theme';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { requireOptionalNativeModule } from 'expo';
@@ -69,7 +70,7 @@ export default function VoiceCapture({ content, onContent, onKeyboard, disabled 
 }
 
 const styles = StyleSheet.create({
-  box: { marginVertical: 12 }, button: { borderWidth: 1, borderColor: '#416887', borderRadius: 13, padding: 14, alignItems: 'center', marginTop: 10 },
-  link: { color: '#7ccaff', fontWeight: '800' }, hint: { color: '#96a9bf', lineHeight: 20, marginVertical: 8 },
-  input: { backgroundColor: '#182637', color: '#f2f7ff', borderRadius: 14, padding: 15, fontSize: 16, minHeight: 100, marginTop: 12 }, error: { color: '#ff9b9b', marginTop: 12 },
+  box: { marginVertical: 12 }, button: { borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 13, padding: 14, alignItems: 'center', marginTop: 10 },
+  link: { color: colors.accent, fontWeight: '800' }, hint: { color: colors.muted, lineHeight: 20, marginVertical: 8 },
+  input: { backgroundColor: colors.input, color: colors.text, borderRadius: 14, padding: 15, fontSize: 16, minHeight: 100, marginTop: 12 }, error: { color: colors.danger, marginTop: 12 },
 });

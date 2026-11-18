@@ -1,0 +1,49 @@
+name: PR hygiene
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, converted_to_draft, ready_for_review]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const pull = context.payload.pull_request;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pull.number, per_page: 100
+            });
+            const names = files.map((file) => file.filename);
+            const labels = new Set(['area:other']);
+            if (names.some((name) => name.startsWith('backend/'))) labels.add('area:backend');
+            if (names.some((name) => name.startsWith('web/'))) labels.add('area:web');
+            if (names.some((name) => name.startsWith('mobile/'))) labels.add('area:mobile');
+            if (names.some((name) => name.startsWith('.github/'))) labels.add('area:ci');
+            if (names.some((name) => name.startsWith('docs/') || name.startsWith('founder/'))) labels.add('area:docs');
+
+            const changed = files.reduce((total, file) => total + file.additions + file.deletions, 0);
+            labels.add(changed >= 800 ? 'size:xl' : changed >= 400 ? 'size:l' : changed >= 100 ? 'size:m' : 'size:s');
+
+            const palette = {
+              'area:backend': '1d76db', 'area:web': '5319e7', 'area:mobile': 'fbca04',
+              'area:ci': '0e8a16', 'area:docs': '0075ca', 'area:other': 'cfd3d7',
+              'size:s': 'c2e0c6', 'size:m': 'fef2c0', 'size:l': 'f9d0c4', 'size:xl': 'b60205'
+            };
+            for (const name of labels) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({ owner, repo, name, color: palette[name] || 'cfd3d7' });
+              }
+            }
+            await github.rest.issues.addLabels({ owner, repo, issue_number: pull.number, labels: [...labels] });
