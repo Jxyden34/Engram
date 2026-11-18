@@ -2,18 +2,18 @@
   "expo": {
     "name": "Engram Beta",
     "slug": "engram-mobile",
-    "version": "3.1.0",
+    "version": "3.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jxyden34.engram.beta",
-      "buildNumber": "9"
+      "buildNumber": "10"
     },
     "android": {
       "package": "com.jxyden34.engram.beta",
-      "versionCode": 12,
+      "versionCode": 13,
       "adaptiveIcon": {
         "backgroundColor": "#111317",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false
     },
     "extra": {
-      "release": "3.1.0",
+      "release": "3.2.0",
       "eas": {
         "projectId": "4bfa32da-3316-4752-aa52-605ded14d3c2"
       }

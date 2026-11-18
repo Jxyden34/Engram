@@ -32,8 +32,8 @@ The [deployment guide](docs/DEPLOYMENT.md) recommends 4 CPU cores and 8 GB RAM
 
 Engram 2.8 adds source-cited reflection, reviewed project briefs, memory lifecycle controls, pinning and audited undo. Its shared iOS and Android companion supports project-scoped memories, search, human review and a secure offline library. Native mobile builds remain on their documented preview channel; see [mobile setup](docs/MOBILE.md).
 
-**Current server release:** `v3.1.0`
-**Mobile preview:** `v2.7.0-alpha1`
+**Current server release:** `v3.2.0`
+**Mobile preview:** `v3.2.0` on the `alpha1` channel
 **Recommended deployment:** Linux + Docker Compose + host-managed Cloudflare Tunnel
 
 **v3.0 distribution:** [Native Windows, Linux and macOS setup packages](docs/V3-INSTALLERS.md),
@@ -46,6 +46,14 @@ security updates, dependency maintenance and Memory Intelligence features.
 See the [changelog](CHANGELOG.md).
 The v2.4.0 release added the read-only Gmail connector preview and restored
 the Memory Inbox review page; see [Gmail setup](docs/GMAIL.md).
+
+v3.2 adds project notifications for failed connectors and backups, important
+conflicts and updates, stale credential documentation, and candidates waiting
+for review. Read and dismiss state is personal to each administrator.
+[Notification behavior and thresholds](docs/NOTIFICATIONS.md).
+
+Google Calendar sync imports an owned calendar through read-only OAuth and
+bounded polling. [Configure Google Calendar](docs/GOOGLE-CALENDAR.md).
 
 ## Highlights
 

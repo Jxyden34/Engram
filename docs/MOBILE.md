@@ -1,4 +1,12 @@
-# Engram mobile beta (iOS and Android)
+# Engram mobile preview (iOS and Android)
+
+## v3.2.0
+
+The companion matches the desktop version. Android build 13 and iOS build 10
+retain the alpha1 channel and runtime `2.7.0-alpha1-native3`. Workspace includes
+a native notification inbox with read, dismiss and refresh actions. Browser
+source links open the full server workspace. Telegram settings are available
+in the web Notifications page. Device qualification remains a separate step.
 
 v3.1.0 adds incoming text and URL sharing to the mobile preview.
 Explicitly save the shared item to the device-local Inbox, then choose a project

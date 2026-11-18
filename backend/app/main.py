@@ -23,6 +23,8 @@ from app import memory_agent
 from app import ask
 from app import reflection
 from app import consolidation
+from app import telegram_notifications as telegram
+from app import notifications
 from app import observability
 from app import document_memory_import as doc_mem
 from app.audit import log
@@ -125,7 +127,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Engram API",
-    version="3.1.0",
+    version="3.2.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -268,7 +270,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "engram", "version": "3.1.0"}
+    return {"status": "ok", "service": "engram", "version": "3.2.0"}
 
 
 @app.get('/api/v1/observability')
@@ -1746,5 +1748,57 @@ def key_revoke(key_id: str, request: Request):
     log(p.actor, "api_key.revoked", "api_key", key_id, request)
     return dict(row)
 
+
+def notification_user(request: Request):
+    principal = require(request, "memory:read")
+    if principal.auth_type not in {"session", "mobile"} or not principal.is_admin or not principal.user_id:
+        raise HTTPException(status_code=403, detail="Administrator browser or mobile session required")
+    return principal
+
+
+@app.get("/api/v1/notifications")
+def notification_inbox(request: Request, dismissed: bool = False):
+    return notifications.inbox(notification_user(request).user_id, dismissed=dismissed)
+
+
+@app.post("/api/v1/notifications/refresh")
+def notification_refresh(request: Request):
+    principal = notification_user(request)
+    check_rate(request, "notification_refresh", 6, 60)
+    notifications.refresh()
+    return notifications.inbox(principal.user_id)
+
+
+@app.post("/api/v1/notifications/{notification_id}/read")
+def notification_read(notification_id: UUID, request: Request):
+    return notifications.mark(str(notification_id), notification_user(request).user_id)
+
+
+@app.post("/api/v1/notifications/{notification_id}/dismiss")
+def notification_dismiss(notification_id: UUID, request: Request):
+    return notifications.mark(str(notification_id), notification_user(request).user_id, dismiss=True)
+
+
+
+@app.get("/api/v1/notifications/telegram")
+def telegram_config(request: Request):
+    notification_user(request)
+    return telegram.configuration()
+
+
+@app.put("/api/v1/notifications/telegram")
+def telegram_configure(body: telegram.TelegramSettings, request: Request):
+    principal = notification_user(request)
+    result = telegram.configure(body)
+    log(principal.actor, "notifications.telegram_configured", "project", current_project_id(), request,
+        new_data={"enabled": body.enabled})
+    return result
+
+
+@app.post("/api/v1/notifications/telegram/test")
+def telegram_test(request: Request):
+    notification_user(request)
+    check_rate(request, "telegram_test", 3, 60)
+    return telegram.test_delivery()
 
 app.mount("/", mcp_app)

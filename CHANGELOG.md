@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.2.0 — 2026-11-18
+
+- Add optional per-project Telegram delivery with a test message and bounded retries.
+- Add project notification inboxes to the web interface and native companion.
+- Notify on failed connector syncs, important memory conflicts and fact updates,
+  stale credential documentation, old pending candidates, and unhealthy backups.
+- Deduplicate active issues, resolve cleared conditions, and reopen recurring issues.
+- Keep read and dismiss state separate for each administrator and project.
+- Add Google Calendar owned-event sync through read-only OAuth, PKCE,
+  encrypted refresh tokens, bounded polling, source indexing, and Inbox review.
+- Match mobile and desktop version labels while preserving native runtime compatibility.
+- Include the updated Memory Agent interface, official mobile logo, and direct workspace links.
+
+Existing installations must apply `021_notifications.sql` before starting the
+v3.2 API, workers, and scheduler. See [upgrading](docs/UPGRADING.md).
+
 ## 3.1.0 — 2026-11-14
 
 - Improve the knowledge graph with a larger interactive map, clearer relationship modes, and labels that avoid overlap.
