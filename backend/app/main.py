@@ -23,6 +23,7 @@ from app import memory_agent
 from app import ask
 from app import reflection
 from app import consolidation
+from app import telegram_notifications as telegram
 from app import notifications
 from app import observability
 from app import document_memory_import as doc_mem
@@ -1779,5 +1780,28 @@ def notification_read(notification_id: UUID, request: Request):
 @app.post("/api/v1/notifications/{notification_id}/dismiss")
 def notification_dismiss(notification_id: UUID, request: Request):
     return notifications.mark(str(notification_id), notification_user(request).user_id, dismiss=True)
+
+
+
+@app.get("/api/v1/notifications/telegram")
+def telegram_config(request: Request):
+    notification_user(request)
+    return telegram.configuration()
+
+
+@app.put("/api/v1/notifications/telegram")
+def telegram_configure(body: telegram.TelegramSettings, request: Request):
+    principal = notification_user(request)
+    result = telegram.configure(body)
+    log(principal.actor, "notifications.telegram_configured", "project", current_project_id(), request,
+        new_data={"enabled": body.enabled})
+    return result
+
+
+@app.post("/api/v1/notifications/telegram/test")
+def telegram_test(request: Request):
+    notification_user(request)
+    check_rate(request, "telegram_test", 3, 60)
+    return telegram.test_delivery()
 
 app.mount("/", mcp_app)

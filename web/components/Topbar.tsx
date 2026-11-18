@@ -10,6 +10,8 @@ export default function Topbar({ eyebrow, title }: { eyebrow: string; title: str
   const [user, setUser] = useState<string>("");
 
   useEffect(() => {
+    const update = (event: Event) => setUnread((event as CustomEvent<number>).detail);
+    window.addEventListener("engram-notifications", update);
     api<any>("/api/v1/auth/me")
       .then((v) => {
         setUser(v.username || v.actor);
@@ -17,6 +19,7 @@ export default function Topbar({ eyebrow, title }: { eyebrow: string; title: str
         if (v.is_admin) api<{ unread: number }>("/api/v1/notifications").then(inbox => setUnread(inbox.unread)).catch(() => {});
       })
       .catch(() => {});
+    return () => window.removeEventListener("engram-notifications", update);
   }, []);
 
   return (

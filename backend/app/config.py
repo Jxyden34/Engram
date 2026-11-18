@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     google_calendar_client_id: str | None = None
     google_calendar_client_secret: str | None = None
     google_token_encryption_key: str | None = None
+    telegram_bot_token: str | None = None
     connector_scheduler_interval_seconds: int = 60
     github_max_items_per_sync: int = 300
     github_max_file_kb: int = 512

@@ -27,8 +27,8 @@ Credential tags include credential, credentials, password, api-key, and access-t
 Notifications include generic descriptions and source links. Memory content,
 credential text, connector errors, and provider tokens are omitted.
 
-Notifications are delivered to the application inbox. Desktop push, email, and
-mobile push delivery require separate channel integrations. Mobile source links
+Notifications appear in the application inbox. Optional Telegram delivery uses
+a dedicated bot and a saved chat destination for each project. Mobile source links
 open the authenticated web interface on the configured server.
 
 ## Upgrade
@@ -36,3 +36,26 @@ open the authenticated web interface on the configured server.
 Apply migration 021 before starting the v3.2 application and scheduler. Fresh
 installations apply it automatically through Compose. The scheduler logs
 per-project refresh failures and continues with the next project.
+
+## Telegram
+
+Create a dedicated bot through Telegram's @BotFather and set its token as
+`TELEGRAM_BOT_TOKEN` in the server's private environment file. Restart the API
+and connector scheduler to load it. Start a private conversation with the bot
+or add it to a group where it can send messages. Obtain the numeric chat ID
+using your bot's Bot API updates and enter it in **Notifications → Telegram
+delivery**. Save, enable delivery, and use **Send test message**.
+
+The token stays in the server environment. Notification messages include a
+generic description and a link to the configured public Engram origin.
+Telegram receives those messages and the chat destination. Use a private
+chat if the notification categories reveal sensitive context.
+
+Each notification generation has one delivery record. Successful deliveries
+are skipped on subsequent scans. Failures retry up to five times with
+exponential delays starting at one minute. A network timeout or crash after
+Telegram accepts a message can cause a duplicate because Telegram sendMessage
+has no idempotency key. Disable delivery in the project's settings to stop
+future sends. Changing destinations does not resend already delivered events.
+
+[Telegram Bot API](https://core.telegram.org/bots/api#sendmessage)

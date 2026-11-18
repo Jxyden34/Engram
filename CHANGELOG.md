@@ -2,6 +2,7 @@
 
 ## 3.2.0 — 2026-11-18
 
+- Add optional per-project Telegram delivery with a test message and bounded retries.
 - Add project notification inboxes to the web interface and native companion.
 - Notify on failed connector syncs, important memory conflicts and fact updates,
   stale credential documentation, old pending candidates, and unhealthy backups.

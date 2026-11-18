@@ -34,3 +34,30 @@ ALTER TABLE notification_receipts FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS project_access ON notification_receipts;
 CREATE POLICY project_access ON notification_receipts USING (project_id=engram_current_project()) WITH CHECK (project_id=engram_current_project());
 GRANT SELECT, INSERT, UPDATE, DELETE ON notifications, notification_receipts TO engram_runtime;
+
+CREATE TABLE IF NOT EXISTS notification_telegram (
+    project_id uuid PRIMARY KEY DEFAULT engram_current_project() REFERENCES projects(id),
+    enabled boolean NOT NULL DEFAULT false,
+    chat_id text NOT NULL CHECK (chat_id ~ '^-?[0-9]{1,20}$'),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    project_id uuid NOT NULL DEFAULT engram_current_project(),
+    notification_id uuid NOT NULL,
+    generation integer NOT NULL,
+    attempts integer NOT NULL DEFAULT 0,
+    next_attempt_at timestamptz NOT NULL DEFAULT now(),
+    delivered_at timestamptz,
+    last_error text,
+    PRIMARY KEY(project_id,notification_id,generation),
+    FOREIGN KEY(project_id,notification_id) REFERENCES notifications(project_id,id) ON DELETE CASCADE
+);
+ALTER TABLE notification_telegram ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_telegram FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS project_access ON notification_telegram;
+CREATE POLICY project_access ON notification_telegram USING (project_id=engram_current_project()) WITH CHECK (project_id=engram_current_project());
+ALTER TABLE notification_deliveries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_deliveries FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS project_access ON notification_deliveries;
+CREATE POLICY project_access ON notification_deliveries USING (project_id=engram_current_project()) WITH CHECK (project_id=engram_current_project());
+GRANT SELECT,INSERT,UPDATE,DELETE ON notification_telegram,notification_deliveries TO engram_runtime;

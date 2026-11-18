@@ -162,6 +162,8 @@ def refresh_all():
         try:
             with project_scope(project):
                 refresh()
+                from app.telegram_notifications import deliver
+                deliver()
         except Exception:
             # A failed project must not prevent connector scheduling or other projects.
             import logging

@@ -49,8 +49,18 @@ def test_notification_sources_receipts_resolution_and_project_isolation():
             """, (job, doc, memory))
             conn.commit()
         with project_scope(projects[0]):
+            from app import telegram_notifications as telegram
             notices.refresh()
             notices.refresh()
+            with patch.object(telegram, "settings", return_value=type("Config", (), {
+                "telegram_bot_token": "fixture", "public_origin": "https://engram.invalid"
+            })()):
+                telegram.configure(telegram.TelegramSettings(enabled=True, chat_id="123"))
+                with patch.object(telegram, "send") as send:
+                    telegram.deliver()
+                    assert send.call_count == 5
+                    telegram.deliver()
+                    assert send.call_count == 5
             inbox = notices.inbox(users[0])
             assert {n["kind"] for n in inbox["items"]} == {
                 "connector_failure", "important_conflict", "important_update", "stale_credentials", "unresolved_candidates"
@@ -88,7 +98,7 @@ def test_notification_sources_receipts_resolution_and_project_isolation():
     finally:
         for project in projects:
             with project_scope(project), connect() as conn:
-                for table in ("notification_receipts", "notifications", "document_candidate_memories",
+                for table in ("notification_telegram", "notification_receipts", "notifications", "document_candidate_memories",
                               "document_memory_jobs", "documents", "connector_sync_runs", "connectors",
                               "memory_versions", "memories"):
                     conn.execute("DELETE FROM " + table)
