@@ -30,11 +30,15 @@ jobs:
           --health-interval 10s --health-timeout 5s --health-retries 15
 
     env:
+      PUBLIC_HOST: localhost
+      PUBLIC_ORIGIN: http://localhost
       DATABASE_URL: postgresql://engram:engram-ci-postgres@127.0.0.1:5432/engram
       REDIS_URL: redis://127.0.0.1:6379/0
       POSTGRES_DB: engram
       POSTGRES_USER: engram
       POSTGRES_PASSWORD: engram-ci-postgres
+      MINIO_ACCESS_KEY: engram
+      MINIO_SECRET_KEY: engram-ci-minio
 
     steps:
       - uses: actions/checkout@v7
