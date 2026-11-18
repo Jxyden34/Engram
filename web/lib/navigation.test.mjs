@@ -5,8 +5,8 @@ import {navigationGroups,navigationGroup,isNavigationPage} from './navigation.ts
 test('four main destinations retain every existing page exactly once',()=>{
   assert.equal(navigationGroups.length,4);
   const routes=navigationGroups.flatMap(group=>group.links.map(([href])=>href));
-  assert.equal(new Set(routes).size,16);
-  for(const route of ['/','/memories','/documents','/knowledge','/timeline','/intelligence','/projects','/agent','/imports','/connectors','/approvals','/system','/observability','/disaster-recovery','/audit','/settings']){
+  assert.equal(new Set(routes).size,17);
+  for(const route of ['/','/memories','/documents','/knowledge','/timeline','/intelligence','/projects','/agent','/imports','/connectors','/approvals','/notifications','/system','/observability','/disaster-recovery','/audit','/settings']){
     assert(routes.includes(route));assert(navigationGroup(route));
   }
 });

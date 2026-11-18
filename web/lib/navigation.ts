@@ -7,7 +7,7 @@ export const navigationGroups = [
     ["/intelligence","Intelligence"],["/projects","Projects"],["/agent","Memory Agent"],
   ]},
   {title:"Capture & review",icon:"✦",links:[
-    ["/imports","Memory Inbox"],["/connectors","Connectors"],["/approvals","Approvals"],
+    ["/imports","Memory Inbox"],["/connectors","Connectors"],["/approvals","Approvals"],["/notifications","Notifications"],
   ]},
   {title:"System",icon:"⌘",links:[
     ["/system","Health & about"],["/observability","Observability"],

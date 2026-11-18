@@ -493,3 +493,11 @@ td strong { color:#f7f8fa; }
 .knowledgeMapPanel>.panelHead,.knowledgeInspector>.panelHead{padding:18px 20px;margin:0}
 .knowledgeInspector>.panelHead{border-bottom:1px solid var(--border)}
 .knowledgeDirectoryHint{padding-top:14px}
+
+.notificationCard { border-top:1px solid var(--border);padding:20px 0;overflow-wrap:anywhere; }
+.notificationCard h3 { margin:0;font-size:17px; }
+.notificationCard p { line-height:1.6; }
+@media(max-width:620px) {
+  .topbar { flex-wrap:wrap;gap:16px; }
+  .topbar > .row { flex-wrap:wrap;gap:8px; }
+}

@@ -690,7 +690,12 @@ Unified permission layer for:
 - developer tools
 - dashboards
 
-## v3.2 — Notifications
+## v3.2 — Notifications 🧪
+
+The v3.2.0 candidate adds project notification inboxes in the web and native
+mobile interfaces. Admin users can review sources, mark items read, and dismiss
+them. Scheduled checks deduplicate active issues and reopen recovered issues
+if they recur. Backup alerts appear in Personal because backups cover the server.
 
 Notify on:
 

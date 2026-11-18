@@ -9,23 +9,24 @@ import { clearOfflineLibrary, OfflineLibrary, readOfflineLibrary, saveOfflineLib
 import MemoryDetail from './src/MemoryDetail';
 import Ask from './src/Ask';
 import Inbox from './src/Inbox';
+import Notifications from './src/Notifications';
 import VoiceCapture from './src/VoiceCapture';
 import { captureTemplates } from './src/memoryTools';
 import appConfig from './app.json';
 
 const KEY = 'engram_mobile_session';
 const logo = require('./assets/icon.png');
-type Tab = 'Capture' | 'Inbox' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Workspace' | 'Settings';
+type Tab = 'Capture' | 'Inbox' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Workspace' | 'Notifications' | 'Settings';
 const sections: { title: string; tabs: Tab[] }[] = [
   { title: 'Library', tabs: ['Memories', 'Search', 'Ask'] },
-  { title: 'Workspace', tabs: ['Workspace', 'Agent'] },
+  { title: 'Workspace', tabs: ['Workspace', 'Agent', 'Notifications'] },
   { title: 'Capture & review', tabs: ['Capture', 'Inbox'] },
   { title: 'System', tabs: ['Settings'] },
 ];
 const workspaceLinks = [
   { title: 'Library', links: [['Overview', '/'], ['Memories', '/memories'], ['Documents', '/documents'], ['Knowledge graph', '/knowledge'], ['Timeline', '/timeline']] },
   { title: 'Workspace', links: [['Intelligence', '/intelligence'], ['Projects', '/projects'], ['Memory Agent', '/agent']] },
-  { title: 'Capture & review', links: [['Memory Inbox', '/imports'], ['Connectors', '/connectors'], ['Approvals', '/approvals']] },
+  { title: 'Capture & review', links: [['Memory Inbox', '/imports'], ['Connectors', '/connectors'], ['Approvals', '/approvals'], ['Notifications', '/notifications']] },
   { title: 'System', links: [['Health & about', '/system'], ['Observability', '/observability'], ['Disaster Recovery', '/disaster-recovery'], ['Audit trail', '/audit'], ['Personal API Gateway', '/settings']] },
 ];
 
@@ -509,6 +510,7 @@ export default function App() {
         {runs.map(run => <View key={run.id} style={styles.card}><Text style={styles.cardTitle}>{run.trigger_type === 'scheduled' ? 'Automatic' : 'Manual'} scan · {run.status}</Text><Text style={styles.meta}>{new Date(run.created_at).toLocaleString()}</Text>{run.result && <Text style={styles.preview}>{run.result.total} new findings</Text>}{!!run.error_message && <Text style={styles.error}>{run.error_message}</Text>}</View>)}
         {!runs.length && <Text style={styles.empty}>No scans yet.</Text>}
       </>}
+      {tab === 'Notifications' && <Notifications key={session.token + session.projectId} origin={session.origin} request={(path, method) => call(session, path, method)} />}
       {tab === 'Workspace' && <>
         <Text style={styles.hint}>Tools open in your browser. Sign in there and choose your project if prompted.</Text>
         {workspaceLinks.map(group => <View key={group.title} style={styles.workspaceGroup}>
