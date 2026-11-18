@@ -1183,7 +1183,7 @@ def gmail_callback(request: Request):
     session_hash = sha256(session)
     if request.query_params.get("error"):
         if state:
-            connectors.cancel_gmail_oauth(state, session_hash)
+            connectors.cancel_google_oauth(state, session_hash)
         return RedirectResponse("/connectors?gmail=cancelled", status_code=303,
                                 headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     connector_id, email_address = connectors.finish_gmail_oauth(
@@ -1192,6 +1192,39 @@ def gmail_callback(request: Request):
     log(principal.actor, "connector.created", "connector", connector_id, request,
         new_data={"connector_type": "gmail", "email_address": email_address})
     return RedirectResponse("/connectors?gmail=connected", status_code=303,
+                            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@app.post("/api/v1/connectors/google-calendar/authorize")
+def calendar_authorize(body: dict[str, str], request: Request):
+    principal = require(request, "connector:admin")
+    session = request.cookies.get(SESSION_COOKIE)
+    if principal.auth_type != "session" or not principal.is_admin or not principal.user_id or not session:
+        raise HTTPException(status_code=403, detail="Google Calendar requires an administrator browser session")
+    return {"authorization_url": connectors.start_google_oauth(
+        "google_calendar", body, principal.actor, principal.user_id, sha256(session),
+    )}
+
+
+@app.get("/api/v1/connectors/google-calendar/callback", include_in_schema=False)
+def calendar_callback(request: Request):
+    principal = require(request, "connector:admin")
+    session = request.cookies.get(SESSION_COOKIE)
+    if principal.auth_type != "session" or not principal.is_admin or not principal.user_id or not session:
+        raise HTTPException(status_code=403, detail="Return to the browser session that started Calendar setup")
+    state = request.query_params.get("state", "")
+    session_hash = sha256(session)
+    if request.query_params.get("error"):
+        connectors.cancel_google_oauth(state, session_hash, kind="google_calendar")
+        result = "cancelled"
+    else:
+        connector_id, _ = connectors.finish_google_oauth(
+            "google_calendar", state, request.query_params.get("code", ""), session_hash,
+        )
+        log(principal.actor, "connector.created", "connector", connector_id, request,
+            new_data={"connector_type": "google_calendar"})
+        result = "connected"
+    return RedirectResponse(f"/connectors?calendar={result}", status_code=303,
                             headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
 

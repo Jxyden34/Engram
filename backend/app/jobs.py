@@ -151,7 +151,7 @@ def process_document(document_id: str):
             )
             conn.commit()
 
-        if parts and doc.get("source_type") in {"browser_capture", "github", "gmail"}:
+        if parts and doc.get("source_type") in {"browser_capture", "github", "gmail", "google_calendar"}:
             try:
                 from app.document_memory_import import create_job
                 create_job(
