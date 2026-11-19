@@ -1,8 +1,9 @@
 import io
+import subprocess
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from docx import Document
+from icalendar import Calendar
 from pypdf import PdfReader
 
 from app.config import settings
@@ -11,8 +12,72 @@ from app.documents import minio_client
 from app.embeddings import embed_literal
 
 
+def validate_png(raw: bytes) -> None:
+    if len(raw) < 33 or raw[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR":
+        raise ValueError("Expected a PNG image")
+    width = int.from_bytes(raw[16:20], "big")
+    height = int.from_bytes(raw[20:24], "big")
+    if not width or not height or width * height > 25_000_000:
+        raise ValueError("PNG must contain at most 25 million pixels")
+
+
+def extract_calendar_text(raw: bytes) -> str:
+    if len(raw) > 5 * 1024 * 1024:
+        raise ValueError("Calendar exports must be at most 5 MiB")
+    calendar = Calendar.from_ical(raw)
+    events = calendar.walk("VEVENT")
+    if len(events) > 1000:
+        raise ValueError("Calendar exports must contain at most 1,000 events")
+    sections = []
+    for event in events:
+        if str(event.get("STATUS", "")).upper() == "CANCELLED":
+            continue
+        lines = [f"## {event.get('SUMMARY') or 'Untitled event'}"]
+        for name, label in (
+            ("DTSTART", "Start"), ("DTEND", "End"), ("RECURRENCE-ID", "Occurrence"),
+            ("DURATION", "Duration"), ("LOCATION", "Location"), ("ORGANIZER", "Organizer"),
+        ):
+            value = event.get(name)
+            if value is not None:
+                decoded = getattr(value, "dt", value)
+                if hasattr(decoded, "isoformat"):
+                    decoded = decoded.isoformat()
+                lines.append(f"- {label}: {decoded}")
+        rule = event.get("RRULE")
+        if rule:
+            lines.append(f"- Recurrence: {rule.to_ical().decode('ascii')}")
+        for name, label in (("EXDATE", "Excluded dates"), ("RDATE", "Additional dates")):
+            if event.get(name):
+                dates = event[name]
+                if not isinstance(dates, list):
+                    dates = [dates]
+                lines.append(f"- {label}: " + ", ".join(value.to_ical().decode('utf-8') for value in dates))
+        attendees = event.get("ATTENDEE", [])
+        if not isinstance(attendees, list):
+            attendees = [attendees]
+        if attendees:
+            lines.append("- Attendees: " + ", ".join(str(attendee) for attendee in attendees))
+        if event.get("DESCRIPTION"):
+            lines.extend(("", str(event["DESCRIPTION"])))
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
 def extract_text(filename: str, raw: bytes) -> str:
     suffix = Path(filename).suffix.lower()
+
+    if suffix == ".ics":
+        return extract_calendar_text(raw)
+
+    if suffix == ".png":
+        validate_png(raw)
+        result = subprocess.run(
+            ["tesseract", "stdin", "stdout", "-l", "eng"],
+            input=raw, capture_output=True, timeout=30, check=False,
+        )
+        if result.returncode:
+            raise ValueError("PNG text recognition failed")
+        return result.stdout.decode("utf-8", errors="replace")[:settings().capture_max_chars]
 
     if suffix in {
         ".txt", ".md", ".csv", ".json", ".log", ".yaml", ".yml",
@@ -67,7 +132,7 @@ def process_document(document_id: str):
         raw = response.read()
         text = extract_text(doc["filename"], raw)
         parts = chunks(text)
-        if not parts:
+        if not parts and Path(doc["filename"]).suffix.lower() != ".png":
             raise ValueError("No extractable text found")
 
         with connect() as conn:
@@ -86,7 +151,7 @@ def process_document(document_id: str):
             )
             conn.commit()
 
-        if doc.get("source_type") in {"browser_capture", "github", "gmail"}:
+        if parts and doc.get("source_type") in {"browser_capture", "github", "gmail", "google_calendar"}:
             try:
                 from app.document_memory_import import create_job
                 create_job(

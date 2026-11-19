@@ -5,6 +5,7 @@ on:
   push:
     branches: ["main"]
   pull_request:
+    # Draft PRs are intentionally checked so feedback is available early.
     types: [opened, synchronize, reopened, converted_to_draft, ready_for_review]
 
 permissions:
@@ -133,9 +134,16 @@ jobs:
             docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U engram -d engram < "$migration"
           done
 
+          docker exec -i \
+            "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U engram -d engram \
+            < db/migrations/020_project_retention.sql
+
+          docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U engram -d engram < db/migrations/021_notifications.sql
+
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.14"
+          python-version: "3.15"
           cache: pip
           cache-dependency-path: |
             backend/requirements.txt
@@ -175,6 +183,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check navigation hierarchy and route coverage
+        run: npm run test:navigation
+
+      - name: Check graph layout and filtering
+        run: npm run test:graph
+
+      - name: Check post-login redirect boundaries
+        run: npm run test:return-path
+
   mobile:
     runs-on: ubuntu-latest
     defaults:
@@ -192,6 +209,16 @@ jobs:
         run: npm install --global pnpm@11.19.0
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check mobile release version
+        run: |
+          node -e '
+            const assert = require("node:assert/strict");
+            const version = require("node:fs").readFileSync("../VERSION", "utf8").trim();
+            const { expo } = require("./app.json");
+            assert.equal(expo.version, version, "Expo app version must match VERSION");
+            assert.equal(expo.extra.release, version, "Expo release metadata must match VERSION");
+            assert.equal(require("./package.json").version, version, "Mobile package version must match VERSION");
+          '
       - name: Check TypeScript
         run: pnpm check
       - name: Check offline draft storage
@@ -218,7 +245,11 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Prepare example environment
-        run: cp .env.example .env
+        run: |
+          cp .env.example .env
+          # Exercise option-like credentials through the real S3 initializer.
+          sed -i 's/^MINIO_ROOT_PASSWORD=.*/MINIO_ROOT_PASSWORD=-engram-ci-storage-secret/' .env
+          sed -i 's/^MINIO_SECRET_KEY=.*/MINIO_SECRET_KEY=-engram-ci-storage-secret/' .env
 
       - name: Validate compose
         run: docker compose config >/dev/null

@@ -133,6 +133,26 @@ Configure your public hostname to forward to:
 http://127.0.0.1:8080
 ```
 
+Caddy accepts forwarded client identity only from loopback peers and explicit
+`TRUSTED_PROXY_CIDRS` entries. Docker may present a host-managed `cloudflared`
+connection as the host bridge address rather than loopback. Verify the actual
+peer address seen by Caddy, then set only that reverse-proxy peer's narrow CIDR
+in `.env` (for example, a single IPv4 address with `/32`, or IPv6 with `/128`).
+Multiple peer CIDRs are space-separated. Leave the value empty for direct
+clients. Never add a client network, the whole Docker subnet, all LAN/private
+addresses, or `private_ranges`: any trusted peer can assert client identity.
+Restrict access to the trusted peer so untrusted clients cannot originate
+connections through it. Recreate the gateway after changing this setting:
+
+```bash
+sudo docker compose up -d --force-recreate gateway
+```
+
+Caddy strips the incoming `CF-Connecting-IP` before forwarding to the API and
+sets `X-Forwarded-For` from its validated client address. Direct HTTPS installer
+mode retains its public gateway bindings; leave additional trusted proxies
+empty unless a verified reverse proxy is actually in front of it.
+
 Check the host service:
 
 ```bash
@@ -201,6 +221,19 @@ Open:
 ```
 
 and configure the installation ID and repositories.
+
+Commit and release ingestion use Contents read access. Enable Discussions read
+access on the GitHub App to ingest discussion posts. In Connectors, choose
+content types, optional branch and content overrides for individual repositories,
+file ignore patterns, and allowed source extensions.
+
+For event-triggered sync, set `GITHUB_WEBHOOK_SECRET` in the server environment
+and configure the same secret in the GitHub App webhook settings. Use
+`https://YOUR-HOST/api/webhooks/github` as the payload URL and subscribe to Push,
+Issues, Pull request, Release, and Discussion events as needed. Signed events
+queue enabled connectors for the matching installation and repository. Events
+within a minute for the same connector are coalesced, and the normal schedule
+continues to run. [GitHub webhook setup](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)
 
 ---
 

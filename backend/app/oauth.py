@@ -36,6 +36,28 @@ BASIC_MCP_SCOPES = {
 }
 
 CLIENT_ID_RE = re.compile(r"^mb_client_[A-Za-z0-9_-]{20,}$")
+# Deployment-wide bound on persistent public registrations, including disabled clients.
+DYNAMIC_CLIENT_LIMIT = 100
+
+
+def _grant_lock(conn, grant):
+    # Match the client-first lock order used by administrative client revocation.
+    # ponytail: serialize one client's short grant transactions; split only if needed.
+    conn.execute("SELECT client_id FROM oauth_clients WHERE client_id=%s FOR UPDATE", (grant["client_id"],))
+    # Always acquire this before token/consent row locks, including revocation.
+    identity = json.dumps([str(grant[key]) for key in
+                           ("client_id", "user_id", "resource", "project_id")])
+    key = int.from_bytes(hashlib.sha256(identity.encode()).digest()[:8], "big", signed=True)
+    conn.execute("SELECT pg_advisory_xact_lock(%s)", (key,))
+
+
+def _active_consent(conn, grant):
+    return conn.execute("""SELECT 1 FROM oauth_consents
+        WHERE client_id=%s AND user_id=%s AND resource=%s AND project_id=%s
+          AND revoked_at IS NULL
+          AND EXISTS (SELECT 1 FROM oauth_clients c
+                      WHERE c.client_id=oauth_consents.client_id AND c.is_active)""",
+        tuple(grant[key] for key in ("client_id", "user_id", "resource", "project_id"))).fetchone()
 
 
 def issuer() -> str:
@@ -307,6 +329,7 @@ def update_static_client(client_id: str, changes: dict[str, Any]):
                 "UPDATE oauth_consents SET revoked_at=coalesce(revoked_at,now()) WHERE client_id=%s",
                 (client_id,),
             )
+            conn.execute("UPDATE oauth_authorization_codes SET consumed_at=coalesce(consumed_at,now()) WHERE client_id=%s", (client_id,))
         conn.commit()
     return dict(row)
 
@@ -336,6 +359,7 @@ def revoke_client(client_id: str):
             "UPDATE oauth_consents SET revoked_at=coalesce(revoked_at,now()) WHERE client_id=%s",
             (client_id,),
         )
+        conn.execute("UPDATE oauth_authorization_codes SET consumed_at=coalesce(consumed_at,now()) WHERE client_id=%s", (client_id,))
         conn.commit()
     return dict(row)
 
@@ -389,6 +413,10 @@ def revoke_consent(consent_id: str):
         ).fetchone()
         if not consent:
             raise HTTPException(status_code=404, detail="OAuth consent not found")
+        _grant_lock(conn, consent)
+        conn.execute("""UPDATE oauth_authorization_codes SET consumed_at=coalesce(consumed_at,now())
+            WHERE client_id=%s AND user_id=%s AND resource=%s AND project_id=%s""",
+            (consent["client_id"], consent["user_id"], consent["resource"], consent["project_id"]))
         conn.execute(
             "UPDATE oauth_consents SET revoked_at=coalesce(revoked_at,now()) WHERE id=%s",
             (consent_id,),
@@ -596,27 +624,56 @@ def dynamic_register(metadata: dict[str, Any]):
     if not settings().oauth_dcr_enabled:
         raise HTTPException(status_code=404, detail="Dynamic client registration is disabled")
 
+    if not isinstance(metadata, dict):
+        raise HTTPException(status_code=400, detail="Client metadata must be a JSON object")
     redirects = metadata.get("redirect_uris")
-    if not isinstance(redirects, list) or not redirects:
-        raise HTTPException(status_code=400, detail="redirect_uris is required")
-    redirects = sorted({_validate_redirect_uri(str(value)) for value in redirects})
+    if (not isinstance(redirects, list) or not 1 <= len(redirects) <= 10
+            or any(not isinstance(value, str) for value in redirects)):
+        raise HTTPException(status_code=400, detail="redirect_uris must contain 1 to 10 strings")
+    try:
+        redirects = sorted({_validate_redirect_uri(value) for value in redirects})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid redirect_uri") from exc
 
-    if "authorization_code" not in (metadata.get("grant_types") or ["authorization_code"]):
+    grants = metadata.get("grant_types", ["authorization_code"])
+    if (not isinstance(grants, list) or not 1 <= len(grants) <= 2
+            or any(not isinstance(value, str) or value not in {"authorization_code", "refresh_token"}
+                   for value in grants) or "authorization_code" not in grants):
         raise HTTPException(status_code=400, detail="Only authorization_code is supported")
-    if "code" not in (metadata.get("response_types") or ["code"]):
+    if metadata.get("response_types", ["code"]) != ["code"]:
         raise HTTPException(status_code=400, detail="Only code response_type is supported")
     if metadata.get("token_endpoint_auth_method", "none") != "none":
         raise HTTPException(status_code=400, detail="Only public clients are supported")
 
-    application_type = str(metadata.get("application_type") or "native")
-    if application_type not in {"native", "web"}:
+    application_type = metadata.get("application_type", "native")
+    if not isinstance(application_type, str) or application_type not in {"native", "web"}:
         raise HTTPException(status_code=400, detail="application_type must be native or web")
 
     client_id = _client_id()
-    client_name = str(metadata.get("client_name") or "MCP Client")[:300]
+    client_name = metadata.get("client_name", "MCP Client")
+    if not isinstance(client_name, str) or not 1 <= len(client_name.strip()) <= 300:
+        raise HTTPException(status_code=400, detail="client_name must contain 1 to 300 characters")
+    client_name = client_name.strip()
+    metadata = {"client_name": client_name, "redirect_uris": redirects,
+                "grant_types": grants, "response_types": ["code"],
+                "token_endpoint_auth_method": "none", "application_type": application_type}
     created_at = int(datetime.now(timezone.utc).timestamp())
 
     with connect() as conn:
+        # ponytail: one short registration lock; partition quotas only if deployments need it.
+        conn.execute("SELECT pg_advisory_xact_lock(724719043781)")
+        stale = [row["client_id"] for row in conn.execute("""SELECT client_id FROM oauth_clients
+            WHERE registration_type='dynamic' AND created_at < now()-interval '30 days'
+            AND last_used_at IS NULL ORDER BY client_id LIMIT 100 FOR UPDATE SKIP LOCKED""").fetchall()]
+        # Row locks exclude concurrent FK inserts; recheck references in a fresh snapshot.
+        conn.execute("""DELETE FROM oauth_clients c WHERE client_id=ANY(%s::text[])
+            AND NOT EXISTS (SELECT 1 FROM oauth_consents o WHERE o.client_id=c.client_id)
+            AND NOT EXISTS (SELECT 1 FROM oauth_authorization_codes a WHERE a.client_id=c.client_id)
+            AND NOT EXISTS (SELECT 1 FROM oauth_refresh_tokens r WHERE r.client_id=c.client_id)
+            AND NOT EXISTS (SELECT 1 FROM oauth_access_tokens t WHERE t.client_id=c.client_id)""", (stale,))
+        count = conn.execute("SELECT count(*) AS n FROM oauth_clients WHERE registration_type='dynamic'").fetchone()["n"]
+        if count >= DYNAMIC_CLIENT_LIMIT:
+            raise HTTPException(status_code=429, detail="Dynamic client registration capacity reached")
         conn.execute(
             """
             INSERT INTO oauth_clients(
@@ -780,6 +837,10 @@ def create_authorization_code(
     )
 
     with connect() as conn:
+        _grant_lock(conn, {"client_id": client_id, "user_id": user_id,
+                           "resource": resource, "project_id": current_project_id()})
+        if not conn.execute("SELECT 1 FROM oauth_clients WHERE client_id=%s AND is_active", (client_id,)).fetchone():
+            raise HTTPException(status_code=400, detail="OAuth client is inactive")
         conn.execute(
             """
             INSERT INTO oauth_authorization_codes(
@@ -821,6 +882,7 @@ def _pkce_s256(verifier: str) -> str:
 
 
 def _issue_token_pair(
+    conn,
     client_id: str,
     user_id: str,
     scopes: list[str],
@@ -838,63 +900,61 @@ def _issue_token_pair(
     family_id = family_id or uuid4()
     project_id = project_id or current_project_id()
 
-    with connect() as conn:
-        refresh_row = conn.execute(
-            """
-            INSERT INTO oauth_refresh_tokens(
-                token_hash, token_prefix, family_id, parent_id, client_id,
-                user_id, scopes, resource, expires_at, project_id
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            RETURNING id
-            """,
-            (
-                sha256(refresh),
-                refresh[:18],
-                family_id,
-                parent_id,
-                client_id,
-                user_id,
-                scopes,
-                resource,
-                refresh_exp,
-                project_id,
-            ),
-        ).fetchone()
+    refresh_row = conn.execute(
+        """
+        INSERT INTO oauth_refresh_tokens(
+            token_hash, token_prefix, family_id, parent_id, client_id,
+            user_id, scopes, resource, expires_at, project_id
+        )
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        RETURNING id
+        """,
+        (
+            sha256(refresh),
+            refresh[:18],
+            family_id,
+            parent_id,
+            client_id,
+            user_id,
+            scopes,
+            resource,
+            refresh_exp,
+            project_id,
+        ),
+    ).fetchone()
 
-        conn.execute(
-            """
-            INSERT INTO oauth_access_tokens(
-                token_hash, token_prefix, client_id, user_id,
-                refresh_token_id, scopes, resource, expires_at, project_id
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """,
-            (
-                sha256(access),
-                access[:18],
-                client_id,
-                user_id,
-                refresh_row["id"],
-                scopes,
-                resource,
-                access_exp,
-                project_id,
-            ),
+    conn.execute(
+        """
+        INSERT INTO oauth_access_tokens(
+            token_hash, token_prefix, client_id, user_id,
+            refresh_token_id, scopes, resource, expires_at, project_id
         )
-        conn.execute(
-            "UPDATE oauth_clients SET last_used_at=now() WHERE client_id=%s",
-            (client_id,),
-        )
-        conn.execute(
-            """
-            UPDATE oauth_consents
-            SET last_used_at=now()
-            WHERE client_id=%s AND user_id=%s AND resource=%s AND project_id=%s
-            """,
-            (client_id, user_id, resource, project_id),
-        )
-        conn.commit()
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """,
+        (
+            sha256(access),
+            access[:18],
+            client_id,
+            user_id,
+            refresh_row["id"],
+            scopes,
+            resource,
+            access_exp,
+            project_id,
+        ),
+    )
+    conn.execute(
+        "UPDATE oauth_clients SET last_used_at=now() WHERE client_id=%s",
+        (client_id,),
+    )
+    conn.execute(
+        """
+        UPDATE oauth_consents
+        SET last_used_at=now()
+        WHERE client_id=%s AND user_id=%s AND resource=%s AND project_id=%s
+        """,
+        (client_id, user_id, resource, project_id),
+    )
 
     return {
         "access_token": access,
@@ -918,6 +978,10 @@ def exchange_authorization_code(form: dict[str, str]):
     _load_client(client_id, redirect_uri)
 
     with connect() as conn:
+        grant = conn.execute("SELECT * FROM oauth_authorization_codes WHERE code_hash=%s", (sha256(code),)).fetchone()
+        if not grant:
+            return oauth_error("invalid_grant", "Authorization code is invalid, expired or already used")
+        _grant_lock(conn, grant)
         row = conn.execute(
             """
             SELECT *
@@ -932,6 +996,7 @@ def exchange_authorization_code(form: dict[str, str]):
             not row
             or row["consumed_at"] is not None
             or row["expires_at"] <= datetime.now(timezone.utc)
+            or not _active_consent(conn, row)
         ):
             conn.rollback()
             return oauth_error("invalid_grant", "Authorization code is invalid, expired or already used")
@@ -957,18 +1022,18 @@ def exchange_authorization_code(form: dict[str, str]):
             "UPDATE oauth_authorization_codes SET consumed_at=now() WHERE id=%s",
             (row["id"],),
         )
-        conn.commit()
-
-    _cleanup_expired()
-    return _json_no_store(
-        _issue_token_pair(
+        tokens = _issue_token_pair(
+            conn,
             row["client_id"],
             str(row["user_id"]),
             list(row["scopes"]),
             row["resource"],
             project_id=row["project_id"],
         )
-    )
+        conn.commit()
+
+    _cleanup_expired()
+    return _json_no_store(tokens)
 
 
 def exchange_refresh_token(form: dict[str, str]):
@@ -983,6 +1048,10 @@ def exchange_refresh_token(form: dict[str, str]):
 
     token_hash = sha256(refresh)
     with connect() as conn:
+        grant = conn.execute("SELECT * FROM oauth_refresh_tokens WHERE token_hash=%s", (token_hash,)).fetchone()
+        if not grant:
+            return oauth_error("invalid_grant", "Refresh token is invalid")
+        _grant_lock(conn, grant)
         row = conn.execute(
             """
             SELECT *
@@ -1029,6 +1098,9 @@ def exchange_refresh_token(form: dict[str, str]):
             conn.rollback()
             return oauth_error("invalid_grant", "Refresh token has expired")
 
+        if not _active_consent(conn, row):
+            return oauth_error("invalid_grant", "OAuth consent has been revoked")
+
         requested_scopes = list(row["scopes"])
         if form.get("scope"):
             try:
@@ -1048,10 +1120,8 @@ def exchange_refresh_token(form: dict[str, str]):
             """,
             (row["id"],),
         )
-        conn.commit()
-
-    return _json_no_store(
-        _issue_token_pair(
+        tokens = _issue_token_pair(
+            conn,
             client_id,
             str(row["user_id"]),
             requested_scopes,
@@ -1060,7 +1130,8 @@ def exchange_refresh_token(form: dict[str, str]):
             parent_id=row["id"],
             project_id=row["project_id"],
         )
-    )
+        conn.commit()
+    return _json_no_store(tokens)
 
 
 def revoke_token(form: dict[str, str]):
@@ -1079,19 +1150,22 @@ def revoke_token(form: dict[str, str]):
 
         token_hash = sha256(token)
         access = conn.execute(
-            "SELECT id, client_id FROM oauth_access_tokens WHERE token_hash=%s",
+            "SELECT * FROM oauth_access_tokens WHERE token_hash=%s",
             (token_hash,),
         ).fetchone()
+        refresh = conn.execute(
+            "SELECT * FROM oauth_refresh_tokens WHERE token_hash=%s",
+            (token_hash,),
+        ).fetchone()
+        grant = access or refresh
+        if grant and grant["client_id"] == client_id:
+            _grant_lock(conn, grant)
         if access and access["client_id"] == client_id:
             conn.execute(
                 "UPDATE oauth_access_tokens SET revoked_at=coalesce(revoked_at,now()) WHERE id=%s",
                 (access["id"],),
             )
 
-        refresh = conn.execute(
-            "SELECT id, client_id, family_id FROM oauth_refresh_tokens WHERE token_hash=%s",
-            (token_hash,),
-        ).fetchone()
         if refresh and refresh["client_id"] == client_id:
             conn.execute(
                 """
@@ -1121,18 +1195,22 @@ def oauth_access_token_principal(token: str, expected_resource: str | None = Non
         return None
 
     with connect() as conn:
-        row = conn.execute(
-            """
+        query = """
             SELECT t.id, t.client_id, t.user_id, t.scopes, t.resource, t.project_id,
                    t.expires_at, c.client_name, c.is_active,
                    u.username, u.is_active AS user_active
             FROM oauth_access_tokens t
             JOIN oauth_clients c ON c.client_id=t.client_id
             JOIN users u ON u.id=t.user_id
+            JOIN oauth_consents o ON o.client_id=t.client_id AND o.user_id=t.user_id
+                AND o.resource=t.resource AND o.project_id=t.project_id AND o.revoked_at IS NULL
             WHERE t.token_hash=%s AND t.revoked_at IS NULL
-            """,
-            (sha256(token),),
-        ).fetchone()
+            """
+        row = conn.execute(query, (sha256(token),)).fetchone()
+        if row:
+            _grant_lock(conn, row)
+            # Re-read after a concurrent revocation released the grant lock.
+            row = conn.execute(query, (sha256(token),)).fetchone()
 
         if (
             not row

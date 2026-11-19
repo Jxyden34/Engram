@@ -11,17 +11,40 @@ const config = createRequire(expo.resolve('@expo/config/package.json'));
 const native = createRequire(require.resolve('react-native/package.json'));
 const postcss = createRequire(cli.resolve('postcss'));
 const micromatch = createRequire(cli.resolve('micromatch'));
-// Resolve any retained Xcode 3 consumer; current Expo patches can remove it entirely.
 const xcodeImporters = [expo, cli, config].map(importer => {
   const plugins = createRequire(importer.resolve('@expo/config-plugins/package.json'));
   return createRequire(plugins.resolve('xcode'));
 });
 const legacyXcode = xcodeImporters.find(importer => importer('./package.json').version === '3.0.1');
+const uuid = legacyXcode?.('uuid');
 const shellQuote = native('shell-quote');
 const { SourceMapConsumer, SourceNode } = postcss('source-map-js');
 const braces = micromatch('braces');
 const forge = cli('node-forge');
-const uuid = legacyXcode?.('uuid');
+
+test('Expo removes legacy Zod, deepmerge and Xcode UUID dependencies', () => {
+  for (const importer of [expo, cli, config]) {
+    for (const dependency of ['zod', 'deepmerge']) {
+      assert.throws(() => importer.resolve(dependency), { code: 'MODULE_NOT_FOUND' });
+    }
+    const plugins = createRequire(importer.resolve('@expo/config-plugins/package.json'));
+    const xcode = createRequire(plugins.resolve('xcode'));
+    assert.equal(plugins('xcode/package.json').version, '4.0.0');
+    assert.throws(() => xcode.resolve('uuid'), { code: 'MODULE_NOT_FOUND' });
+  }
+});
+
+test('Expo plugin schemas validate configuration and output without Zod', () => {
+  const { validate, ValidationError } = cli('@expo/schema-utils');
+  const { PluginSchema, DevToolsPluginOutputSchema } = cli('./build/src/start/server/devtools/DevToolsPlugin.schema.js');
+  const plugin = { packageName: 'example', packageRoot: '/example', cliExtensions: {
+    description: 'Example', entryPoint: 'index.js', commands: [{ name: 'inspect', title: 'Inspect', environments: ['cli', 'mcp'], parameters: [{ name: 'count', type: 'number' }] }],
+  } };
+  assert.doesNotThrow(() => validate(PluginSchema, plugin));
+  assert.throws(() => validate(PluginSchema, { packageName: 123 }), ValidationError);
+  assert.doesNotThrow(() => validate(DevToolsPluginOutputSchema, [{ type: 'text', text: 'Ready', level: 'info' }]));
+  assert.throws(() => validate(DevToolsPluginOutputSchema, [{ type: 'text', text: 123 }]), ValidationError);
+});
 
 test('shell quoting rejects line terminators after comments', () => {
   for (const newline of ['\n', '\r', '\u2028', '\u2029']) {
@@ -171,22 +194,11 @@ test('RSA verification accepts valid SHA-256 with optional NULL and rejects wron
   assert.equal(publicKey.verify(otherDigest, signature), false);
 });
 
-test('Expo signing and legacy Xcode importers retain repaired packages; Xcode 4 removes uuid', () => {
+test('Expo signing importers retain the repaired node-forge package', () => {
   const updates = createRequire(require.resolve('expo-updates/package.json'));
   for (const importer of [cli, updates]) {
     const certificates = createRequire(importer.resolve('@expo/code-signing-certificates'));
     assert.equal(certificates('node-forge'), forge);
-  }
-  for (const importer of [expo, cli, config]) {
-    const plugins = createRequire(importer.resolve('@expo/config-plugins/package.json'));
-    const project = createRequire(plugins.resolve('xcode'));
-    const metadata = plugins('xcode/package.json');
-    if (metadata.version === '3.0.1') {
-      assert.equal(project('uuid'), uuid);
-    } else {
-      assert.equal(metadata.version, '4.0.0');
-      assert.equal(metadata.dependencies.uuid, undefined);
-    }
   }
 });
 

@@ -1,0 +1,422 @@
+diff --git a/dist/commonjs/walker.js b/dist/commonjs/walker.js
+index a3ac9574bd733e70705185a1b303cc677b52039b..5dd05a53de8628f7ec4eb0f761c1b03b86a8e92e 100644
+--- a/dist/commonjs/walker.js
++++ b/dist/commonjs/walker.js
+@@ -90,13 +90,13 @@ class GlobUtil {
+     // do the requisite realpath/stat checking, and return the path
+     // to add or undefined to filter it out.
+     async matchCheck(inPath, ifDir) {
+-        if (ifDir && this.opts.nodir)
++        if (this.signal?.aborted || (ifDir && this.opts.nodir))
+             return undefined;
+         let rpc;
+         let e;
+         if (this.opts.realpath) {
+             rpc = inPath.realpathCached() || (await inPath.realpath());
+-            if (!rpc)
++            if (this.signal?.aborted || !rpc)
+                 return undefined;
+             e = rpc;
+         }
+@@ -105,8 +105,12 @@ class GlobUtil {
+         }
+         const needStat = e.isUnknown() || this.opts.stat;
+         const s = needStat ? await e.lstat() : e;
++        if (this.signal?.aborted)
++            return undefined;
+         if (this.opts.follow && this.opts.nodir && s?.isSymbolicLink()) {
+             const target = await s.realpath();
++            if (this.signal?.aborted)
++                return undefined;
+             /* c8 ignore start */
+             if (target && (target.isUnknown() || this.opts.stat)) {
+                 await target.lstat();
+@@ -116,7 +120,7 @@ class GlobUtil {
+         return this.matchCheckTest(s, ifDir);
+     }
+     matchCheckTest(e, ifDir) {
+-        return (e &&
++        return (!this.signal?.aborted && e &&
+             (this.maxDepth === Infinity || e.depth() <= this.maxDepth) &&
+             (!ifDir || e.canReaddir()) &&
+             (!this.opts.nodir || !e.isDirectory()) &&
+@@ -129,13 +133,13 @@ class GlobUtil {
+             : undefined;
+     }
+     matchCheckSync(inPath, ifDir) {
+-        if (ifDir && this.opts.nodir)
++        if (this.signal?.aborted || (ifDir && this.opts.nodir))
+             return undefined;
+         let rpc;
+         let e;
+         if (this.opts.realpath) {
+             rpc = inPath.realpathCached() || inPath.realpathSync();
+-            if (!rpc)
++            if (this.signal?.aborted || !rpc)
+                 return undefined;
+             e = rpc;
+         }
+@@ -144,8 +148,12 @@ class GlobUtil {
+         }
+         const needStat = e.isUnknown() || this.opts.stat;
+         const s = needStat ? e.lstatSync() : e;
++        if (this.signal?.aborted)
++            return undefined;
+         if (this.opts.follow && this.opts.nodir && s?.isSymbolicLink()) {
+             const target = s.realpathSync();
++            if (this.signal?.aborted)
++                return undefined;
+             if (target && (target?.isUnknown() || this.opts.stat)) {
+                 target.lstatSync();
+             }
+@@ -153,12 +161,16 @@ class GlobUtil {
+         return this.matchCheckTest(s, ifDir);
+     }
+     matchFinish(e, absolute) {
+-        if (this.#ignored(e))
++        if (this.signal?.aborted)
++            return;
++        if (this.#ignored(e) || this.signal?.aborted)
+             return;
+         this.#matchEmitChecked(e, absolute);
+     }
+     // emit a match that is known to not be seen or ignored yet
+     #matchEmitChecked(e, absolute) {
++        if (this.signal?.aborted)
++            return;
+         // we know we have an ignore if this is false, but TS doesn't
+         if (!this.includeChildMatches && this.#ignore?.add) {
+             const ign = `${e.relativePosix()}/**`;
+@@ -221,12 +233,16 @@ class GlobUtil {
+                 cb();
+         };
+         for (const [m, n] of processor.matches.store) {
++            if (this.signal?.aborted)
++                break;
+             if (this.#ignored(m))
+                 continue;
+             tasks++;
+             void this.match(m, !!(n & ABSOLUTE), !!(n & IF_DIR)).then(() => next());
+         }
+         for (const t of processor.subwalkTargets()) {
++            if (this.signal?.aborted)
++                break;
+             if (this.maxDepth !== Infinity && t.depth() >= this.maxDepth) {
+                 continue;
+             }
+@@ -241,6 +257,8 @@ class GlobUtil {
+         next();
+     }
+     walkCB3(target, entries, processorx, cb) {
++        if (this.signal?.aborted)
++            return cb();
+         const proc = processorx.filterEntries(target, entries);
+         let tasks = 1;
+         const next = () => {
+@@ -248,12 +266,16 @@ class GlobUtil {
+                 cb();
+         };
+         for (const [m, n] of proc.matches.store) {
++            if (this.signal?.aborted)
++                break;
+             if (this.#ignored(m))
+                 continue;
+             tasks++;
+             void this.match(m, !!(n & ABSOLUTE), !!(n & IF_DIR)).then(() => next());
+         }
+         for (const [target, patterns] of proc.subwalks.entries()) {
++            if (this.signal?.aborted)
++                break;
+             tasks++;
+             this.walkCB2(target, patterns, proc.child(), next);
+         }
+@@ -285,11 +307,15 @@ class GlobUtil {
+                 cb();
+         };
+         for (const [m, n] of processor.matches.store) {
++            if (this.signal?.aborted)
++                break;
+             if (this.#ignored(m))
+                 continue;
+             this.matchSync(m, !!(n & ABSOLUTE), !!(n & IF_DIR));
+         }
+         for (const t of processor.subwalkTargets()) {
++            if (this.signal?.aborted)
++                break;
+             if (this.maxDepth !== Infinity && t.depth() >= this.maxDepth) {
+                 continue;
+             }
+@@ -300,6 +326,8 @@ class GlobUtil {
+         next();
+     }
+     walkCB3Sync(target, entries, processor, cb) {
++        if (this.signal?.aborted)
++            return cb();
+         const proc = processor.filterEntries(target, entries);
+         let tasks = 1;
+         const next = () => {
+@@ -307,11 +335,15 @@ class GlobUtil {
+                 cb();
+         };
+         for (const [m, n] of proc.matches.store) {
++            if (this.signal?.aborted)
++                break;
+             if (this.#ignored(m))
+                 continue;
+             this.matchSync(m, !!(n & ABSOLUTE), !!(n & IF_DIR));
+         }
+         for (const [target, patterns] of proc.subwalks.entries()) {
++            if (this.signal?.aborted)
++                break;
+             tasks++;
+             this.walkCB2Sync(target, patterns, proc.child(), next);
+         }
+@@ -379,6 +411,8 @@ class GlobStream extends GlobUtil {
+             this.pause();
+     }
+     stream() {
++        if (this.signal?.aborted)
++            return this.results;
+         const target = this.path;
+         if (target.isUnknown()) {
+             void target.lstat().then(() => {
+@@ -391,6 +425,8 @@ class GlobStream extends GlobUtil {
+         return this.results;
+     }
+     streamSync() {
++        if (this.signal?.aborted)
++            return this.results;
+         if (this.path.isUnknown()) {
+             this.path.lstatSync();
+         }
+diff --git a/dist/esm/walker.js b/dist/esm/walker.js
+index e9da55d389d280729e98e4b4467ac1d409ed6003..51e35c07ea542e27c7687cda9200d3bd70348b5b 100644
+--- a/dist/esm/walker.js
++++ b/dist/esm/walker.js
+@@ -87,13 +87,13 @@ export class GlobUtil {
+     // do the requisite realpath/stat checking, and return the path
+     // to add or undefined to filter it out.
+     async matchCheck(inPath, ifDir) {
+-        if (ifDir && this.opts.nodir)
++        if (this.signal?.aborted || (ifDir && this.opts.nodir))
+             return undefined;
+         let rpc;
+         let e;
+         if (this.opts.realpath) {
+             rpc = inPath.realpathCached() || (await inPath.realpath());
+-            if (!rpc)
++            if (this.signal?.aborted || !rpc)
+                 return undefined;
+             e = rpc;
+         }
+@@ -102,8 +102,12 @@ export class GlobUtil {
+         }
+         const needStat = e.isUnknown() || this.opts.stat;
+         const s = needStat ? await e.lstat() : e;
++        if (this.signal?.aborted)
++            return undefined;
+         if (this.opts.follow && this.opts.nodir && s?.isSymbolicLink()) {
+             const target = await s.realpath();
++            if (this.signal?.aborted)
++                return undefined;
+             /* c8 ignore start */
+             if (target && (target.isUnknown() || this.opts.stat)) {
+                 await target.lstat();
+@@ -113,7 +117,7 @@ export class GlobUtil {
+         return this.matchCheckTest(s, ifDir);
+     }
+     matchCheckTest(e, ifDir) {
+-        return (e &&
++        return (!this.signal?.aborted && e &&
+             (this.maxDepth === Infinity || e.depth() <= this.maxDepth) &&
+             (!ifDir || e.canReaddir()) &&
+             (!this.opts.nodir || !e.isDirectory()) &&
+@@ -126,13 +130,13 @@ export class GlobUtil {
+             : undefined;
+     }
+     matchCheckSync(inPath, ifDir) {
+-        if (ifDir && this.opts.nodir)
++        if (this.signal?.aborted || (ifDir && this.opts.nodir))
+             return undefined;
+         let rpc;
+         let e;
+         if (this.opts.realpath) {
+             rpc = inPath.realpathCached() || inPath.realpathSync();
+-            if (!rpc)
++            if (this.signal?.aborted || !rpc)
+                 return undefined;
+             e = rpc;
+         }
+@@ -141,8 +145,12 @@ export class GlobUtil {
+         }
+         const needStat = e.isUnknown() || this.opts.stat;
+         const s = needStat ? e.lstatSync() : e;
++        if (this.signal?.aborted)
++            return undefined;
+         if (this.opts.follow && this.opts.nodir && s?.isSymbolicLink()) {
+             const target = s.realpathSync();
++            if (this.signal?.aborted)
++                return undefined;
+             if (target && (target?.isUnknown() || this.opts.stat)) {
+                 target.lstatSync();
+             }
+@@ -150,12 +158,16 @@ export class GlobUtil {
+         return this.matchCheckTest(s, ifDir);
+     }
+     matchFinish(e, absolute) {
+-        if (this.#ignored(e))
++        if (this.signal?.aborted)
++            return;
++        if (this.#ignored(e) || this.signal?.aborted)
+             return;
+         this.#matchEmitChecked(e, absolute);
+     }
+     // emit a match that is known to not be seen or ignored yet
+     #matchEmitChecked(e, absolute) {
++        if (this.signal?.aborted)
++            return;
+         // we know we have an ignore if this is false, but TS doesn't
+         if (!this.includeChildMatches && this.#ignore?.add) {
+             const ign = `${e.relativePosix()}/**`;
+@@ -218,12 +230,16 @@ export class GlobUtil {
+                 cb();
+         };
+         for (const [m, n] of processor.matches.store) {
++            if (this.signal?.aborted)
++                break;
+             if (this.#ignored(m))
+                 continue;
+             tasks++;
+             void this.match(m, !!(n & ABSOLUTE), !!(n & IF_DIR)).then(() => next());
+         }
+         for (const t of processor.subwalkTargets()) {
++            if (this.signal?.aborted)
++                break;
+             if (this.maxDepth !== Infinity && t.depth() >= this.maxDepth) {
+                 continue;
+             }
+@@ -238,6 +254,8 @@ export class GlobUtil {
+         next();
+     }
+     walkCB3(target, entries, processorx, cb) {
++        if (this.signal?.aborted)
++            return cb();
+         const proc = processorx.filterEntries(target, entries);
+         let tasks = 1;
+         const next = () => {
+@@ -245,12 +263,16 @@ export class GlobUtil {
+                 cb();
+         };
+         for (const [m, n] of proc.matches.store) {
++            if (this.signal?.aborted)
++                break;
+             if (this.#ignored(m))
+                 continue;
+             tasks++;
+             void this.match(m, !!(n & ABSOLUTE), !!(n & IF_DIR)).then(() => next());
+         }
+         for (const [target, patterns] of proc.subwalks.entries()) {
++            if (this.signal?.aborted)
++                break;
+             tasks++;
+             this.walkCB2(target, patterns, proc.child(), next);
+         }
+@@ -282,11 +304,15 @@ export class GlobUtil {
+                 cb();
+         };
+         for (const [m, n] of processor.matches.store) {
++            if (this.signal?.aborted)
++                break;
+             if (this.#ignored(m))
+                 continue;
+             this.matchSync(m, !!(n & ABSOLUTE), !!(n & IF_DIR));
+         }
+         for (const t of processor.subwalkTargets()) {
++            if (this.signal?.aborted)
++                break;
+             if (this.maxDepth !== Infinity && t.depth() >= this.maxDepth) {
+                 continue;
+             }
+@@ -297,6 +323,8 @@ export class GlobUtil {
+         next();
+     }
+     walkCB3Sync(target, entries, processor, cb) {
++        if (this.signal?.aborted)
++            return cb();
+         const proc = processor.filterEntries(target, entries);
+         let tasks = 1;
+         const next = () => {
+@@ -304,11 +332,15 @@ export class GlobUtil {
+                 cb();
+         };
+         for (const [m, n] of proc.matches.store) {
++            if (this.signal?.aborted)
++                break;
+             if (this.#ignored(m))
+                 continue;
+             this.matchSync(m, !!(n & ABSOLUTE), !!(n & IF_DIR));
+         }
+         for (const [target, patterns] of proc.subwalks.entries()) {
++            if (this.signal?.aborted)
++                break;
+             tasks++;
+             this.walkCB2Sync(target, patterns, proc.child(), next);
+         }
+@@ -374,6 +406,8 @@ export class GlobStream extends GlobUtil {
+             this.pause();
+     }
+     stream() {
++        if (this.signal?.aborted)
++            return this.results;
+         const target = this.path;
+         if (target.isUnknown()) {
+             void target.lstat().then(() => {
+@@ -386,6 +420,8 @@ export class GlobStream extends GlobUtil {
+         return this.results;
+     }
+     streamSync() {
++        if (this.signal?.aborted)
++            return this.results;
+         if (this.path.isUnknown()) {
+             this.path.lstatSync();
+         }
+diff --git a/package.json b/package.json
+index ef42b73f6df4636f09dfc7d4ea38acb595e0c2e6..565336805fc5fad37b95f793cee029f28701860b 100644
+--- a/package.json
++++ b/package.json
+@@ -12,17 +12,17 @@
+       ".": {
+         "import": {
+           "types": "./dist/esm/index.d.ts",
+-          "default": "./dist/esm/index.min.js"
++          "default": "./dist/esm/index.js"
+         },
+         "require": {
+           "types": "./dist/commonjs/index.d.ts",
+-          "default": "./dist/commonjs/index.min.js"
++          "default": "./dist/commonjs/index.js"
+         }
+       }
+     }
+   },
+-  "main": "./dist/commonjs/index.min.js",
+-  "module": "./dist/esm/index.min.js",
++  "main": "./dist/commonjs/index.js",
++  "module": "./dist/esm/index.js",
+   "types": "./dist/commonjs/index.d.ts",
+   "exports": {
+     "./package.json": "./package.json",
+@@ -39,11 +39,11 @@
+     ".": {
+       "import": {
+         "types": "./dist/esm/index.d.ts",
+-        "default": "./dist/esm/index.min.js"
++        "default": "./dist/esm/index.js"
+       },
+       "require": {
+         "types": "./dist/commonjs/index.d.ts",
+-        "default": "./dist/commonjs/index.min.js"
++        "default": "./dist/commonjs/index.js"
+       }
+     }
+   },

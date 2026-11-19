@@ -1,6 +1,7 @@
 import time
 
 from app.config import settings
+from app.notifications import refresh_all
 from app.connectors import queue_due_connectors
 from app.memory_agent import queue_due_scans
 from app.dream_lab import queue_due_dreams
@@ -15,6 +16,7 @@ def main():
             queue_due_connectors()
             queue_due_scans()
             queue_due_dreams()
+            refresh_all()
         except Exception as exc:
             print(f"connector scheduler error: {exc}", flush=True)
         time.sleep(interval)

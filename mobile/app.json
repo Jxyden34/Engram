@@ -2,22 +2,21 @@
   "expo": {
     "name": "Engram Beta",
     "slug": "engram-mobile",
-    "version": "3.7.0",
+    "version": "3.7.0-dev-beta.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jxyden34.engram.beta",
-      "buildNumber": "7"
+      "buildNumber": "10"
     },
     "android": {
       "package": "com.jxyden34.engram.beta",
-      "versionCode": 9,
+      "versionCode": 13,
       "adaptiveIcon": {
-        "backgroundColor": "#0C1420",
+        "backgroundColor": "#111317",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -30,10 +29,21 @@
     },
     "owner": "jxyden34",
     "runtimeVersion": "3.7.0-dev-beta.9-native1",
+    "scheme": "engram",
     "updates": {
       "url": "https://u.expo.dev/4bfa32da-3316-4752-aa52-605ded14d3c2"
     },
     "plugins": [
+      [
+        "expo-sharing",
+        {
+          "android": { "enabled": true, "singleShareMimeTypes": ["text/plain", "text/uri-list"] },
+          "ios": {
+            "enabled": true,
+            "activationRule": { "supportsText": true, "supportsWebUrlWithMaxCount": 1 }
+          }
+        }
+      ],
       [
         "expo-speech-recognition",
         {

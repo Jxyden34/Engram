@@ -30,7 +30,10 @@ export async function api<T = any>(path: string, init: RequestInit = {}): Promis
   });
 
   if (response.status === 401 && typeof window !== "undefined" && !path.includes("/auth/login")) {
-    window.location.href = "/login";
+    if (window.location.pathname !== "/login") {
+      const returnTo = window.location.pathname + window.location.search + window.location.hash;
+      window.location.href = "/login?" + new URLSearchParams({ returnTo });
+    }
     throw new Error("Authentication required");
   }
 

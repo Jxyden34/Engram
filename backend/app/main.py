@@ -5,7 +5,7 @@ from uuid import UUID
 from time import perf_counter
 from starlette.concurrency import run_in_threadpool
 
-from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
@@ -13,7 +13,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from app import memories
 from app import intelligence
-from app import health
+from app import health as health_checks
 from app import knowledge
 from app import connectors
 from app import oauth
@@ -24,10 +24,12 @@ from app import ask
 from app import reflection
 from app import licensing
 from app import consolidation
+from app import telegram_notifications as telegram
+from app import notifications
 from app import observability
 from app import document_memory_import as doc_mem
 from app.audit import log
-from app.capture import create_capture
+from app.capture import create_capture, create_screenshot
 from app.chatgpt_import import (
     accept_candidate,
     accept_safe_candidates,
@@ -41,9 +43,11 @@ from app.chatgpt_import import (
 )
 from app.config import settings
 from app.database import connect, current_project_id, project_scope
-from app.documents import bulk_upload, get_document, list_documents, minio_client, search_chunks, upload
+from app.documents import bulk_upload, get_document, list_documents, minio_client, read_limited, search_chunks, upload
 from app.mcp_server import mcp, mcp_principal
 from app.rate_limit import check_rate
+from app.request_limits import RequestLimitMiddleware
+from app.util import json_text
 from app.schemas import (
     LicenseActivation,
     ApiKeyCreate,
@@ -59,6 +63,7 @@ from app.schemas import (
     AgentScheduleUpdate,
     CrossProjectSearchRequest,
     GmailOAuthStart,
+    GmailBackfillRequest,
     DeleteRequest,
     LoginRequest,
     MemoryCreate,
@@ -69,6 +74,7 @@ from app.schemas import (
     OAuthClientCreate,
     OAuthClientUpdate,
     ProjectCreate,
+    ProjectRetentionUpdate,
     RejectRequest,
     RelationCreate,
     SearchRequest,
@@ -88,6 +94,7 @@ from app.security import (
     SESSION_COOKIE,
     api_key_principal,
     bearer_principal,
+    client_ip,
     authenticate,
     create_session,
     generate_api_key,
@@ -134,25 +141,25 @@ app.include_router(reminder_router)
 from app.dream_lab import router as dream_router
 app.include_router(dream_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[cfg.public_origin],
-    allow_origin_regex=r"^chrome-extension://[a-z]{32}$",
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Engram-Project", "Mcp-*", "Last-Event-ID"],
-    expose_headers=["Mcp-Session-Id", "WWW-Authenticate"],
-)
+app.add_middleware(RequestLimitMiddleware)
 
 
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/api/v1/"):
-        check_rate(request, "api", 240, 60)
+    try:
+        if path.startswith("/api/v1/"):
+            check_rate(request, "api", 240, 60)
 
-    if path in {"/api/v1/auth/login", "/api/v1/mobile/login", "/api/v1/team/accept", "/api/v1/setup/bootstrap"}:
-        check_rate(request, "login", 12, 300)
+        if path.startswith("/oauth/"):
+            check_rate(request, "oauth", 120, 60)
+        if path == "/api/webhooks/github":
+            check_rate(request, "github_webhook", 120, 60)
+
+        if path in {"/api/v1/auth/login", "/api/v1/mobile/login", "/api/v1/team/accept", "/api/v1/setup/bootstrap"}:
+            check_rate(request, "login", 12, 300)
+    except HTTPException as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
 
     if path.startswith("/api/v1/") and path not in {"/api/v1/auth/login", "/api/v1/mobile/login", "/api/v1/team/accept", "/api/v1/setup/bootstrap"}:
         try:
@@ -160,8 +167,7 @@ async def security_middleware(request: Request, call_next):
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
-    if path.startswith("/oauth/"):
-        check_rate(request, "oauth", 120, 60)
+
 
     token = None
     selected_project = None
@@ -171,6 +177,8 @@ async def security_middleware(request: Request, call_next):
         "/api/v1/license", "/api/v1/edition", "/api/v1/team/accept", "/api/v1/branding", "/api/v1/setup/status", "/api/v1/setup/bootstrap",
     }:
         try:
+            if path.startswith("/api/v1/imports/"):
+                require(request, "document:read")
             selected_project = projects.resolve_project(
                 authenticate(request), request.headers.get("x-engram-project") or request.cookies.get("engram_project")
             )
@@ -236,6 +244,8 @@ async def security_middleware(request: Request, call_next):
                 },
             )
         try:
+            if path.startswith("/api/v1/imports/"):
+                require(request, "document:read")
             selected_project = projects.resolve_project(p, request.headers.get("x-engram-project"))
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
@@ -254,11 +264,22 @@ async def security_middleware(request: Request, call_next):
                 status = response.status_code
                 return response
             finally:
-                if selected_project and path.startswith('/api/v1/') and path != '/api/v1/observability':
+                if selected_project and path.startswith('/api/v1/') and path not in {'/api/v1/observability', '/api/v1/metrics'}:
                     await run_in_threadpool(observability.observe,'api',perf_counter()-started,status>=400)
     finally:
         if token is not None:
             mcp_principal.reset(token)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[cfg.public_origin],
+    allow_origin_regex=r"^chrome-extension://[a-z]{32}$",
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Engram-Project", "Mcp-*", "Last-Event-ID"],
+    expose_headers=["Mcp-Session-Id", "WWW-Authenticate"],
+)
 
 
 @app.get("/health")
@@ -299,6 +320,12 @@ def operational_metrics(request: Request):
     if not p.is_admin or p.auth_type != 'session':
         raise HTTPException(status_code=403,detail='Administrator session required')
     return observability.snapshot()
+
+
+@app.get("/api/v1/metrics")
+def prometheus_metrics(request: Request):
+    require(request, "metrics:read")
+    return Response(observability.prometheus_metrics(), media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 def _check_login(body: LoginRequest):
@@ -428,6 +455,22 @@ def project_search(body: CrossProjectSearchRequest, request: Request):
     log(p.actor, "project.cross_search", "project", current_project_id(), request,
         new_data={"project_ids": [str(value) for value in body.project_ids], "result_count": len(results)})
     return results
+
+
+@app.get("/api/v1/projects/{project_id}/retention")
+def project_retention(project_id: UUID, request: Request):
+    principal = require(request, "memory:read")
+    if not principal.is_admin or principal.auth_type != "session":
+        raise HTTPException(status_code=403, detail="Administrator session required")
+    return projects.get_retention(str(project_id))
+
+
+@app.put("/api/v1/projects/{project_id}/retention")
+def project_retention_update(project_id: UUID, body: ProjectRetentionUpdate, request: Request):
+    principal = require(request, "memory:write")
+    if not principal.is_admin or principal.auth_type != "session":
+        raise HTTPException(status_code=403, detail="Administrator session required")
+    return projects.set_retention(str(project_id), body.retention_days, principal.actor)
 
 
 @app.get("/api/v1/agent/proposals")
@@ -589,8 +632,8 @@ def memory_supersede(memory_id: str, body: MemorySupersede, request: Request):
 
 @app.get("/api/v1/memories/{memory_id}/versions")
 def memory_versions(memory_id: str, request: Request):
-    require(request, "memory:read")
-    return memories.versions(memory_id)
+    p = require(request, "memory:read")
+    return memories.versions(memory_id, include_deleted=p.is_admin)
 
 
 @app.get("/api/v1/memories/{memory_id}/relations")
@@ -611,7 +654,7 @@ def relation_create(memory_id: str, body: RelationCreate, request: Request):
 def ask_memories(body: AskRequest, request: Request):
     require(request, "memory:read")
     check_rate(request, "ask", 6, 60)
-    return ask.answer(body.question, body.memory_type, body.since, body.until)
+    return ask.answer(body.question, body.memory_type, body.since, body.until, source_type=body.source_type)
 
 
 @app.post('/api/v1/memories/{memory_id}/pin')
@@ -641,20 +684,30 @@ def lifecycle_undo(action_id: UUID, body: DeleteRequest, request: Request):
 
 @app.post("/api/v1/search")
 def search(body: SearchRequest, request: Request):
-    require(request, "memory:read")
-    results = intelligence.search_memories(body.query, body.limit, body.memory_type, body.include_historical,
-                                           include_archived=body.include_archived)
-    if body.include_documents:
-        p = authenticate(request)
-        if "document:read" in p.scopes:
-            results.extend(search_chunks(body.query, max(3, body.limit // 2)))
-            for item in results:
-                if item.get("result_type") == "document_chunk":
-                    item["retrieval_score"] = round(0.8 * max(0, float(item.get("semantic_score") or 0)) + 0.2 * min(1, float(item.get("lexical_score") or 0)), 4)
-                    item["match_reasons"] = ["document excerpt"]
-            results.sort(key=lambda item: item.get("retrieval_score", 0), reverse=True)
-            results = results[: body.limit]
-    return results
+    p = require(request, "memory:read")
+    results = []
+    if body.result_type in {None, "memory"}:
+        results = intelligence.search_memories(
+            body.query, body.limit, body.memory_type, body.include_historical,
+            include_archived=body.include_archived, source_type=body.source_type,
+            since=body.since, until=body.until, min_importance=body.min_importance,
+            min_confidence=body.min_confidence, entity_id=body.entity_id,
+        )
+    memory_only = any(value is not None for value in (
+        body.memory_type, body.min_importance, body.min_confidence, body.entity_id,
+    ))
+    if not memory_only and body.include_documents and "document:read" in p.scopes and body.result_type in {None, "document_chunk"}:
+        limit = body.limit if body.result_type else max(3, body.limit // 2)
+        documents = search_chunks(body.query, limit, source_type=body.source_type, since=body.since, until=body.until)
+        for item in documents:
+            item["retrieval_score"] = round(0.8 * max(0, float(item.get("semantic_score") or 0)) + 0.2 * min(1, float(item.get("lexical_score") or 0)), 4)
+            item["match_reasons"] = ["document excerpt"]
+        results.extend(documents)
+    if not memory_only and not body.source_type and body.include_knowledge and body.result_type in {None, "entity", "event"}:
+        results.extend(knowledge.search_knowledge(body.query, body.limit, result_type=body.result_type,
+                                                  since=body.since, until=body.until))
+    results.sort(key=lambda item: item.get("retrieval_score", 0), reverse=True)
+    return results[:body.limit]
 
 
 @app.post("/api/v1/intelligence/context")
@@ -1132,7 +1185,18 @@ def timeline_event_create(body: EventCreate, request: Request):
 @app.get("/api/v1/health/summary")
 def memory_health(request: Request):
     require(request, "memory:read")
-    return health.summary()
+    return health_checks.summary()
+
+
+@app.post("/api/webhooks/github", status_code=202, include_in_schema=False)
+async def github_webhook(request: Request):
+    queued = await run_in_threadpool(
+        connectors.process_github_webhook,
+        await request.body(),
+        request.headers.get("x-hub-signature-256", ""),
+        request.headers.get("x-github-event", ""),
+    )
+    return {"queued": queued}
 
 
 @app.get("/api/v1/connectors/capabilities")
@@ -1162,7 +1226,7 @@ def gmail_callback(request: Request):
     session_hash = sha256(session)
     if request.query_params.get("error"):
         if state:
-            connectors.cancel_gmail_oauth(state, session_hash)
+            connectors.cancel_google_oauth(state, session_hash)
         return RedirectResponse("/connectors?gmail=cancelled", status_code=303,
                                 headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     connector_id, email_address = connectors.finish_gmail_oauth(
@@ -1171,6 +1235,39 @@ def gmail_callback(request: Request):
     log(principal.actor, "connector.created", "connector", connector_id, request,
         new_data={"connector_type": "gmail", "email_address": email_address})
     return RedirectResponse("/connectors?gmail=connected", status_code=303,
+                            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@app.post("/api/v1/connectors/google-calendar/authorize")
+def calendar_authorize(body: dict[str, str], request: Request):
+    principal = require(request, "connector:admin")
+    session = request.cookies.get(SESSION_COOKIE)
+    if principal.auth_type != "session" or not principal.is_admin or not principal.user_id or not session:
+        raise HTTPException(status_code=403, detail="Google Calendar requires an administrator browser session")
+    return {"authorization_url": connectors.start_google_oauth(
+        "google_calendar", body, principal.actor, principal.user_id, sha256(session),
+    )}
+
+
+@app.get("/api/v1/connectors/google-calendar/callback", include_in_schema=False)
+def calendar_callback(request: Request):
+    principal = require(request, "connector:admin")
+    session = request.cookies.get(SESSION_COOKIE)
+    if principal.auth_type != "session" or not principal.is_admin or not principal.user_id or not session:
+        raise HTTPException(status_code=403, detail="Return to the browser session that started Calendar setup")
+    state = request.query_params.get("state", "")
+    session_hash = sha256(session)
+    if request.query_params.get("error"):
+        connectors.cancel_google_oauth(state, session_hash, kind="google_calendar")
+        result = "cancelled"
+    else:
+        connector_id, _ = connectors.finish_google_oauth(
+            "google_calendar", state, request.query_params.get("code", ""), session_hash,
+        )
+        log(principal.actor, "connector.created", "connector", connector_id, request,
+            new_data={"connector_type": "google_calendar"})
+        result = "connected"
+    return RedirectResponse(f"/connectors?calendar={result}", status_code=303,
                             headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
 
@@ -1244,6 +1341,16 @@ def connector_sync(connector_id: str, request: Request):
     return run
 
 
+@app.post("/api/v1/connectors/{connector_id}/gmail-backfill", status_code=202)
+def connector_gmail_backfill(connector_id: UUID, body: GmailBackfillRequest, request: Request):
+    principal = require(request, "connector:admin")
+    dates = (body.start_date.isoformat(), body.end_date.isoformat())
+    run = connectors.queue_sync(str(connector_id), backfill=dates)
+    log(principal.actor, "connector.gmail_backfill_queued", "connector", str(connector_id), request,
+        new_data={"run_id": str(run["id"]), "start_date": dates[0], "end_date": dates[1]})
+    return run
+
+
 @app.get("/api/v1/connectors/runs")
 def connector_runs(request: Request, connector_id: str | None = None, limit: int = 100):
     require(request, "connector:admin")
@@ -1268,6 +1375,20 @@ def browser_capture(body: CaptureCreate, request: Request):
         },
     )
     return row
+
+
+@app.post("/api/v1/capture/screenshot", status_code=202)
+async def browser_screenshot(request: Request, file: UploadFile = File(...),
+                             title: str = Form(min_length=1, max_length=500),
+                             url: str | None = Form(default=None, max_length=4000)):
+    principal = require(request, "capture:write")
+    try:
+        raw = await read_limited(file, min(10, cfg.max_upload_mb) * 1024 * 1024)
+        document = await run_in_threadpool(create_screenshot, raw, title, url, principal.actor, principal.user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    log(principal.actor, "browser.screenshot", "document", str(document["id"]), request)
+    return document
 
 
 @app.get("/.well-known/oauth-protected-resource")
@@ -1416,6 +1537,8 @@ async def oauth_register(request: Request):
         raise HTTPException(status_code=404, detail="Dynamic client registration is disabled")
     try:
         body = await request.json()
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=400, detail="JSON client metadata required")
     return oauth.dynamic_register(body)
@@ -1591,10 +1714,10 @@ def keys_list(request: Request):
 @app.post("/api/v1/keys", status_code=201)
 def key_create(body: ApiKeyCreate, request: Request):
     p = require(request, "keys:admin")
-    allowed = set(ADMIN_SCOPES)
+    allowed = set(ADMIN_SCOPES) & p.scopes
     unknown = set(body.scopes) - allowed
     if unknown:
-        raise HTTPException(status_code=400, detail=f"Unknown scopes: {sorted(unknown)}")
+        raise HTTPException(status_code=400, detail=f"Unavailable scopes: {sorted(unknown)}")
     token, prefix, digest = generate_api_key()
     with connect() as conn:
         row = conn.execute(
@@ -1611,6 +1734,41 @@ def key_create(body: ApiKeyCreate, request: Request):
     result["warning"] = "Shown once. Store this token securely."
     log(p.actor, "api_key.created", "api_key", str(row["id"]), request, new_data={k: v for k, v in result.items() if k != "token"})
     return result
+
+
+@app.post("/api/v1/keys/{key_id}/rotate")
+def key_rotate(key_id: UUID, request: Request):
+    principal = require(request, "keys:admin")
+    token, prefix, digest = generate_api_key()
+    with connect() as conn:
+        current = conn.execute(
+            """
+            UPDATE api_keys SET revoked_at=now()
+            WHERE id=%s AND project_id=%s AND revoked_at IS NULL
+            RETURNING owner_id, name, scopes
+            """,
+            (key_id, current_project_id()),
+        ).fetchone()
+        if not current:
+            raise HTTPException(status_code=404, detail="Active key not found")
+        if not set(current["scopes"]).issubset(principal.scopes):
+            raise HTTPException(status_code=403, detail="Cannot rotate a key with additional permissions")
+        replacement = conn.execute(
+            """
+            INSERT INTO api_keys(owner_id, name, key_prefix, key_hash, scopes, project_id)
+            VALUES (%s,%s,%s,%s,%s,%s)
+            RETURNING id, name, key_prefix, scopes, created_at
+            """,
+            (current["owner_id"], current["name"], prefix, digest, current["scopes"], current_project_id()),
+        ).fetchone()
+        conn.execute(
+            """INSERT INTO audit_log(actor, action, entity_type, entity_id, ip_address, new_data)
+               VALUES (%s, 'api_key.rotated', 'api_key', %s, %s, %s::jsonb)""",
+            (principal.actor, str(key_id), client_ip(request),
+             json_text({"replacement_id": str(replacement["id"]), "key_prefix": prefix})),
+        )
+        conn.commit()
+    return {**replacement, "token": token, "warning": "Shown once. Store this token securely."}
 
 
 @app.delete("/api/v1/keys/{key_id}")
@@ -1631,5 +1789,57 @@ def key_revoke(key_id: str, request: Request):
     log(p.actor, "api_key.revoked", "api_key", key_id, request)
     return dict(row)
 
+
+def notification_user(request: Request):
+    principal = require(request, "memory:read")
+    if principal.auth_type not in {"session", "mobile"} or not principal.is_admin or not principal.user_id:
+        raise HTTPException(status_code=403, detail="Administrator browser or mobile session required")
+    return principal
+
+
+@app.get("/api/v1/notifications")
+def notification_inbox(request: Request, dismissed: bool = False):
+    return notifications.inbox(notification_user(request).user_id, dismissed=dismissed)
+
+
+@app.post("/api/v1/notifications/refresh")
+def notification_refresh(request: Request):
+    principal = notification_user(request)
+    check_rate(request, "notification_refresh", 6, 60)
+    notifications.refresh()
+    return notifications.inbox(principal.user_id)
+
+
+@app.post("/api/v1/notifications/{notification_id}/read")
+def notification_read(notification_id: UUID, request: Request):
+    return notifications.mark(str(notification_id), notification_user(request).user_id)
+
+
+@app.post("/api/v1/notifications/{notification_id}/dismiss")
+def notification_dismiss(notification_id: UUID, request: Request):
+    return notifications.mark(str(notification_id), notification_user(request).user_id, dismiss=True)
+
+
+
+@app.get("/api/v1/notifications/telegram")
+def telegram_config(request: Request):
+    notification_user(request)
+    return telegram.configuration()
+
+
+@app.put("/api/v1/notifications/telegram")
+def telegram_configure(body: telegram.TelegramSettings, request: Request):
+    principal = notification_user(request)
+    result = telegram.configure(body)
+    log(principal.actor, "notifications.telegram_configured", "project", current_project_id(), request,
+        new_data={"enabled": body.enabled})
+    return result
+
+
+@app.post("/api/v1/notifications/telegram/test")
+def telegram_test(request: Request):
+    notification_user(request)
+    check_rate(request, "telegram_test", 3, 60)
+    return telegram.test_delivery()
 
 app.mount("/", mcp_app)

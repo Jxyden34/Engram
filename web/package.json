@@ -1,19 +1,22 @@
 {
   "name": "engram-web",
   "private": true,
-  "version": "1.0.0",
+  "version": "3.2.0",
   "scripts": {
+    "test:navigation": "node --experimental-strip-types --test lib/navigation.test.mjs",
+    "test:graph": "node --experimental-strip-types --test lib/graph.test.mjs",
+    "test:return-path": "node --experimental-strip-types --test lib/return-path.test.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000"
   },
   "dependencies": {
-    "next": "16.4.2",
+    "next": "16.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^7.0.2"

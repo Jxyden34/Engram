@@ -10,7 +10,7 @@ def test_answer_uses_retrieved_sources_and_checks_exact_evidence():
     generated = {"claims": [{"text": "The launch is Friday.", "source": 1, "quote": "launch on Friday after the review"}], "insufficient": False}
     with patch.object(ask.intelligence, "search_memories", return_value=[SOURCE]) as search, patch.object(ask, "_ollama_json", return_value=generated) as model:
         result = ask.answer("When is launch?")
-    search.assert_called_once_with("When is launch?", 5, None, since=None, until=None, infer_history=False)
+    search.assert_called_once_with("When is launch?", 5, None, since=None, until=None, infer_history=False, source_type=None)
     assert result["claims"] == generated["claims"]
     assert result["sources"][0]["id"] == SOURCE["id"]
     assert SOURCE["content"] in model.call_args.args[1]
@@ -42,8 +42,8 @@ def test_filters_are_applied_before_retrieval_and_reported_with_the_answer():
     from app.schemas import AskRequest
     from pydantic import ValidationError
     with patch.object(ask.intelligence, 'search_memories', return_value=[]) as search:
-        result = ask.answer('Launch?', 'decision', date(2026, 9, 1), date(2026, 9, 30))
-    search.assert_called_once_with('Launch?', 5, 'decision', since=date(2026, 9, 1), until=date(2026, 9, 30), infer_history=False)
-    assert result['filters'] == {'memory_type': 'decision', 'since': '2026-09-01', 'until': '2026-09-30'}
+        result = ask.answer('Launch?', 'decision', date(2026, 9, 1), date(2026, 9, 30), source_type='manual')
+    search.assert_called_once_with('Launch?', 5, 'decision', since=date(2026, 9, 1), until=date(2026, 9, 30), infer_history=False, source_type='manual')
+    assert result['filters'] == {'memory_type': 'decision', 'source_type': 'manual', 'since': '2026-09-01', 'until': '2026-09-30'}
     with pytest.raises(ValidationError):
         AskRequest(question='Launch?', since='2026-10-02', until='2026-10-01')

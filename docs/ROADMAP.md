@@ -84,7 +84,7 @@ companion distribution keeps its preview channel and recorded device gates.
 
 | Track | Current position | Scope |
 | --- | --- | --- |
-| Stable server | **v2.8.0** | Reflection, project briefs, reviewed consolidation, archival, pinning, audited undo and the existing projects/Agent features. |
+| Stable server | **[v3.2.0](https://github.com/Jxyden34/Engram/releases/tag/v3.2.0)** | Notifications, optional Telegram delivery, Calendar sync, and the v3.1 workspace. |
 | Native companion | **v2.7.0-alpha1 preview** | Companion source is on `main`; build 8 and native iOS speech still need device qualification. Installed-app runtime and update channels are unchanged. |
 
 v2.7.0 returns to the 2.x numbering by user approval after v6.5.0. Earlier
@@ -245,17 +245,14 @@ Supported ingestion:
 - Pull requests
 - Source code optionally
 
-Remaining GitHub work:
+GitHub connector capabilities in v3.1.0
 
-- 🟡 Webhook-triggered instant sync
-- 🟡 Commit ingestion
-- 🟡 Release ingestion
-- 🟡 Discussions
-- 🟡 Repository branch selection
-- 🟡 Per-repository filters
-- 🟡 Ignore patterns
-- 🟡 Source-code language filters
-- 🟡 Connector health diagnostics
+- 🧪 Signed GitHub App webhooks queue matching connectors in v3.1.0. Live provider verification is pending.
+- ✅ Optional commit and published-release ingestion in v3.1.0. Both share the connector's existing sync budget.
+- ✅ Optional discussion post ingestion in v3.1.0. It requires GitHub App Discussions read access.
+- ✅ Per-repository branch overrides, file ignore patterns, and source extension filters in v3.1.0.
+- ✅ Per-repository content filters override connector defaults in v3.1.0.
+- ✅ Sync history shows error counts, failure details, and completion times in v3.1.0.
 
 ### Browser Capture ✅
 
@@ -272,15 +269,15 @@ Supported:
 - Source provenance
 - Automatic candidate-memory analysis
 
-Planned:
+Available in v3.1.0 and the companion previews
 
-- 🟡 Reader-mode extraction
-- 🟡 Screenshot capture
-- 🟡 Image OCR
-- 🟡 Capture tags
-- 🟡 Project / namespace selection
-- 🟡 Mobile share-sheet support
-- 🟡 Firefox extension
+- ✅ Reader view extracts the main article or content landmark in v3.1.0.
+- ✅ Capture the visible web page as a PNG and save it as a project source in v3.1.0.
+- 🧪 Local English-language OCR indexes text in PNG sources. Browser capture and OCR qualification are pending.
+- ✅ Capture tags are saved with the source document in v3.1.0.
+- ✅ Browser captures can specify the target project ID and require a key bound to that project.
+- 🧪 Mobile share-sheet support for text and links, with explicit saving to the device-local Inbox. Native device qualification is pending.
+- 🧪 Firefox extension support in v3.1.0. Browser installation and signed distribution are pending.
 
 ---
 
@@ -403,12 +400,18 @@ Ingest:
 - 🟡 OAuth authorization with `gmail.readonly` only.
 - 🟡 User-selected Gmail query, label and sync limit.
 - 🟡 Scheduled bounded-query sync with idempotent document updates.
-- 🟡 Each run reads up to 500 newest matches; historical cursor/backfill remains future work.
+- 🧪 Each run reads up to 500 matches. A manual, bounded date-range backfill is available in v3.1.0.
 - 🟡 Encrypted refresh-token storage and account disconnect / revocation.
 - 🟡 Message provenance, search indexing and candidate-memory review.
 - 🟡 No compose, send, modify, delete, attachment or mailbox-wide default sync.
 
 ### Calendar
+
+✅ Calendar export import indexes selected `.ics` files as source documents.
+Event times, locations, attendees, recurrence rules, and notes are searchable.
+Recurring exports retain their rules and exceptions. Google Calendar sync adds read-only polling of one owned calendar, including recurring
+occurrences in a bounded date window. Live OAuth and provider sync qualification
+are pending. Microsoft 365 sync remains planned.
 
 Potential sources:
 
@@ -507,7 +510,12 @@ for v2.7.
 
 ---
 
-## v2.6 — Personal Search Engine 🔵
+## v2.6 — Personal Search Engine 🟢
+
+✅ v3.1.0 expands project search in Memories to include entity and
+event results alongside memories and document excerpts. Results include a match
+explanation. Project selection scopes the search, with filters for source,
+date, result type, linked entity, memory importance, and confidence.
 
 One search interface across:
 
@@ -555,8 +563,8 @@ Features:
 - ✅ namespace-specific memories and project switching
 - ✅ project context propagated through the API and MCP
 - ✅ project-scoped connector and candidate-memory boundaries
-- 🟡 project-specific API keys and retention
-- 🟡 explicit, auditable cross-project search
+- 🧪 Project API keys are bound to one project and support scoped issue, rotate, and revoke. An optional inactivity policy lists eligible memories for manual archival review.
+- 🧪 Cross-project search accepts explicitly selected projects, checks administrator access, and records an audit event. CI covers project boundaries.
 - 🟡 isolation testing across memory, document, connector, OAuth callback and
   import paths
 
@@ -578,9 +586,9 @@ The Agent remains proposal-only: it must not silently rewrite memories or cross
 project boundaries.
 
 - ✅ scan and proposal workflow
-- 🟡 alpha1 Ask filters for source, memory type and date range
-- 🟡 alpha1 suggested memory links with explicit approval
-- 🟡 alpha1 mobile review, edit, approve and dismiss flow for Agent proposals
+- 🧪 Alpha1 Ask filters for source, memory type, and date range in v3.1.0. Native device qualification is pending.
+- 🧪 Alpha1 implements suggested memory links with explicit approval. Populated device qualification is pending.
+- 🧪 Alpha1 implements mobile review, editable consolidation drafts, approval, and dismissal. Populated device qualification is pending.
 
 ---
 
@@ -649,11 +657,11 @@ Metrics for:
 - connector sync status
 - candidate acceptance rate
 
-Potential integrations:
+Metrics and alerts
 
-- Prometheus
-- Grafana
-- alerting
+- ✅ Authenticated Prometheus project metrics in v3.1.0
+- ✅ Importable Grafana dashboard and Prometheus alert rules
+- 🟡 End-to-end alert delivery qualification
 - health notifications
 
 ---
@@ -665,10 +673,9 @@ promising enterprise operations before they are proven.
 
 ### Activation and product operations
 
-- guided first-run path to capture or import, then retrieve, a first memory
-- visible usage for memories, documents, storage, connectors and backup status
-- documented managed-hosting boundaries for upgrades, backups, recovery and
-  support
+- ✅ v3.1.0 guides empty projects to capture or import and search their first memory.
+- ✅ Observability shows project memory, document, source storage, and connector usage and links to backup status.
+- ✅ [Managed-hosting boundaries](MANAGED-READINESS.md) for upgrades, backups, recovery, and support.
 - privacy-respecting activation measurement: first captured or imported memory
   successfully retrieved
 
@@ -692,7 +699,15 @@ not a promise of a hosted service date.
 
 # v3.7 — Personal Knowledge OS 🔵
 
-## v3.0 — Memory Agent
+## v3.0 — Memory Agent ✅
+
+### Native installation packages
+
+The v3.0 distribution track shipped compiled Windows/Linux/macOS setup packages,
+prebuilt application images, the host installer moved from draft PR #85, and a
+native build and packaging pipeline. Platform signing and device qualification
+remain pending for the Windows and macOS previews.
+See [native installation packages](V3-INSTALLERS.md).
 
 A controlled autonomous maintenance agent.
 
@@ -708,7 +723,12 @@ Responsibilities:
 
 The agent proposes changes. It does not silently rewrite personal history.
 
-## v3.1 — Personal API Gateway
+## v3.1 — Personal API Gateway ✅
+
+v3.1.0 brings project-bound API keys, OAuth clients and grants into
+the Personal API Gateway settings. New API keys start with memory read access,
+with additional permissions selected explicitly. Rotation issues a replacement
+with the same project and scopes and revokes the previous key in one transaction.
 
 Unified permission layer for:
 
@@ -720,7 +740,13 @@ Unified permission layer for:
 - developer tools
 - dashboards
 
-## v3.2 — Notifications
+## v3.2 — Notifications ✅
+
+v3.2.0 adds project notification inboxes in the web and native
+mobile interfaces. Admin users can review sources, mark items read, and dismiss
+them. Optional Telegram delivery sends generic notifications to a configured chat.
+Scheduled checks deduplicate active issues and reopen recovered issues
+if they recur. Backup alerts appear in Personal because backups cover the server.
 
 Notify on:
 
@@ -790,13 +816,14 @@ Features:
    preview work into the stable track.
 3. 🟡 Qualify v2.7 project isolation, mobile flows and proposal-only Agent
    boundaries; then sequence alpha1 Ask filters, memory links and Agent review.
-4. 🟡 GitHub webhook-triggered sync, commit/release ingestion and connector
-   diagnostics.
-5. 🟡 Disaster Recovery dashboard, automated restore testing and backup
-   replication.
+4. 🧪 Qualify v3.1.0 GitHub webhook sync, additional source types, repository
+   filters, and connector diagnostics with a real GitHub App installation.
+5. 🟢 The Disaster Recovery dashboard, automated restore tests, and replication
+   are implemented. Verify the configured backup targets on each deployment.
 6. 🟡 Gmail read-only connector qualification, then calendar and cloud-storage
    connectors.
-7. 🟡 Universal search and the explicit cross-project search/audit model.
+7. 🧪 Verify v3.1.0 project search with populated source types and filters.
+   Cross-project memory search requires an explicit selection and audit record.
 8. ✅ v2.8 reflection, briefs, consolidation, decay, archival, pinning and audited undo.
 9. 🔵 Managed-service readiness: onboarding, usage visibility, team governance
    and operational commitments.

@@ -1,5 +1,6 @@
+import { colors } from './src/theme';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Image, KeyboardAvoidingView, Linking, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { api, AgentDraft, ApiError, login, Memory, normalizeOrigin, Project, Proposal, ScanRun, Session } from './src/api';
@@ -8,12 +9,26 @@ import { clearOfflineLibrary, OfflineLibrary, readOfflineLibrary, saveOfflineLib
 import MemoryDetail from './src/MemoryDetail';
 import Ask from './src/Ask';
 import Inbox from './src/Inbox';
+import Notifications from './src/Notifications';
 import VoiceCapture from './src/VoiceCapture';
 import { captureTemplates } from './src/memoryTools';
+import appConfig from './app.json';
 
 const KEY = 'engram_mobile_session';
-type Tab = 'Capture' | 'Inbox' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Settings';
-const tabs: Tab[] = ['Capture', 'Inbox', 'Memories', 'Search', 'Ask', 'Agent', 'Settings'];
+const logo = require('./assets/icon.png');
+type Tab = 'Capture' | 'Inbox' | 'Memories' | 'Search' | 'Ask' | 'Agent' | 'Workspace' | 'Notifications' | 'Settings';
+const sections: { title: string; tabs: Tab[] }[] = [
+  { title: 'Library', tabs: ['Memories', 'Search', 'Ask'] },
+  { title: 'Workspace', tabs: ['Workspace', 'Agent', 'Notifications'] },
+  { title: 'Capture & review', tabs: ['Capture', 'Inbox'] },
+  { title: 'System', tabs: ['Settings'] },
+];
+const workspaceLinks = [
+  { title: 'Library', links: [['Overview', '/'], ['Memories', '/memories'], ['Documents', '/documents'], ['Knowledge graph', '/knowledge'], ['Timeline', '/timeline']] },
+  { title: 'Workspace', links: [['Intelligence', '/intelligence'], ['Projects', '/projects'], ['Memory Agent', '/agent']] },
+  { title: 'Capture & review', links: [['Memory Inbox', '/imports'], ['Connectors', '/connectors'], ['Approvals', '/approvals'], ['Notifications', '/notifications']] },
+  { title: 'System', links: [['Health & about', '/system'], ['Observability', '/observability'], ['Disaster Recovery', '/disaster-recovery'], ['Audit trail', '/audit'], ['Personal API Gateway', '/settings']] },
+];
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -23,6 +38,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [tab, setTab] = useState<Tab>('Capture');
+  const section = sections.find(group => group.tabs.includes(tab))!;
   const [memories, setMemories] = useState<Memory[]>([]);
   const [offlineLibrary, setOfflineLibrary] = useState<OfflineLibrary>({ items: [], savedAt: null });
   const [usingOffline, setUsingOffline] = useState(false);
@@ -48,6 +64,7 @@ export default function App() {
   const captureInput = useRef<TextInput>(null);
   const [inboxTitle, setInboxTitle] = useState('');
   const [inboxContent, setInboxContent] = useState('');
+  const [incomingShare, setIncomingShare] = useState('');
   const inboxComposer = useRef({ title: '', content: '' });
   const editing = useRef<CaptureDraft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,6 +76,32 @@ export default function App() {
   const busyNow = useRef(false);
   const [error, setError] = useState('');
   const [scanMessage, setScanMessage] = useState('');
+
+  useEffect(() => {
+    if (!session || !['ios', 'android'].includes(Platform.OS)) {
+      setIncomingShare('');
+      return;
+    }
+    let active = true;
+    async function readIncomingShare() {
+      try {
+        const Sharing = await import('expo-sharing');
+        const items = Sharing.getSharedPayloads();
+        const text = items
+          .filter(item => item.shareType === 'text' || item.shareType === 'url')
+          .map(item => item.value.trim()).filter(Boolean).join('\n');
+        if (active) setIncomingShare(text);
+      } catch {
+        // Older native builds have no incoming share module.
+      }
+    }
+    readIncomingShare();
+    const link = Linking.addEventListener('url', readIncomingShare);
+    const foreground = AppState.addEventListener('change', state => {
+      if (state === 'active') readIncomingShare();
+    });
+    return () => { active = false; link.remove(); foreground.remove(); };
+  }, [session?.token]);
 
   function changeTitle(value: string) { composer.current.title = value; setTitle(value); }
   function changeContent(value: string) { composer.current.content = value; setContent(value); }
@@ -310,6 +353,12 @@ export default function App() {
   const listedMemories = favoritesOnly ? favorites : memories;
   const memoryTypes = ['All', ...new Set(listedMemories.map(item => item.memory_type))];
   const visibleMemories = listedMemories.filter(item => memoryType === 'All' || item.memory_type === memoryType);
+  function selectTab(next: Tab) {
+    setTab(next);
+    setSelected(null);
+    setError('');
+  }
+
   const memoryActions = (item: Memory) => <View style={styles.row}>
     <Pressable style={styles.secondary} disabled={busy || libraryLoading} accessibilityRole="button" accessibilityLabel={favorites.some(saved => saved.id === item.id) ? 'Remove favourite' : 'Save favourite'} onPress={() => act(async () => {
       if (!session) return;
@@ -327,14 +376,14 @@ export default function App() {
     <Text style={styles.preview} numberOfLines={2}>{item.content}</Text>{item.truncated && <Text style={styles.meta}>Offline excerpt</Text>}
   </Pressable>;
 
-  if (!ready) return <SafeAreaView style={styles.center}><ActivityIndicator color="#7ccaff" /></SafeAreaView>;
+  if (!ready) return <SafeAreaView style={styles.center}><ActivityIndicator color={colors.accent} /></SafeAreaView>;
   if (!session) return <SafeAreaView style={styles.root}><StatusBar style="light" /><KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView contentContainerStyle={styles.login} keyboardShouldPersistTaps="handled">
-      <Text style={styles.brand}>ENGRAM</Text><Text style={styles.hero}>Your memory, anywhere.</Text>
-      <Text style={styles.sub}>2.7 alpha 1 · iOS + Android</Text>
-      <Text style={styles.label}>Server URL</Text><TextInput style={styles.input} value={server} onChangeText={setServer} placeholder="https://engram.example.com" placeholderTextColor="#718094" autoCapitalize="none" keyboardType="url" />
-      <Text style={styles.label}>Username</Text><TextInput style={styles.input} value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Username" placeholderTextColor="#718094" />
-      <Text style={styles.label}>Password</Text><TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor="#718094" onSubmitEditing={signIn} />
+      <Image source={logo} style={styles.loginLogo} accessible={false} /><Text style={styles.hero}>Enter Engram</Text>
+      <Text style={styles.sub}>v{appConfig.expo.version} · Mobile preview</Text>
+      <Text style={styles.label}>Server URL</Text><TextInput style={styles.input} value={server} onChangeText={setServer} placeholder="https://engram.example.com" placeholderTextColor={colors.muted} autoCapitalize="none" keyboardType="url" />
+      <Text style={styles.label}>Username</Text><TextInput style={styles.input} value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Username" placeholderTextColor={colors.muted} />
+      <Text style={styles.label}>Password</Text><TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor={colors.muted} onSubmitEditing={signIn} />
       {!!error && <Text style={styles.error}>{error}</Text>}
       <Pressable style={styles.primary} onPress={signIn} disabled={busy} accessibilityRole="button"><Text style={styles.primaryText}>{busy ? 'Connecting…' : 'Sign in'}</Text></Pressable>
       <Text style={styles.hint}>Use your Engram account. Your session is stored in your device's secure storage.</Text>
@@ -342,10 +391,46 @@ export default function App() {
   </KeyboardAvoidingView></SafeAreaView>;
 
   return <SafeAreaView style={styles.root}><StatusBar style="light" />
-    <View style={styles.header}><View><Text style={styles.brandSmall}>ENGRAM</Text><Text style={styles.heading}>{tab}</Text></View><Text style={styles.beta}>ALPHA 1</Text></View>
-    <ScrollView horizontal style={styles.tabBar} contentContainerStyle={styles.tabContent} showsHorizontalScrollIndicator={false}>
-      {tabs.map(item => <Pressable key={item} disabled={busy} style={[styles.tab, tab === item && styles.tabActive]} onPress={() => { setTab(item); setSelected(null); setError(''); }} accessibilityRole="button"><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item === 'Inbox' ? `Inbox (${inboxFor(drafts, session).length})` : item}</Text></Pressable>)}
-    </ScrollView>
+    <View style={styles.header}>
+      <View style={styles.headerTitle}>
+        <Image source={logo} style={styles.headerLogo} accessible={false} />
+        <Text style={styles.heading}>{tab}</Text>
+      </View>
+      <Text style={styles.beta}>v{appConfig.expo.version}</Text>
+    </View>
+    {!!incomingShare && <View style={{ padding: 12 }}>
+      <Text style={styles.hint}>Shared text or link is ready for the local Inbox.</Text>
+      <Pressable disabled={busy} style={styles.secondary} accessibilityRole="button" onPress={() => void act(async () => {
+        await queueInbox(session, 'Shared capture', incomingShare);
+        setIncomingShare('');
+        setSelected(null); setTab('Inbox');
+        try {
+          const Sharing = await import('expo-sharing');
+          Sharing.clearSharedPayloads();
+        } catch {
+          setError('Saved to Inbox. The shared item could not be cleared; check Inbox before saving again.');
+        }
+      })}><Text style={styles.link}>Save to local Inbox</Text></Pressable>
+    </View>}
+    <View style={styles.navigation}>
+      <View style={styles.sectionNav} accessibilityLabel="Engram sections">
+        {sections.map(group => <Pressable key={group.title} disabled={busy} accessibilityRole="button"
+          accessibilityState={{ selected: section === group }}
+          style={[styles.tab, section === group && styles.tabActive]}
+          onPress={() => { if (section !== group) selectTab(group.tabs[0]); }}>
+          <Text style={[styles.tabText, section === group && styles.tabTextActive]}>{group.title}</Text>
+        </Pressable>)}
+      </View>
+      {section.tabs.length > 1 && <View style={styles.sectionNav} accessibilityLabel={section.title + ' tabs'}>
+        {section.tabs.map(item => <Pressable key={item} disabled={busy} accessibilityRole="button"
+          accessibilityState={{ selected: tab === item }}
+          style={[styles.tab, tab === item && styles.tabActive]} onPress={() => selectTab(item)}>
+          <Text style={[styles.tabText, tab === item && styles.tabTextActive]}>
+            {item === 'Inbox' ? `Inbox (${inboxFor(drafts, session).length})` : item === 'Agent' ? 'Memory Agent' : item}
+          </Text>
+        </Pressable>)}
+      </View>}
+    </View>
     {projects.length > 1 && <ScrollView horizontal style={styles.projectRow} contentContainerStyle={styles.projectContent} showsHorizontalScrollIndicator={false}>
       {projects.map(project => <Pressable key={project.id} style={[styles.chip, session.projectId === project.id && styles.chipActive]} onPress={() => switchProject(project.id)} accessibilityRole="button"><Text style={styles.chipText}>{project.name}</Text></Pressable>)}
     </ScrollView>}
@@ -356,9 +441,9 @@ export default function App() {
         <Text style={styles.hint}>Project: {projects.find(project => project.id === session.projectId)?.name || session.projectName || 'Selected project'}</Text>
         {!!editingId && <Text style={styles.hint}>Editing a saved draft</Text>}
         <ScrollView horizontal style={styles.filterRow} contentContainerStyle={styles.filterContent} showsHorizontalScrollIndicator={false}>{captureTemplates.map(template => <Pressable key={template.name} style={styles.chip} disabled={busy} accessibilityRole="button" accessibilityLabel={`${template.name} capture template`} onPress={() => seedCapture(template.title, template.content)}><Text style={styles.chipText}>＋ {template.name}</Text></Pressable>)}</ScrollView>
-        <TextInput ref={captureInput} style={[styles.input, styles.multiline]} value={content} onChangeText={value => { changeContent(value); setCaptureMessage(''); }} placeholder="What should Engram remember?" placeholderTextColor="#718094" multiline textAlignVertical="top" maxLength={1200} accessibilityLabel="Capture text" />
+        <TextInput ref={captureInput} style={[styles.input, styles.multiline]} value={content} onChangeText={value => { changeContent(value); setCaptureMessage(''); }} placeholder="What should Engram remember?" placeholderTextColor={colors.muted} multiline textAlignVertical="top" maxLength={1200} accessibilityLabel="Capture text" />
         <VoiceCapture key={`${session.token}:${session.projectId}`} content={content} onContent={changeContent} onKeyboard={() => captureInput.current?.focus()} disabled={busy} />
-        <TextInput style={styles.input} value={title} onChangeText={changeTitle} placeholder="Title (optional)" placeholderTextColor="#718094" maxLength={100} accessibilityLabel="Capture title" />
+        <TextInput style={styles.input} value={title} onChangeText={changeTitle} placeholder="Title (optional)" placeholderTextColor={colors.muted} maxLength={100} accessibilityLabel="Capture title" />
         <Pressable style={styles.primary} disabled={busy || (!content.trim() && !title.trim())} onPress={capture} accessibilityRole="button"><Text style={styles.primaryText}>Save capture</Text></Pressable>
         <Text style={styles.hint}>Saved securely on this device first. Engram sends it now if the server is reachable.</Text>
         {!!captureMessage && <Text style={styles.hint}>{captureMessage}</Text>}
@@ -389,7 +474,7 @@ export default function App() {
             <ScrollView horizontal style={styles.filterRow} contentContainerStyle={styles.filterContent} showsHorizontalScrollIndicator={false}>{memoryTypes.map(type => <Pressable key={type} style={[styles.chip, memoryType === type && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: memoryType === type }} accessibilityLabel={`Filter ${type} memories`} onPress={() => setMemoryType(type)}><Text style={styles.chipText}>{type.replaceAll('_', ' ')}</Text></Pressable>)}</ScrollView>
             {visibleMemories.map(card)}{!visibleMemories.length && <Text style={styles.empty}>{favoritesOnly && !favorites.length ? 'Open a memory and tap Save favourite to keep it here.' : 'No memories match this filter.'}</Text>}</>}
       </>}
-      {tab === 'Search' && <><Text style={styles.section}>Search this project</Text><TextInput style={styles.input} value={query} onChangeText={value => { setQuery(value); setResults(null); setSelected(null); setSearchIsOffline(false); }} placeholder="What are you looking for?" placeholderTextColor="#718094" returnKeyType="search" onSubmitEditing={runSearch} />
+      {tab === 'Search' && <><Text style={styles.section}>Search this project</Text><TextInput style={styles.input} value={query} onChangeText={value => { setQuery(value); setResults(null); setSelected(null); setSearchIsOffline(false); }} placeholder="What are you looking for?" placeholderTextColor={colors.muted} returnKeyType="search" onSubmitEditing={runSearch} />
         <Pressable style={styles.primary} disabled={busy || !query.trim()} onPress={runSearch}><Text style={styles.primaryText}>Search</Text></Pressable>
         {searchIsOffline && <Text style={styles.hint}>Offline results from {offlineLibrary.items.length} saved memories, including favourites. Connect for full search.</Text>}
         {results?.map(card)}{results?.length === 0 && <Text style={styles.empty}>No matches found.</Text>}
@@ -425,24 +510,54 @@ export default function App() {
         {runs.map(run => <View key={run.id} style={styles.card}><Text style={styles.cardTitle}>{run.trigger_type === 'scheduled' ? 'Automatic' : 'Manual'} scan · {run.status}</Text><Text style={styles.meta}>{new Date(run.created_at).toLocaleString()}</Text>{run.result && <Text style={styles.preview}>{run.result.total} new findings</Text>}{!!run.error_message && <Text style={styles.error}>{run.error_message}</Text>}</View>)}
         {!runs.length && <Text style={styles.empty}>No scans yet.</Text>}
       </>}
+      {tab === 'Notifications' && <Notifications key={session.token + session.projectId} origin={session.origin} request={(path, method) => call(session, path, method)} />}
+      {tab === 'Workspace' && <>
+        <Text style={styles.hint}>Tools open in your browser. Sign in there and choose your project if prompted.</Text>
+        {workspaceLinks.map(group => <View key={group.title} style={styles.workspaceGroup}>
+          <Text style={styles.section} accessibilityRole="header">{group.title}</Text>
+          <View style={styles.card}>
+            {group.links.map(([label, path], i) => <Pressable key={path} disabled={busy}
+              style={[styles.workspaceLink, i > 0 && styles.workspaceDivider]} accessibilityRole="link"
+              onPress={() => void act(async () => {
+                await Linking.openURL(normalizeOrigin(session.origin) + path);
+              })}>
+              <Text style={styles.workspaceLabel}>{label}</Text>
+              <Text style={styles.link} accessible={false}>↗</Text>
+            </Pressable>)}
+          </View>
+        </View>)}
+      </>}
+
       {tab === 'Settings' && <><Text style={styles.section}>Account</Text><Text style={styles.content}>{session.username}</Text><Text style={styles.meta}>{session.origin}</Text><Text style={styles.hint}>Project: {projects.find(p => p.id === session.projectId)?.name || 'Personal'}</Text>
         <Pressable style={styles.secondary} disabled={busy || libraryLoading || !offlineLibrary.savedAt} onPress={() => Alert.alert('Clear offline library?', 'Remove saved copies and favourites for this project from this device? Memories on the server are unaffected.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: () => { void act(async () => { await clearOfflineLibrary(SecureStore, session); setOfflineLibrary({ items: [], savedAt: null }); setSelected(null); setResults(null); if (usingOffline) setMemories([]); }); } }])} accessibilityRole="button"><Text style={styles.link}>Clear this project’s offline copies</Text></Pressable>
         <Pressable style={styles.secondary} onPress={signOut} disabled={busy}><Text style={styles.link}>Sign out and revoke session</Text></Pressable></>}
     </ScrollView>
-    {busy && <ActivityIndicator style={styles.spinner} color="#7ccaff" />}
+    {busy && <ActivityIndicator style={styles.spinner} color={colors.accent} />}
   </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
   filterRow: { flexGrow: 0, marginVertical: 16 }, filterContent: { gap: 8 },
-  root: { flex: 1, backgroundColor: '#0c1420' }, fill: { flex: 1 }, center: { flex: 1, backgroundColor: '#0c1420', justifyContent: 'center' },
-  login: { flexGrow: 1, padding: 28, justifyContent: 'center' }, brand: { color: '#7ccaff', fontSize: 19, fontWeight: '900', letterSpacing: 5 }, brandSmall: { color: '#7ccaff', fontSize: 12, fontWeight: '900', letterSpacing: 3 }, hero: { color: '#f2f7ff', fontSize: 34, fontWeight: '800', marginTop: 22 }, sub: { color: '#96a9bf', marginTop: 8, marginBottom: 34 },
-  label: { color: '#b6c9db', fontWeight: '700', marginBottom: 8, marginTop: 16 }, input: { backgroundColor: '#182637', color: '#f2f7ff', borderWidth: 1, borderColor: '#30465c', borderRadius: 14, padding: 15, fontSize: 16, marginBottom: 6 }, multiline: { minHeight: 180 },
-  primary: { backgroundColor: '#45aef0', padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 20 }, primaryText: { color: '#071521', fontWeight: '800', fontSize: 16 }, secondary: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: '#416887', marginTop: 16, alignItems: 'center' },
-  hint: { color: '#96a9bf', lineHeight: 20, marginTop: 14 }, error: { color: '#ff9b9b', marginTop: 12 }, errorBanner: { color: '#ffb1b1', backgroundColor: '#532c38', padding: 10 },
-  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, heading: { color: '#f2f7ff', fontSize: 26, fontWeight: '800', marginTop: 4, marginBottom: 10 }, beta: { color: '#7ccaff', fontSize: 11, fontWeight: '800' },
-  projectRow: { flexGrow: 0, maxHeight: 55 }, projectContent: { paddingHorizontal: 20, paddingBottom: 12, gap: 8 }, chip: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#182637', borderRadius: 20 }, chipActive: { backgroundColor: '#22618c' }, chipText: { color: '#f2f7ff', fontWeight: '700' },
-  body: { padding: 20, paddingBottom: 40 }, section: { color: '#dbe8f4', fontSize: 18, fontWeight: '800', marginBottom: 14 }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 8 }, link: { color: '#7ccaff', fontWeight: '800' },
-  card: { backgroundColor: '#172536', borderWidth: 1, borderColor: '#2b4157', borderRadius: 16, padding: 17, marginBottom: 12 }, cardTitle: { color: '#f2f7ff', fontSize: 17, fontWeight: '800', marginBottom: 7 }, meta: { color: '#96a9bf', fontSize: 12, marginBottom: 7 }, preview: { color: '#c5d6e6', lineHeight: 21 }, content: { color: '#dce9f5', fontSize: 16, lineHeight: 25, marginVertical: 14 }, empty: { color: '#96a9bf', marginTop: 28, textAlign: 'center' },
-  tabBar: { flexGrow: 0, borderBottomWidth: 1, borderBottomColor: '#2b4157', backgroundColor: '#0d1928' }, tabContent: { paddingHorizontal: 12, gap: 4 }, tab: { minWidth: 76, paddingHorizontal: 12, paddingVertical: 14, alignItems: 'center' }, tabActive: { borderBottomWidth: 2, borderBottomColor: '#7ccaff' }, tabText: { color: '#8ba1b7', fontSize: 12, fontWeight: '700' }, tabTextActive: { color: '#7ccaff' }, spinner: { position: 'absolute', right: 18, bottom: 24 },
+  root: { flex: 1, backgroundColor: colors.background }, fill: { flex: 1 }, center: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' },
+  login: { flexGrow: 1, padding: 28, justifyContent: 'center' }, loginLogo: { width: 56, height: 56, borderRadius: 13 }, hero: { color: colors.text, fontSize: 34, fontWeight: '800', marginTop: 22 }, sub: { color: colors.muted, marginTop: 8, marginBottom: 34 },
+  label: { color: colors.body, fontWeight: '700', marginBottom: 8, marginTop: 16 }, input: { backgroundColor: colors.input, color: colors.text, borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 14, padding: 15, fontSize: 16, marginBottom: 6 }, multiline: { minHeight: 180 },
+  primary: { backgroundColor: colors.accent, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 20 }, primaryText: { color: colors.onAccent, fontWeight: '800', fontSize: 16 }, secondary: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: colors.controlBorder, marginTop: 16, alignItems: 'center' },
+  hint: { color: colors.muted, lineHeight: 20, marginTop: 14 }, error: { color: colors.danger, marginTop: 12 }, errorBanner: { color: colors.danger, backgroundColor: colors.dangerSurface, padding: 10 },
+  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, heading: { color: colors.text, fontSize: 26, fontWeight: '800', marginTop: 4, marginBottom: 10 }, beta: { color: colors.accent, fontSize: 11, fontWeight: '800' },
+  headerTitle: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  headerLogo: { width: 32, height: 32, borderRadius: 8 },
+  projectRow: { flexGrow: 0, maxHeight: 55 }, projectContent: { paddingHorizontal: 20, paddingBottom: 12, gap: 8 }, chip: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: colors.input, borderRadius: 20 }, chipActive: { backgroundColor: colors.selected }, chipText: { color: colors.text, fontWeight: '700' },
+  body: { padding: 20, paddingBottom: 40 }, section: { color: colors.body, fontSize: 18, fontWeight: '800', marginBottom: 14 }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 8 }, link: { color: colors.accent, fontWeight: '800' },
+  card: { backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 17, marginBottom: 12 }, cardTitle: { color: colors.text, fontSize: 17, fontWeight: '800', marginBottom: 7 }, meta: { color: colors.muted, fontSize: 12, marginBottom: 7 }, preview: { color: colors.body, lineHeight: 21 }, content: { color: colors.body, fontSize: 16, lineHeight: 25, marginVertical: 14 }, empty: { color: colors.muted, marginTop: 28, textAlign: 'center' },
+  navigation: { paddingHorizontal: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
+  sectionNav: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
+  tab: { minHeight: 44, paddingHorizontal: 9, justifyContent: 'center', borderRadius: 9, borderColor: colors.border, borderWidth: 1 },
+  tabActive: { backgroundColor: colors.selected, borderColor: colors.selectedBorder },
+  tabText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
+  tabTextActive: { color: colors.accent, fontWeight: '700' },
+  workspaceGroup: { marginTop: 20 },
+  workspaceLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, gap: 12 },
+  workspaceDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+  workspaceLabel: { flex: 1, color: colors.text, fontSize: 15 },
+  spinner: { position: 'absolute', right: 18, bottom: 24 },
 });

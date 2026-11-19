@@ -1,3 +1,4 @@
+import { colors } from './theme';
 import { useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { Project } from './api';
@@ -31,8 +32,8 @@ export default function Inbox({ items, projects, disabled, title, content, onTit
   return <>
     <Text style={styles.heading}>Inbox</Text>
     <Text style={styles.hint}>Catch a thought now. Choose a project later. These items stay securely on this device for this server and account until you explicitly save them to Engram. They are not included in Search or Ask yet.</Text>
-    <TextInput ref={input} style={[styles.input, { minHeight: 130 }]} value={content} onChangeText={setContent} multiline maxLength={1200} editable={!blocked} placeholder="A rough thought, an idea, something to sort later…" placeholderTextColor="#718094" accessibilityLabel="Inbox quick thought" />
-    <TextInput style={styles.input} value={title} onChangeText={setTitle} maxLength={100} editable={!blocked} placeholder="Title (optional)" placeholderTextColor="#718094" accessibilityLabel="Inbox title" />
+    <TextInput ref={input} style={[styles.input, { minHeight: 130 }]} value={content} onChangeText={setContent} multiline maxLength={1200} editable={!blocked} placeholder="A rough thought, an idea, something to sort later…" placeholderTextColor={colors.muted} accessibilityLabel="Inbox quick thought" />
+    <TextInput style={styles.input} value={title} onChangeText={setTitle} maxLength={100} editable={!blocked} placeholder="Title (optional)" placeholderTextColor={colors.muted} accessibilityLabel="Inbox title" />
     <VoiceCapture content={content} onContent={setContent} onKeyboard={() => input.current?.focus()} disabled={blocked} />
     <Pressable style={styles.button} disabled={blocked || (!title.trim() && !content.trim())} accessibilityRole="button" onPress={() => act(async () => {
       await onQueue(title, content); setTitle(''); setContent(''); setMessage('Kept in your device Inbox.');
@@ -62,10 +63,10 @@ export default function Inbox({ items, projects, disabled, title, content, onTit
 }
 
 const styles = StyleSheet.create({
-  heading: { color: '#f2f7ff', fontSize: 20, fontWeight: '800', marginBottom: 12 }, hint: { color: '#96a9bf', lineHeight: 20, marginVertical: 10 },
-  input: { backgroundColor: '#182637', color: '#f2f7ff', borderWidth: 1, borderColor: '#30465c', borderRadius: 14, padding: 15, fontSize: 16, marginBottom: 8 },
-  button: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: '#416887', marginTop: 12, alignItems: 'center' }, link: { color: '#7ccaff', fontWeight: '800' },
-  content: { color: '#dce9f5', fontSize: 16, lineHeight: 25 }, error: { color: '#ff9b9b', marginVertical: 12 },
-  card: { backgroundColor: '#172536', borderWidth: 1, borderColor: '#2b4157', borderRadius: 16, padding: 17, marginTop: 20 },
-  projects: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, chip: { padding: 12, borderRadius: 12, backgroundColor: '#22344a' }, selected: { backgroundColor: '#345a7a' },
+  heading: { color: colors.text, fontSize: 20, fontWeight: '800', marginBottom: 12 }, hint: { color: colors.muted, lineHeight: 20, marginVertical: 10 },
+  input: { backgroundColor: colors.input, color: colors.text, borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 14, padding: 15, fontSize: 16, marginBottom: 8 },
+  button: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: colors.controlBorder, marginTop: 12, alignItems: 'center' }, link: { color: colors.accent, fontWeight: '800' },
+  content: { color: colors.body, fontSize: 16, lineHeight: 25 }, error: { color: colors.danger, marginVertical: 12 },
+  card: { backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 17, marginTop: 20 },
+  projects: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, chip: { padding: 12, borderRadius: 12, backgroundColor: colors.surface }, selected: { backgroundColor: colors.selected },
 });

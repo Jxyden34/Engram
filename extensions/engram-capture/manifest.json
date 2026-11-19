@@ -1,12 +1,19 @@
 {
   "manifest_version": 3,
   "name": "Engram Capture",
-  "version": "2.1.0",
+  "version": "3.1.0",
   "description": "Send pages, selections, links and notes to your self-hosted Engram.",
   "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
   "host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
   "background": {
+    "scripts": ["background.js"],
     "service_worker": "background.js"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "engram-capture@hindley.tech",
+      "strict_min_version": "121.0"
+    }
   },
   "action": {
     "default_title": "Engram Capture",

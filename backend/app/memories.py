@@ -61,7 +61,7 @@ def get(memory_id: str, include_deleted: bool=False, touch: bool=True):
         if touch and not include_deleted:
             conn.execute("UPDATE memories SET access_count=access_count+1,last_accessed_at=now() WHERE id=%s",(memory_id,)); conn.commit()
         newer=conn.execute("SELECT id,title,valid_from,valid_to FROM memories WHERE supersedes_memory_id=%s AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1",(memory_id,)).fetchone()
-        older=conn.execute("SELECT id,title,valid_from,valid_to FROM memories WHERE id=%s",(row["supersedes_memory_id"],)).fetchone() if row["supersedes_memory_id"] else None
+        older=conn.execute("SELECT id,title,valid_from,valid_to FROM memories WHERE id=%s AND deleted_at IS NULL",(row["supersedes_memory_id"],)).fetchone() if row["supersedes_memory_id"] else None
     item=dict(row); item["memory_score"]=_score(item); item["superseded_by"]=dict(newer) if newer else None; item["supersedes"]=dict(older) if older else None; item["temporal_state"]="historical" if item.get("valid_to") else "current"
     return item
 
@@ -334,8 +334,8 @@ def restore(memory_id: str, actor: str):
     return get(memory_id), old
 
 
-def versions(memory_id: str):
-    get(memory_id, include_deleted=True)
+def versions(memory_id: str, include_deleted: bool = False):
+    get(memory_id, include_deleted=include_deleted)
     with connect() as conn:
         rows = conn.execute(
             """
@@ -375,8 +375,8 @@ def relations(memory_id: str):
             SELECT r.id, r.relation_type, r.from_memory_id, r.to_memory_id,
                    a.title AS from_title, b.title AS to_title, r.created_at
             FROM memory_relations r
-            JOIN memories a ON a.id=r.from_memory_id
-            JOIN memories b ON b.id=r.to_memory_id
+            JOIN memories a ON a.id=r.from_memory_id AND a.deleted_at IS NULL
+            JOIN memories b ON b.id=r.to_memory_id AND b.deleted_at IS NULL
             WHERE r.from_memory_id=%s OR r.to_memory_id=%s
             ORDER BY r.created_at DESC
             """,

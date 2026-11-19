@@ -1,3 +1,4 @@
+import { colors } from './theme';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { AskAnswer, Memory } from './api';
@@ -15,6 +16,7 @@ export default function Ask({ projectId, projectName, request, onOpen, onCapture
   const [question, setQuestion] = useState('');
   const [memoryType, setMemoryType] = useState('');
   const [since, setSince] = useState('');
+  const [sourceType, setSourceType] = useState('');
   const [until, setUntil] = useState('');
   const [answers, setAnswers] = useState<AskAnswer[]>([]);
   const [busy, setBusy] = useState(false);
@@ -35,7 +37,7 @@ export default function Ask({ projectId, projectName, request, onOpen, onCapture
     if (!question.trim()) return;
     if ([since, until].some(value => value && !/^\d{4}-\d{2}-\d{2}$/.test(value))) throw new Error('Use YYYY-MM-DD for dates.');
     if (since && until && since > until) throw new Error('Start date must be on or before end date.');
-    const answer = await request<AskAnswer>('/api/v1/ask', 'POST', { question: question.trim(), memory_type: memoryType || null, since: since || null, until: until || null });
+    const answer = await request<AskAnswer>('/api/v1/ask', 'POST', { question: question.trim(), memory_type: memoryType || null, source_type: sourceType || null, since: since || null, until: until || null });
     if (answer.project_id !== projectId) throw new Error('The answer belongs to another project. Please try again.');
     if (mounted.current) { setAnswers(previous => [answer, ...previous].slice(0, 5)); setQuestion(''); }
   });
@@ -43,14 +45,23 @@ export default function Ask({ projectId, projectName, request, onOpen, onCapture
   return <>
     <Text style={styles.heading}>Ask your memories</Text>
     <Text style={styles.hint}>Ask about {projectName}. Answers use this project’s memories and show the supporting excerpts. Check the sources before relying on an answer.</Text>
-    <TextInput style={styles.input} value={question} onChangeText={setQuestion} maxLength={1000} multiline placeholder="What did we decide about the launch?" placeholderTextColor="#718094" accessibilityLabel="Ask Engram question" />
-    <Text style={styles.hint}>Filter by memory type and last updated date (inclusive UTC days).</Text>
+    <TextInput style={styles.input} value={question} onChangeText={setQuestion} maxLength={1000} multiline placeholder="What did we decide about the launch?" placeholderTextColor={colors.muted} accessibilityLabel="Ask Engram question" />
+    <Text style={styles.hint}>Filter by source, memory type, and last updated date (inclusive UTC days).</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+      {Object.entries({ '': 'All sources', manual: 'Manual', browser_capture: 'Browser', github_import: 'GitHub', chatgpt_import: 'ChatGPT', document_import: 'Document' }).map(([source, label]) => (
+        <Pressable key={source} style={[styles.button, { marginTop: 0, padding: 10 }]}
+          disabled={busy || disabled} accessibilityRole="button" accessibilityState={{ selected: sourceType === source }}
+          onPress={() => setSourceType(source)}>
+          <Text style={styles.link}>{sourceType === source ? '✓ ' : ''}{label}</Text>
+        </Pressable>
+      ))}
+    </View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>{['', 'decision', 'meeting', 'idea', 'general'].map(type => <Pressable key={type} style={[styles.button, { marginTop: 0, padding: 10 }]} disabled={busy || disabled} accessibilityRole="button" accessibilityState={{ selected: memoryType === type }} onPress={() => setMemoryType(type)}><Text style={styles.link}>{memoryType === type ? '✓ ' : ''}{type || 'All types'}</Text></Pressable>)}</View>
-    <TextInput style={[styles.input, { minHeight: 0 }]} value={since} onChangeText={setSince} editable={!busy && !disabled} maxLength={10} placeholder="From YYYY-MM-DD (optional)" placeholderTextColor="#718094" accessibilityLabel="Ask start date" />
-    <TextInput style={[styles.input, { minHeight: 0, marginTop: 8 }]} value={until} onChangeText={setUntil} editable={!busy && !disabled} maxLength={10} placeholder="Through YYYY-MM-DD (optional)" placeholderTextColor="#718094" accessibilityLabel="Ask end date" />
+    <TextInput style={[styles.input, { minHeight: 0 }]} value={since} onChangeText={setSince} editable={!busy && !disabled} maxLength={10} placeholder="From YYYY-MM-DD (optional)" placeholderTextColor={colors.muted} accessibilityLabel="Ask start date" />
+    <TextInput style={[styles.input, { minHeight: 0, marginTop: 8 }]} value={until} onChangeText={setUntil} editable={!busy && !disabled} maxLength={10} placeholder="Through YYYY-MM-DD (optional)" placeholderTextColor={colors.muted} accessibilityLabel="Ask end date" />
     <View style={styles.suggestions}>{['What decisions have we made?', 'What are the next actions?'].map(example => <Pressable key={example} disabled={busy || disabled} accessibilityRole="button" onPress={() => setQuestion(example)}><Text style={styles.link}>{example}</Text></Pressable>)}</View>
     <Pressable style={styles.button} disabled={busy || disabled || !question.trim()} accessibilityRole="button" onPress={ask}><Text style={styles.link}>{busy ? 'Checking project memories…' : 'Ask Engram'}</Text></Pressable>
-    {busy && <ActivityIndicator style={{ marginTop: 16 }} color="#7ccaff" />}
+    {busy && <ActivityIndicator style={{ marginTop: 16 }} color={colors.accent} />}
     {!!error && <Text style={styles.error}>{error}</Text>}
     {answers.map((answer, index) => <View key={index} style={styles.card}>
       <Text style={styles.heading}>{answer.question}</Text>
@@ -75,14 +86,14 @@ export default function Ask({ projectId, projectName, request, onOpen, onCapture
 }
 
 const styles = StyleSheet.create({
-  heading: { color: '#f2f7ff', fontSize: 20, fontWeight: '800', marginBottom: 12 },
-  hint: { color: '#96a9bf', lineHeight: 20, marginBottom: 18 },
-  input: { backgroundColor: '#182637', color: '#f2f7ff', borderWidth: 1, borderColor: '#30465c', borderRadius: 14, padding: 15, fontSize: 16, minHeight: 110 },
+  heading: { color: colors.text, fontSize: 20, fontWeight: '800', marginBottom: 12 },
+  hint: { color: colors.muted, lineHeight: 20, marginBottom: 18 },
+  input: { backgroundColor: colors.input, color: colors.text, borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 14, padding: 15, fontSize: 16, minHeight: 110 },
   suggestions: { gap: 14, marginVertical: 18 },
-  button: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: '#416887', marginTop: 12, alignItems: 'center' },
-  link: { color: '#7ccaff', fontWeight: '800' },
-  content: { color: '#dce9f5', fontSize: 16, lineHeight: 25, marginVertical: 12 },
-  quote: { color: '#96a9bf', lineHeight: 22, borderLeftWidth: 2, borderLeftColor: '#7ccaff', paddingLeft: 12, marginBottom: 12 },
-  error: { color: '#ff9b9b', marginVertical: 12 },
-  card: { backgroundColor: '#172536', borderWidth: 1, borderColor: '#2b4157', borderRadius: 16, padding: 17, marginTop: 24 },
+  button: { padding: 14, borderRadius: 13, borderWidth: 1, borderColor: colors.controlBorder, marginTop: 12, alignItems: 'center' },
+  link: { color: colors.accent, fontWeight: '800' },
+  content: { color: colors.body, fontSize: 16, lineHeight: 25, marginVertical: 12 },
+  quote: { color: colors.muted, lineHeight: 22, borderLeftWidth: 2, borderLeftColor: colors.accent, paddingLeft: 12, marginBottom: 12 },
+  error: { color: colors.danger, marginVertical: 12 },
+  card: { backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 17, marginTop: 24 },
 });

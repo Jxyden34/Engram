@@ -1,0 +1,36 @@
+diff --git a/dist/commonjs/index.js b/dist/commonjs/index.js
+index eb1c915f43b2debf5faa7ac3a73c262a161c7a4f..c266f1cc0f47b2c98f0d97d1d273caa67135fd39 100644
+--- a/dist/commonjs/index.js
++++ b/dist/commonjs/index.js
+@@ -959,10 +959,11 @@ class Minimatch {
+                         p === '..' ||
+                         !p2 ||
+                         p2 === '.' ||
+-                        p2 === '..' ||
+-                        globParts.length >= braceExpandMax) {
++                        p2 === '..') {
+                         continue;
+                     }
++                    if (globParts.length >= braceExpandMax)
++                        throw new RangeError('Pattern optimization exceeds braceExpandMax (' + braceExpandMax + ')');
+                     didSomething = true;
+                     // edit parts in place, and push the new one
+                     parts.splice(gs, 1);
+diff --git a/dist/esm/index.js b/dist/esm/index.js
+index 1dc27e67064fcbf1f3dce34aa3ea1a134b7be168..4bf1a4afca0fdf95ce289371424b61ce00ca0289 100644
+--- a/dist/esm/index.js
++++ b/dist/esm/index.js
+@@ -951,10 +951,11 @@ export class Minimatch {
+                         p === '..' ||
+                         !p2 ||
+                         p2 === '.' ||
+-                        p2 === '..' ||
+-                        globParts.length >= braceExpandMax) {
++                        p2 === '..') {
+                         continue;
+                     }
++                    if (globParts.length >= braceExpandMax)
++                        throw new RangeError('Pattern optimization exceeds braceExpandMax (' + braceExpandMax + ')');
+                     didSomething = true;
+                     // edit parts in place, and push the new one
+                     parts.splice(gs, 1);

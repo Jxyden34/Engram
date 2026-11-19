@@ -2,14 +2,16 @@ import base64
 import binascii
 import email.header
 import hashlib
+import hmac
 from html.parser import HTMLParser
 import json
 import re
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from uuid import uuid4
 
 import httpx
@@ -25,8 +27,23 @@ from app.documents import store_bytes
 
 
 GITHUB_API_VERSION = "2026-03-10"
+GITHUB_DISCUSSIONS_QUERY = """
+query RepositoryDiscussions($owner: String!, $name: String!, $limit: Int!) {
+  repository(owner: $owner, name: $name) {
+    discussions(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      nodes { number title body url updatedAt category { name } }
+    }
+  }
+}
+"""
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 GMAIL_CALLBACK_PATH = "/api/v1/connectors/gmail/callback"
+CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events.owned.readonly"
+CALENDAR_CALLBACK_PATH = "/api/v1/connectors/google-calendar/callback"
+GOOGLE_CONNECTORS = {
+    "gmail": ("Gmail", GMAIL_SCOPE, GMAIL_CALLBACK_PATH),
+    "google_calendar": ("Google Calendar", CALENDAR_SCOPE, CALENDAR_CALLBACK_PATH),
+}
 
 DOC_EXTENSIONS = {
     ".md", ".txt", ".rst", ".adoc", ".json", ".yaml", ".yml",
@@ -36,10 +53,18 @@ CODE_EXTENSIONS = {
     ".go", ".rs", ".java", ".cs", ".c", ".cc", ".cpp", ".h", ".hpp",
     ".sql", ".toml", ".ini", ".cfg", ".conf", ".xml", ".html", ".css",
 }
+GITHUB_CONTENT_TYPES = ("readme", "docs", "issues", "pulls", "code", "commits", "releases", "discussions")
 
 
 def queue():
     return Queue("document-ingest", connection=Redis.from_url(settings().redis_url))
+
+
+def _google_client_credentials(kind: str) -> tuple[str | None, str | None]:
+    cfg = settings()
+    if kind == "google_calendar":
+        return cfg.google_calendar_client_id, cfg.google_calendar_client_secret
+    return cfg.google_oauth_client_id, cfg.google_oauth_client_secret
 
 
 def capabilities():
@@ -51,20 +76,17 @@ def capabilities():
             "app_id_configured": bool(cfg.github_app_id),
             "private_key_present": key_path.is_file(),
             "private_key_path": cfg.github_app_private_key_path,
+            "webhook_configured": bool(cfg.github_webhook_secret),
         },
         "browser_capture": {
             "available": True,
             "scope": "capture:write",
         },
-        "gmail": {
-            "available": bool(
-                cfg.google_oauth_client_id
-                and cfg.google_oauth_client_secret
-                and _google_encryption_key()
-            ),
-            "scope": GMAIL_SCOPE,
-            "redirect_uri": f"{cfg.public_origin.rstrip('/')}{GMAIL_CALLBACK_PATH}",
-        },
+        **{kind: {
+            "available": bool(all(_google_client_credentials(kind)) and _google_encryption_key()),
+            "scope": scope,
+            "redirect_uri": f"{cfg.public_origin.rstrip('/')}{callback}",
+        } for kind, (_, scope, callback) in GOOGLE_CONNECTORS.items()},
     }
 
 
@@ -117,59 +139,79 @@ def _gmail_config(config: dict[str, Any]) -> dict[str, Any]:
     return {"query": query or "newer_than:30d", "label_ids": labels, "max_messages_per_sync": limit}
 
 
-def start_gmail_oauth(data: dict[str, Any], actor: str, owner_id: str, session_hash: str) -> str:
+def _calendar_config(config: dict[str, Any]) -> dict[str, Any]:
+    calendar_id = str(config.get("calendar_id") or "primary").strip()
+    if calendar_id in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9@._+-]{1,320}", calendar_id):
+        raise HTTPException(status_code=422, detail="Invalid Google Calendar ID")
+    return {"calendar_id": calendar_id}
+
+
+def start_google_oauth(kind: str, data: dict[str, Any], actor: str, owner_id: str, session_hash: str) -> str:
     cfg = settings()
-    if not cfg.google_oauth_client_id or not cfg.google_oauth_client_secret:
+    label, scope, callback = GOOGLE_CONNECTORS[kind]
+    client_id, client_secret = _google_client_credentials(kind)
+    if not client_id or not client_secret:
         raise HTTPException(status_code=503, detail="Google OAuth client is not configured")
     if not _google_encryption_key():
-        raise HTTPException(status_code=503, detail="Gmail token encryption key is not configured")
+        raise HTTPException(status_code=503, detail="Google token encryption key is not configured")
     state = secrets.token_urlsafe(32)
+    verifier = secrets.token_urlsafe(48)
     state_data = json.dumps({
         "actor": actor,
         "owner_id": owner_id,
         "session_hash": session_hash,
         "project_id": current_project_id(),
-        "name": str(data.get("name") or "Gmail").strip()[:200] or "Gmail",
-        "config": _gmail_config(data),
+        "name": str(data.get("name") or label).strip()[:200] or label,
+        "config": _gmail_config(data) if kind == "gmail" else _calendar_config(data),
+        "verifier": verifier,
     })
     redis = Redis.from_url(cfg.redis_url)
-    if not redis.set(f"gmail:oauth:{hashlib.sha256(state.encode()).hexdigest()}", state_data, ex=600, nx=True):
-        raise HTTPException(status_code=503, detail="Could not start Gmail authorization")
-    redirect_uri = f"{cfg.public_origin.rstrip('/')}{GMAIL_CALLBACK_PATH}"
+    if not redis.set(f"{kind}:oauth:{hashlib.sha256(state.encode()).hexdigest()}", state_data, ex=600, nx=True):
+        raise HTTPException(status_code=503, detail="Could not start Google authorization")
+    redirect_uri = f"{cfg.public_origin.rstrip('/')}{callback}"
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode({
-        "client_id": cfg.google_oauth_client_id,
+        "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": GMAIL_SCOPE,
+        "scope": scope,
+        "code_challenge": base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("="),
+        "code_challenge_method": "S256",
         "access_type": "offline",
         "prompt": "consent",
         "state": state,
     })
 
 
-def finish_gmail_oauth(state: str, code: str, session_hash: str) -> tuple[str, str]:
+def start_gmail_oauth(data: dict[str, Any], actor: str, owner_id: str, session_hash: str) -> str:
+    return start_google_oauth("gmail", data, actor, owner_id, session_hash)
+
+
+def finish_google_oauth(kind: str, state: str, code: str, session_hash: str) -> tuple[str, str | None]:
     cfg = settings()
-    if not cfg.google_oauth_client_id or not cfg.google_oauth_client_secret:
+    label, scope, callback = GOOGLE_CONNECTORS[kind]
+    client_id, client_secret = _google_client_credentials(kind)
+    if not client_id or not client_secret:
         raise HTTPException(status_code=503, detail="Google OAuth client is not configured")
     state_hash = hashlib.sha256(state.encode()).hexdigest()
-    value = Redis.from_url(cfg.redis_url).getdel(f"gmail:oauth:{state_hash}")
+    value = Redis.from_url(cfg.redis_url).getdel(f"{kind}:oauth:{state_hash}")
     if not value:
-        raise HTTPException(status_code=400, detail="Gmail authorization state expired or was already used")
+        raise HTTPException(status_code=400, detail="Google authorization state expired or was already used")
     data = json.loads(value)
     if not secrets.compare_digest(data["session_hash"], session_hash):
-        raise HTTPException(status_code=403, detail="Gmail authorization must finish in the same browser session")
+        raise HTTPException(status_code=403, detail="Google authorization must finish in the same browser session")
     if data.get("project_id", DEFAULT_PROJECT_ID) != current_project_id():
-        raise HTTPException(status_code=409, detail="Select the original project before finishing Gmail authorization")
+        raise HTTPException(status_code=409, detail="Select the original project before finishing Google authorization")
     if not code:
         raise HTTPException(status_code=400, detail="Google authorization was cancelled")
-    redirect_uri = f"{cfg.public_origin.rstrip('/')}{GMAIL_CALLBACK_PATH}"
+    redirect_uri = f"{cfg.public_origin.rstrip('/')}{callback}"
     try:
         response = httpx.post("https://oauth2.googleapis.com/token", data={
             "code": code,
-            "client_id": cfg.google_oauth_client_id,
-            "client_secret": cfg.google_oauth_client_secret,
+            "client_id": client_id,
+            "client_secret": client_secret,
             "redirect_uri": redirect_uri,
             "grant_type": "authorization_code",
+            **({"code_verifier": data["verifier"]} if data.get("verifier") else {}),
         }, timeout=30)
         if response.is_error:
             raise HTTPException(status_code=502, detail="Google token exchange failed")
@@ -177,40 +219,51 @@ def finish_gmail_oauth(state: str, code: str, session_hash: str) -> tuple[str, s
         refresh_token = tokens.get("refresh_token")
         if not refresh_token:
             raise HTTPException(status_code=502, detail="Google did not return offline access; retry authorization")
-        profile = httpx.get("https://gmail.googleapis.com/gmail/v1/users/me/profile",
-                            headers={"Authorization": f"Bearer {tokens['access_token']}"}, timeout=30)
-        if profile.is_error:
-            raise HTTPException(status_code=502, detail="Could not read the authorized Gmail profile")
-        email_address = str(profile.json().get("emailAddress") or "").strip().lower()
-        if not email_address:
-            raise HTTPException(status_code=502, detail="Google returned no Gmail address")
+        if tokens.get("scope") and scope not in tokens["scope"].split():
+            raise HTTPException(status_code=403, detail="The required Google read permission was not granted")
+        email_address = None
+        if kind == "gmail":
+            profile = httpx.get("https://gmail.googleapis.com/gmail/v1/users/me/profile",
+                                headers={"Authorization": f"Bearer {tokens['access_token']}"}, timeout=30)
+            if profile.is_error:
+                raise HTTPException(status_code=502, detail="Could not read the authorized Gmail profile")
+            email_address = str(profile.json().get("emailAddress") or "").strip().lower()
+            if not email_address:
+                raise HTTPException(status_code=502, detail="Google returned no Gmail address")
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail="Could not complete Google authorization") from exc
 
     connector_id = str(uuid4())
     credential = _encrypt_google_token(refresh_token, connector_id)
-    name = data["name"] if data["name"] != "Gmail" else f"Gmail · {email_address}"
+    name = f"{label} · {email_address}" if data["name"] == label and email_address else data["name"]
+    config = data["config"]
+    if email_address:
+        config["email_address"] = email_address
     with connect() as conn:
         row = conn.execute("""
             INSERT INTO connectors(id,owner_id,connector_type,name,schedule_minutes,config,
                                    credential_ciphertext,created_by)
-            VALUES (%s,%s,'gmail',%s,360,%s::jsonb,%s,%s)
+            VALUES (%s,%s,%s,%s,360,%s::jsonb,%s,%s)
             RETURNING id
-        """, (connector_id, data["owner_id"], name,
-              json.dumps({**data["config"], "email_address": email_address}),
+        """, (connector_id, data["owner_id"], kind, name,
+              json.dumps(config),
               credential, data["actor"])).fetchone()
         conn.commit()
     return str(row["id"]), email_address
 
 
-def cancel_gmail_oauth(state: str, session_hash: str) -> None:
+def finish_gmail_oauth(state: str, code: str, session_hash: str) -> tuple[str, str | None]:
+    return finish_google_oauth("gmail", state, code, session_hash)
+
+
+def cancel_google_oauth(state: str, session_hash: str, *, kind: str = "gmail") -> None:
     value = Redis.from_url(settings().redis_url).getdel(
-        f"gmail:oauth:{hashlib.sha256(state.encode()).hexdigest()}"
+        f"{kind}:oauth:{hashlib.sha256(state.encode()).hexdigest()}"
     )
     if value:
         data = json.loads(value)
         if not secrets.compare_digest(data["session_hash"], session_hash):
-            raise HTTPException(status_code=403, detail="Gmail authorization session did not match")
+            raise HTTPException(status_code=403, detail="Google authorization session did not match")
 
 
 def revoke_gmail_token(connector_id: str, ciphertext: str | None) -> None:
@@ -238,12 +291,41 @@ def _validate_github_config(config: dict[str, Any]) -> dict[str, Any]:
     clean_repositories = []
     for repo in repositories:
         repo = str(repo).strip()
-        if repo.count("/") != 1:
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or any(
+            part in {".", ".."} for part in repo.split("/")
+        ):
             raise HTTPException(
                 status_code=400,
                 detail=f"Repository must use owner/name format: {repo}",
             )
         clean_repositories.append(repo.lower())
+
+    def filters(name: str) -> list[str]:
+        values = config.get(name, [])
+        if not isinstance(values, list) or len(values) > 50 or any(
+            not isinstance(value, str) or not value.strip() or len(value) > 200
+            for value in values
+        ):
+            raise HTTPException(status_code=400, detail=f"Invalid GitHub {name}")
+        return [value.strip() for value in values]
+
+    branches = config.get("branches", {})
+    if not isinstance(branches, dict) or len(branches) > 100 or any(
+        not isinstance(repo, str) or repo.lower() not in clean_repositories
+        or not isinstance(branch, str) or not branch.strip() or len(branch) > 255
+        or any(ord(char) < 33 for char in branch)
+        for repo, branch in branches.items()
+    ):
+        raise HTTPException(status_code=400, detail="Invalid GitHub repository branches")
+
+    content_filters = config.get("repository_content", {})
+    if not isinstance(content_filters, dict) or len(content_filters) > 100 or any(
+        repo.lower() not in clean_repositories or not isinstance(sources, list)
+        or len(sources) > len(GITHUB_CONTENT_TYPES)
+        or any(source not in GITHUB_CONTENT_TYPES for source in sources)
+        for repo, sources in content_filters.items()
+    ):
+        raise HTTPException(status_code=400, detail="Invalid GitHub repository content filters")
 
     return {
         "installation_id": installation_id,
@@ -253,6 +335,13 @@ def _validate_github_config(config: dict[str, Any]) -> dict[str, Any]:
         "sync_issues": bool(config.get("sync_issues", True)),
         "sync_pulls": bool(config.get("sync_pulls", True)),
         "sync_code": bool(config.get("sync_code", False)),
+        "sync_commits": bool(config.get("sync_commits", False)),
+        "sync_releases": bool(config.get("sync_releases", False)),
+        "sync_discussions": bool(config.get("sync_discussions", False)),
+        "branches": {repo.lower(): branch for repo, branch in branches.items()},
+        "repository_content": {repo.lower(): sources for repo, sources in content_filters.items()},
+        "ignore_patterns": filters("ignore_patterns"),
+        "code_extensions": [value.lower() for value in filters("code_extensions")],
         "max_items_per_sync": min(
             max(int(config.get("max_items_per_sync", settings().github_max_items_per_sync)), 10),
             2000,
@@ -311,6 +400,8 @@ def update_connector(connector_id: str, changes: dict[str, Any]):
     if changes.get("config") is not None:
         if current["connector_type"] == "github":
             config = _validate_github_config(changes["config"])
+        elif current["connector_type"] == "google_calendar":
+            config = _calendar_config(changes["config"])
         else:
             config = {
                 **_gmail_config(changes["config"]),
@@ -357,7 +448,7 @@ def delete_connector(connector_id: str):
             (connector_id,),
         ).fetchone()
         conn.commit()
-    if current["connector_type"] == "gmail":
+    if current["connector_type"] in GOOGLE_CONNECTORS:
         revoke_gmail_token(connector_id, current["credential_ciphertext"])
     return dict(row)
 
@@ -403,14 +494,24 @@ def list_runs(connector_id: str | None = None, limit: int = 100):
     return [dict(row) for row in rows]
 
 
-def queue_sync(connector_id: str):
+def queue_sync(connector_id: str, *, backfill: tuple[str, str] | None = None):
     with connect() as conn:
         connector = conn.execute(
-            "SELECT id, enabled FROM connectors WHERE id=%s",
+            "SELECT id, enabled, connector_type FROM connectors WHERE id=%s FOR UPDATE",
             (connector_id,),
         ).fetchone()
         if not connector:
             raise HTTPException(status_code=404, detail="Connector not found")
+        if backfill:
+            if connector["connector_type"] != "gmail" or not connector["enabled"]:
+                raise HTTPException(status_code=409, detail="Backfill requires an enabled Gmail connector")
+            running = conn.execute(
+                """SELECT 1 FROM connector_sync_runs WHERE connector_id=%s
+                   AND status IN ('queued','processing') AND created_at > now() - interval '2 hours'""",
+                (connector_id,),
+            ).fetchone()
+            if running:
+                raise HTTPException(status_code=409, detail="Wait for the current sync to finish")
 
         run = conn.execute(
             """
@@ -437,6 +538,7 @@ def queue_sync(connector_id: str):
         str(run["id"]),
         job_timeout="2h",
         meta={"project_id": current_project_id()},
+        **({"kwargs": {"backfill": backfill}} if backfill else {}),
     )
     return dict(run)
 
@@ -445,6 +547,58 @@ def queue_due_connectors():
     with connect() as conn:
         project_ids = [str(row["id"]) for row in conn.execute("SELECT id FROM projects").fetchall()]
     return sum(_queue_due_connectors_in_project(project_id) for project_id in project_ids)
+
+
+def process_github_webhook(raw: bytes, signature: str, event: str) -> int:
+    secret = settings().github_webhook_secret
+    if not secret:
+        raise HTTPException(status_code=404, detail="GitHub webhooks are disabled")
+    expected = "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected.encode(), signature.encode()):
+        raise HTTPException(status_code=401, detail="Invalid GitHub webhook signature")
+    if event not in {"push", "issues", "pull_request", "release", "discussion"}:
+        return 0
+    try:
+        payload = json.loads(raw)
+        installation = str(payload["installation"]["id"])
+        repository = payload["repository"]["full_name"].lower()
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid GitHub webhook payload") from exc
+    if not installation.isdigit() or not re.fullmatch(r"[a-z0-9_.-]+/[a-z0-9_.-]+", repository):
+        raise HTTPException(status_code=400, detail="Invalid GitHub webhook source")
+
+    # Coalesce bursts across API workers after matching the connector's filters.
+    redis = Redis.from_url(settings().redis_url)
+    with connect() as conn:
+        projects = conn.execute("SELECT id FROM projects").fetchall()
+    queued = 0
+    for project in projects:
+        with project_scope(str(project["id"])):
+            with connect() as conn:
+                matches = conn.execute(
+                    """SELECT id, config FROM connectors WHERE enabled AND connector_type='github'
+                       AND config->>'installation_id'=%s""",
+                    (installation,),
+                ).fetchall()
+            for connector in matches:
+                config = connector["config"]
+                if config.get("repositories") and repository not in config["repositories"]:
+                    continue
+                branch = config.get("branches", {}).get(repository)
+                if event == "push" and (payload.get("deleted") or (
+                    branch and payload.get("ref") != f"refs/heads/{branch}"
+                )):
+                    continue
+                throttle = f"github:webhook:{connector['id']}"
+                if not redis.set(throttle, "1", ex=60, nx=True):
+                    continue
+                try:
+                    queue_sync(str(connector["id"]))
+                except Exception:
+                    redis.delete(throttle)
+                    raise
+                queued += 1
+    return queued
 
 
 def _queue_due_connectors_in_project(project_id: str):
@@ -624,14 +778,14 @@ def _decode_header(value: str) -> str:
         return value
 
 
-def _gmail_access_token(connector: dict[str, Any]) -> str:
+def _google_access_token(connector: dict[str, Any]) -> str:
     refresh_token = _decrypt_google_token(
         connector["credential_ciphertext"], str(connector["id"])
     )
-    cfg = settings()
+    client_id, client_secret = _google_client_credentials(connector.get("connector_type", "gmail"))
     response = httpx.post("https://oauth2.googleapis.com/token", data={
-        "client_id": cfg.google_oauth_client_id,
-        "client_secret": cfg.google_oauth_client_secret,
+        "client_id": client_id,
+        "client_secret": client_secret,
         "refresh_token": refresh_token,
         "grant_type": "refresh_token",
     }, timeout=30)
@@ -647,7 +801,63 @@ def _gmail_access_token(connector: dict[str, Any]) -> str:
     return token_data["access_token"]
 
 
-def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int]) -> None:
+_gmail_access_token = _google_access_token
+
+
+def _sync_google_calendar(connector: dict, run_id: str, counters: dict[str, int]) -> None:
+    calendar_id = _calendar_config(connector["config"])["calendar_id"]
+    token = _google_access_token(connector)
+    now = datetime.now(timezone.utc)
+    params = {
+        "timeMin": (now - timedelta(days=30)).isoformat(),
+        "timeMax": (now + timedelta(days=90)).isoformat(),
+        "singleEvents": "true", "orderBy": "startTime", "maxResults": 100, "maxAttendees": 100,
+        "fields": "nextPageToken,items(id,status,summary,description,location,start,end,attendees(displayName,email),updated,htmlLink,recurringEventId)",
+    }
+    with httpx.Client(base_url="https://www.googleapis.com/calendar/v3/",
+                      headers={"Authorization": f"Bearer {token}"}, timeout=30) as client:
+        for _ in range(5):
+            response = client.get(f"calendars/{quote(calendar_id, safe='')}/events", params=params)
+            response.raise_for_status()
+            page = response.json()
+            for event in page.get("items", []):
+                if counters["seen"] >= 500:
+                    return
+                counters["seen"] += 1
+                event_id = event.get("id")
+                if not event_id or event.get("status") == "cancelled":
+                    counters["skipped"] += 1
+                    continue
+                title = str(event.get("summary") or "Untitled event")[:300]
+                start = event.get("start") or {}
+                end = event.get("end") or {}
+                attendees = ", ".join(
+                    person.get("displayName") or person.get("email") or ""
+                    for person in (event.get("attendees") or [])
+                )
+                notes = _PlainTextHTML()
+                notes.feed(str(event.get("description") or "")[:100_000])
+                lines = [f"# {title}", f"- Start: {start.get('dateTime') or start.get('date') or ''}",
+                         f"- End: {end.get('dateTime') or end.get('date') or ''}",
+                         f"- Location: {event.get('location') or ''}", f"- Attendees: {attendees}",
+                         "", "".join(notes.parts)]
+                identity = f"calendar:{calendar_id}:{event_id}"
+                filename = f"calendar/{hashlib.sha256(identity.encode()).hexdigest()}.md"
+                changed = _upsert_source_item(
+                    connector, run_id, identity, "calendar_event", title, event.get("htmlLink"),
+                    "\n".join(lines).encode(), filename, "text/markdown", event.get("updated"),
+                    {"calendar_id": calendar_id, "event_id": event_id, "start": start, "end": end,
+                     "recurring_event_id": event.get("recurringEventId")}, source_type="google_calendar",
+                )
+                counters["changed"] += int(bool(changed))
+                counters["skipped"] += int(not changed)
+            if not page.get("nextPageToken"):
+                return
+            params["pageToken"] = page["nextPageToken"]
+
+
+def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int],
+                backfill: tuple[str, str] | None = None) -> None:
     config = _gmail_config(connector["config"])
     token = _gmail_access_token(connector)
     email_address = str(connector["config"]["email_address"])
@@ -656,13 +866,22 @@ def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int]) -> None:
         params["q"] = config["query"]
     if config["label_ids"]:
         params["labelIds"] = config["label_ids"]
+    epochs = None
+    if backfill:
+        start, end = (date.fromisoformat(value) for value in backfill)
+        epochs = (
+            int(datetime.combine(start, time.min, timezone.utc).timestamp()),
+            int(datetime.combine(end + timedelta(days=1), time.min, timezone.utc).timestamp()),
+        )
+        params["q"] = f"after:{max(0, epochs[0] - 1)} before:{epochs[1]}"
 
     with httpx.Client(
         base_url="https://gmail.googleapis.com/gmail/v1/users/me/",
         headers={"Authorization": f"Bearer {token}"}, timeout=45,
     ) as client:
         page_token = None
-        while counters["seen"] < config["max_messages_per_sync"]:
+        attempted = 0
+        while attempted < config["max_messages_per_sync"]:
             if page_token:
                 params["pageToken"] = page_token
             listing = client.get("messages", params=params)
@@ -672,8 +891,9 @@ def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int]) -> None:
             if not messages:
                 break
             for item in messages:
-                if counters["seen"] >= config["max_messages_per_sync"]:
+                if attempted >= config["max_messages_per_sync"]:
                     break
+                attempted += 1
                 message_id = str(item.get("id") or "")
                 if not message_id or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", message_id):
                     counters["errors"] += 1
@@ -700,6 +920,9 @@ def _sync_gmail(connector: dict, run_id: str, counters: dict[str, int]) -> None:
                 body = body[:262144]
                 label_ids = message.get("labelIds") or []
                 internal_date = message.get("internalDate")
+                if epochs and (not internal_date or not epochs[0] * 1000 <= int(internal_date) < epochs[1] * 1000):
+                    counters["skipped"] += 1
+                    continue
                 updated = None
                 if internal_date:
                     updated = datetime.fromtimestamp(int(internal_date) / 1000, timezone.utc).isoformat()
@@ -872,6 +1095,14 @@ def _upsert_source_item(
 def _sync_repo(client, connector, run_id, repo, config, counters):
     repo_name = repo["full_name"]
     prefix = f"github/{repo_name}"
+    branch_override = config["branches"].get(repo_name.lower())
+    branch = branch_override or repo.get("default_branch") or "main"
+    selected_content = config["repository_content"].get(repo_name.lower())
+    if selected_content is not None:
+        config = {**config, **{f"sync_{source}": source in selected_content for source in GITHUB_CONTENT_TYPES}}
+
+    def ignored(path):
+        return any(fnmatchcase(path, pattern) for pattern in config["ignore_patterns"])
 
     def ingest(*args, **kwargs):
         counters["seen"] += 1
@@ -897,23 +1128,25 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
         {"repository": repo_name},
     )
 
-    if config["sync_readme"]:
-        response = client.get(f"/repos/{repo_name}/readme")
+    if config["sync_readme"] and counters["seen"] < config["max_items_per_sync"]:
+        response = client.get(f"/repos/{repo_name}/readme", params={"ref": branch})
         if response.status_code == 200:
             data = response.json()
             try:
+                path = data.get("path") or "README.md"
                 raw = base64.b64decode(data.get("content") or "")
-                ingest(
-                    f"readme:{repo_name}",
-                    "readme",
-                    f"{repo_name} README",
-                    data.get("html_url") or repo.get("html_url"),
-                    raw,
-                    f"{prefix}/{data.get('path') or 'README.md'}",
-                    "text/markdown",
-                    repo.get("pushed_at"),
-                    {"repository": repo_name, "path": data.get("path")},
-                )
+                if not ignored(path) and len(raw) <= config["max_file_kb"] * 1024:
+                    ingest(
+                        f"readme:{repo_name}:{branch}" if branch_override else f"readme:{repo_name}",
+                        "readme",
+                        f"{repo_name} README",
+                        data.get("html_url") or repo.get("html_url"),
+                        raw,
+                        f"{prefix}/{path}",
+                        "text/markdown",
+                        repo.get("pushed_at"),
+                        {"repository": repo_name, "path": path, "branch": branch},
+                    )
             except Exception:
                 counters["errors"] += 1
 
@@ -963,10 +1196,78 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                 {"repository": repo_name, "number": pull["number"]},
             )
 
+    for kind, endpoint, params in (
+        ("commit", "commits", {"sha": branch}),
+        ("release", "releases", {}),
+    ):
+        remaining = config["max_items_per_sync"] - counters["seen"]
+        if not config[f"sync_{endpoint}"] or remaining <= 0:
+            continue
+        try:
+            items = _paginate(client, f"/repos/{repo_name}/{endpoint}", params, limit=min(100, remaining))
+        except httpx.HTTPStatusError:
+            counters["errors"] += 1
+            continue
+        for item in items:
+            if kind == "commit":
+                identity = item["sha"]
+                commit = item["commit"]
+                body = commit.get("message") or ""
+                title = body.splitlines()[0][:200] if body else identity[:12]
+                updated = (commit.get("committer") or {}).get("date")
+                metadata = {"repository": repo_name, "sha": identity, "branch": branch}
+            else:
+                if item.get("draft"):
+                    continue
+                identity = str(item["id"])
+                title = item.get("name") or item["tag_name"]
+                body = item.get("body") or ""
+                updated = item.get("published_at")
+                metadata = {"repository": repo_name, "tag": item["tag_name"]}
+            raw = f"# {repo_name}: {title}\n\n{body}\n".encode("utf-8")
+            if len(raw) > config["max_file_kb"] * 1024:
+                counters["skipped"] += 1
+                continue
+            ingest(
+                f"{kind}:{repo_name}:{identity}", kind, f"{repo_name}: {title}",
+                item.get("html_url"), raw, f"{prefix}/{endpoint}/{identity}.md",
+                "text/markdown", updated, metadata,
+            )
+
+    remaining = config["max_items_per_sync"] - counters["seen"]
+    if config["sync_discussions"] and repo.get("has_discussions") and remaining > 0:
+        owner, name = repo_name.split("/", 1)
+        response = client.post("/graphql", json={
+            "query": GITHUB_DISCUSSIONS_QUERY,
+            "variables": {"owner": owner, "name": name, "limit": min(50, remaining)},
+        })
+        if response.status_code != 200:
+            counters["errors"] += 1
+        else:
+            payload = response.json()
+            repository = (payload.get("data") or {}).get("repository")
+            if payload.get("errors") or not repository:
+                counters["errors"] += 1
+            else:
+                for discussion in repository["discussions"]["nodes"][:remaining]:
+                    number = discussion["number"]
+                    title = discussion["title"]
+                    body = (f"# {repo_name} discussion #{number}: {title}\n\n"
+                            f"{discussion.get('body') or ''}\n").encode("utf-8")
+                    if len(body) > config["max_file_kb"] * 1024:
+                        counters["skipped"] += 1
+                        continue
+                    ingest(
+                        f"discussion:{repo_name}:{number}", "discussion", title,
+                        discussion["url"], body, f"{prefix}/discussions/{number}.md",
+                        "text/markdown", discussion["updatedAt"],
+                        {"repository": repo_name, "number": number,
+                         "category": (discussion.get("category") or {}).get("name")},
+                    )
+
     if (config["sync_docs"] or config["sync_code"]) and counters["seen"] < config["max_items_per_sync"]:
-        branch = repo.get("default_branch") or "main"
         response = client.get(
-            f"/repos/{repo_name}/git/trees/{branch}",
+            f"/repos/{repo_name}/git/trees/{quote(branch, safe='')}",
             params={"recursive": "1"},
         )
         if response.status_code == 200:
@@ -978,6 +1279,8 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                     continue
 
                 path = entry.get("path") or ""
+                if not path or ignored(path):
+                    continue
                 suffix = Path(path).suffix.lower()
                 lower = path.lower()
                 is_doc = (
@@ -990,7 +1293,9 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                         or Path(lower).name in {"contributing.md", "changelog.md", "security.md"}
                     )
                 )
-                is_code = suffix in CODE_EXTENSIONS
+                is_code = suffix in CODE_EXTENSIONS and (
+                    not config["code_extensions"] or suffix in config["code_extensions"]
+                )
 
                 if not ((config["sync_docs"] and is_doc) or (config["sync_code"] and is_code)):
                     continue
@@ -1016,10 +1321,10 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
                     continue
 
                 ingest(
-                    f"file:{repo_name}:{path}",
+                    f"file:{repo_name}:{branch}:{path}" if branch_override else f"file:{repo_name}:{path}",
                     "repository_file",
                     f"{repo_name}: {path}",
-                    f"{repo.get('html_url')}/blob/{branch}/{path}",
+                    f"{repo.get('html_url')}/blob/{quote(branch, safe='/')}/{quote(path, safe='/')}",
                     raw,
                     f"{prefix}/files/{path}",
                     "text/plain",
@@ -1034,7 +1339,7 @@ def _sync_repo(client, connector, run_id, repo, config, counters):
 
 
 @project_job
-def sync_connector(connector_id: str, run_id: str):
+def sync_connector(connector_id: str, run_id: str, *, backfill: tuple[str, str] | None = None):
     with connect() as conn:
         connector = conn.execute(
             "SELECT * FROM connectors WHERE id=%s",
@@ -1074,7 +1379,13 @@ def sync_connector(connector_id: str, run_id: str):
         elif connector["connector_type"] == "gmail":
             if not connector["credential_ciphertext"]:
                 raise RuntimeError("Gmail authorization is missing; reconnect the account")
-            _sync_gmail(dict(connector), run_id, counters)
+            if backfill and not connector["enabled"]:
+                raise RuntimeError("Gmail connector was paused before backfill ran")
+            _sync_gmail(dict(connector), run_id, counters, backfill)
+        elif connector["connector_type"] == "google_calendar":
+            if not connector["enabled"] or not connector["credential_ciphertext"]:
+                raise RuntimeError("Google Calendar connector is paused or needs authorization")
+            _sync_google_calendar(dict(connector), run_id, counters)
         else:
             raise RuntimeError(f"Unsupported connector type: {connector['connector_type']}")
 

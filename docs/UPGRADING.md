@@ -97,6 +97,10 @@ db/migrations/
 
 Apply only migrations that have not previously been applied.
 
+For v3.1.0, apply `020_project_retention.sql` after the existing migrations
+through `017_lifecycle_undo.sql`. Existing projects start with retention review
+disabled. The migration adds a nullable policy field and does not update memories.
+
 Example:
 
 ```bash
@@ -221,3 +225,13 @@ Do not blindly overwrite the only production copy without first preserving the f
 6. Rebuild only after migrations succeed.
 7. Check logs before declaring success.
 8. Keep secrets outside Git.
+
+
+## v3.2.0
+
+Back up PostgreSQL and source storage before upgrading. Apply
+`db/migrations/021_notifications.sql` to an existing v3.1.0 database using
+`psql -v ON_ERROR_STOP=1`, then replace the API, worker, scheduler and web images.
+The migration adds notification tables and project policies. Notification receipts
+track each administrator independently. Previous server images can run with the
+new tables present. Keep the previous image tags and Compose files for rollback.
