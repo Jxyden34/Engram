@@ -4,6 +4,11 @@ from datetime import date, datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+class LicenseActivation(BaseModel):
+    mode: Literal["personal", "commercial"]
+    license_key: str | None = Field(default=None, max_length=8192)
+
+
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=8, max_length=500)

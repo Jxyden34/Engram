@@ -1,0 +1,21 @@
+services:
+  api:
+    image: engram-api:3.7.0-dev-beta.9-community
+    build:
+      context: ./backend
+      args:
+        ENGRAM_EDITION: community
+  worker:
+    image: engram-worker:3.7.0-dev-beta.9-community
+    build:
+      context: ./backend
+      args:
+        ENGRAM_EDITION: community
+  connector-scheduler:
+    image: engram-scheduler:3.7.0-dev-beta.9-community
+    build:
+      context: ./backend
+      args:
+        ENGRAM_EDITION: community
+  web:
+    image: engram-web:3.7.0-dev-beta.9-community

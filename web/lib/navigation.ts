@@ -4,7 +4,7 @@ export const navigationGroups = [
     ["/knowledge","Knowledge graph"],["/timeline","Timeline"],
   ]},
   {title:"Workspace",icon:"✧",links:[
-    ["/intelligence","Intelligence"],["/projects","Projects"],["/agent","Memory Agent"],
+    ["/intelligence","Intelligence"],["/projects","Projects"],["/agent","Memory Agent"],["/dreams","Dream Lab"],
   ]},
   {title:"Capture & review",icon:"✦",links:[
     ["/imports","Memory Inbox"],["/connectors","Connectors"],["/approvals","Approvals"],["/notifications","Notifications"],
@@ -12,6 +12,7 @@ export const navigationGroups = [
   {title:"System",icon:"⌘",links:[
     ["/system","Health & about"],["/observability","Observability"],
     ["/disaster-recovery","Disaster Recovery"],["/audit","Audit trail"],["/settings","Personal API Gateway"],
+    ["/licence","Licence"],["/team","Team workspace"],["/branding","Company branding"],["/handover","Project handover"],["/setup","Setup wizard"],["/reminders","Reminders"],
   ]},
 ];
 
