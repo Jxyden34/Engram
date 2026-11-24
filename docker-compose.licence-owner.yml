@@ -1,0 +1,22 @@
+# Owner infrastructure only. Never distribute issuer or SMTP secrets to customers.
+services:
+  licence-owner:
+    build:
+      context: ./backend
+      dockerfile: owner/Dockerfile
+    restart: unless-stopped
+    environment:
+      OWNER_USERNAME: owner
+      OWNER_PASSWORD_FILE: /run/owner/admin-password
+      ISSUER_PRIVATE_KEY_FILE: /run/owner/issuer-private.pem
+      SMTP_PASSWORD_FILE: /run/owner/smtp-password
+      SMTP_HOST: box.hindley.tech
+      SMTP_PORT: 465
+      SMTP_SENDER: jayden@hindley.tech
+      SMTP_USERNAME: jayden@hindley.tech
+    volumes:
+      - licence_orders:/data
+      - ${ENGRAM_OWNER_SECRETS_DIR:?Set ENGRAM_OWNER_SECRETS_DIR}:/run/owner:ro
+    networks: [edge, egress]
+volumes:
+  licence_orders:

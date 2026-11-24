@@ -3,6 +3,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { internalReturnPath } from "@/lib/return-path";
+import { useBranding } from "@/components/Branding";
 
 export default function LoginPage() {
   const router = useRouter();

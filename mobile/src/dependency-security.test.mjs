@@ -11,6 +11,12 @@ const config = createRequire(expo.resolve('@expo/config/package.json'));
 const native = createRequire(require.resolve('react-native/package.json'));
 const postcss = createRequire(cli.resolve('postcss'));
 const micromatch = createRequire(cli.resolve('micromatch'));
+const xcodeImporters = [expo, cli, config].map(importer => {
+  const plugins = createRequire(importer.resolve('@expo/config-plugins/package.json'));
+  return createRequire(plugins.resolve('xcode'));
+});
+const legacyXcode = xcodeImporters.find(importer => importer('./package.json').version === '3.0.1');
+const uuid = legacyXcode?.('uuid');
 const shellQuote = native('shell-quote');
 const { SourceMapConsumer, SourceNode } = postcss('source-map-js');
 const braces = micromatch('braces');
@@ -78,6 +84,20 @@ test('PostCSS still generates valid CSS source maps', async () => {
   const result = await cli('postcss')([]).process(css, { from: 'input.css', to: 'output.css', map: { inline: false } });
   assert.ok(result.css.startsWith(css));
   assert.deepEqual(result.map.toJSON().sources, ['input.css']);
+});
+
+test('UUID namespace generators reject partial writes before modifying buffers',
+  { skip: !legacyXcode && 'All active Xcode consumers removed the uuid dependency' }, () => {
+  for (const generate of [uuid.v3, uuid.v5]) {
+    for (const [length, offset] of [[8, 4], [16, -1], [16, 1]]) {
+      const buffer = new Uint8Array(length).fill(0xaa);
+      assert.throws(() => generate('x', uuid.v5.DNS, buffer, offset), RangeError);
+      assert.deepEqual(buffer, new Uint8Array(length).fill(0xaa));
+    }
+    const buffer = new Uint8Array(20).fill(0xaa);
+    assert.equal(generate('x', uuid.v5.DNS, buffer, 4), buffer);
+    assert.ok(uuid.validate(uuid.stringify(buffer, 4)));
+  }
 });
 
 test('Xcode still generates distinct uppercase 24-character project IDs', () => {

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Shell from "@/components/Shell";
+import {BrandingProvider} from '@/components/Branding';
 
 export const metadata: Metadata = {
   title: "Engram",
@@ -17,7 +18,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <head><meta name="apple-mobile-web-app-capable" content="yes" /></head>
       <body>
-        <Shell>{children}</Shell>
+        <BrandingProvider><Shell>{children}</Shell></BrandingProvider>
       </body>
     </html>
   );

@@ -1,5 +1,362 @@
 # Changelog
 
+## 3.7.0-dev-beta.9 — unreleased
+
+- Add Dream Lab: project-scoped, evidence-linked offline inventions using trusted interactive building blocks, disposable browser sandboxes, experiment reports, keep/evolve/destroy and opt-in nightly generation. Apply migration 019.
+- Carry forward stable v2.8 reflection, consolidation, archival, pinning and audited undo alongside the commercial previews. Existing beta databases must also apply the named v2.8 lifecycle migrations 014_memory_archival through 017_lifecycle_undo.
+
+## 3.7.0-dev-beta.8 — unreleased
+
+- Host installation has moved out of this commercial/business preview into the separate v3.0 native distribution track (PR #98).
+
+## 3.7.0-dev-beta.7 — unreleased
+
+- Add private in-app memory reminders in Personal and Commercial with local-time scheduling, due banners, snoozing and completion. Apply migration 018.
+
+## 3.7.0-dev-beta.6 — unreleased
+
+- Add the Commercial first-run wizard with token-protected initial admin creation, licence activation, shared model selection and first-project creation. Apply migration 017.
+
+## 3.7.0-dev-beta.5 — unreleased
+
+- Add Commercial project handover exports with current memories, decisions, outstanding questions, checked saved briefs and source references in Markdown or JSON.
+
+## 3.7.0-dev-beta.4 — unreleased
+
+- Add Commercial expiry warnings, renewal requests, owner-confirmed replacement keys and deduplicated expiry emails. Payment remains manual.
+
+## 3.7.0-dev-beta.3 — unreleased
+
+- Add instance-wide Commercial company branding, a PNG logo and branded sign-in. Apply migration 016.
+
+## 3.7.0-dev-beta.2 — unreleased
+
+- Add Commercial team workspaces with project roles, one-use invitations and membership-aware credential access. Apply migration 015 before upgrading.
+
+## 3.7.0-dev-beta.1 — unreleased
+
+- Add offline Ed25519 commercial licence keys bound to an installation and expiry date, an owner-only issuer CLI, and administrator activation/status in Settings.
+- Split Personal Community (free for noncommercial use) and Commercial builds. Commercial requires a valid key for product API/MCP access; health, login and activation remain available. Community images omit proprietary code; both customer builds omit the issuer CLI.
+- Add a responsive activation screen and separate owner licence manager. Manually confirming payment issues one key and automatically emails it from the configured SMTP mailbox, with durable retries and same-key resending.
+- Add migration 014. Checkout, payment processing and online revocation are not included. Existing releases retain their licence notices.
+
+### Earlier development carried forward
+
+- Add bounded Reflect answers with quick/standard/deep evidence budgets and checked, multi-source quotations.
+- Add explicitly saved project briefs with source fingerprints, project isolation, freshness checks and manual rebuild/review. Source memories remain unchanged.
+- Add migration 013 for saved briefs; see [rollout and limitations](docs/REFLECTION-BRIEFS.md).
+## 2.8.0 — 2026-10-24
+
+- Add bounded local-Ollama Reflect across project memories and optional document evidence, with exact source quotations, evidence budgets, bounded follow-up retrieval and knowledge-gap questions.
+- Save reviewed project briefs, compare revisions and explicitly refresh them without rewriting earlier snapshots. Changed or inaccessible evidence hides stale generated text.
+- Add historical answers from recorded memory versions and validity; document history is excluded.
+- Add pairwise and 3–10-memory reviewed consolidation with source provenance, conservative confidence and stale-approval rejection; originals remain unchanged.
+- Add explainable retrieval decay, reversible searchable archival and pin/unpin controls that protect important memories from age penalties.
+- Add seven-day lifecycle history and reasoned undo for archive/restore and newly recorded reviewed consolidations. Undo archives only a generated summary, preserves history and audit, rejects newer changes and is idempotent.
+- Retain current dependency fixes and the updated Silo Docker digest. Native mobile and Gmail keep their separate preview/qualification status; v3 commercial/team work is excluded.
+
+Upgrade from v2.7.0: back up PostgreSQL and object storage, retain images and host configuration, stop API/worker/scheduler, apply migrations **013–017 in order**, then rebuild/recreate the application services. See [v2.8 rollout and rollback](docs/V2.8-RELEASE.md).
+
+
+## v2.8.0 prerelease track — 2026-10-23
+
+- **pre.1:** bounded Reflect, checked multi-source quotations and explicitly saved project briefs; migration 013.
+- **pre.2:** source-cited, human-reviewed consolidation with provenance links and conservative confidence/trust.
+- **pre.3:** bounded, explainable retrieval decay; no content deletion or background rewriting.
+- **pre.4:** reversible searchable archival with stale-edit protection; migration 014.
+- **pre.5:** explicit brief refresh for review, preserving previous snapshots and linking refreshed briefs to them.
+
+Each increment is a separate cumulative GitHub prerelease. Stable remains v2.7.0;
+promote to stable v2.8.0 only after validation and the user's explicit instruction.
+No production deployment or native channel change is included. See
+[prerelease qualification](docs/V2.8-PRERELEASES.md) and
+[lifecycle behavior/rollback](docs/MEMORY-LIFECYCLE.md).
+
+## 2.7.0 - 2026-10-08
+
+### Added
+
+- Promote PR #36 to `main`: projects, project-bound API keys and OAuth MCP grants, PostgreSQL row-level security, and project context in ingestion and background jobs. Existing records and credentials remain in Personal.
+- Add opt-in scheduled Memory Agent scans, review history, related-memory suggestions and human-approved consolidation captures. Source memories remain unchanged; stale approvals are rejected and retries reuse the recorded result.
+- Add Ask Engram with memory type/date filters and checked source quotations, administrator cross-project search, and an installable web app.
+- Include the iOS/Android companion source with offline drafts, favourites, memory history, linked navigation, reviewed speech and a local Inbox. Native distribution remains on the `alpha1` preview channel; patched build 8 and standalone iOS speech still require device qualification.
+
+### Changed
+
+- Return to v2.7.0 numbering by user approval after v6.5.0. Retain all security and dependency fixes already merged into `main`; explicitly select v2.7.0 as the latest GitHub release.
+
+### Upgrade
+
+- Back up PostgreSQL and object storage. Stop API, worker and connector scheduler before applying migrations 009, 010, 011 and 012 in order, then rebuild and start the updated services. See [upgrade and verification](docs/PROJECTS-AGENT.md).
+- Preserve the pre-upgrade database and application images. Reverting code alone after creating project data is insufficient. Existing Gmail configuration is retained; real callback/sync qualification remains open.
+
+## 2.7.0-alpha1 - preview history
+
+- Align Expo compatibility patches and reserve Android build 8 / iOS build 6 for runtime `2.7.0-alpha1-native1`. Keep tested Android build 7 available for rollback. Record restored-database, object-store and document qualification in [the Alpha1 report](docs/ALPHA1_QUALIFICATION.md); Gmail remains unqualified. Promotion was approved on October 8.
+- Add Ask filters for memory type and inclusive last-updated date ranges in UTC. Apply them before retrieval inside the active project and display the filters with each answer. Ollama remains the answer provider.
+- Add project-scoped related-memory suggestions to Agent scans. Read both sources and explicitly approve a link; existing links and deleted/historical memories are excluded.
+- Add reviewed Agent approval, edited consolidation captures, source freshness checks, accepted review history and audit events. Approvals are atomic and repeat requests reuse the existing result. Original memories remain unchanged.
+- Add migration 012 and a separate alpha1 mobile build/update channel within PR #36. Preserve beta4 commit `9f34cd1` and Android build 6 for rollback. Alpha1 uses the same native speech runtime with Android build 7.
+
+## 2.7.0-beta4 - unreleased
+
+- Add Ask Engram: ask questions about the active project's memories, read AI answer points alongside verified source excerpts, and open the supporting memories. Reject invented citations and show explicit insufficient-information or service-unavailable states.
+- Add mobile version history with expandable previous content and an explicit action to review a previous version as a new capture. Current memories remain unchanged.
+- Add navigation between linked memories and fetching full server content from a saved excerpt.
+- Add quick capture templates for ideas, decisions and meeting notes. Preserve unfinished capture text before starting a template or reusing an answer/version.
+- Add voice capture with editable transcript review before adding speech to a capture or Inbox thought. Use native device speech recognition where available, with keyboard dictation guidance in Expo Go and older builds. Audio is not stored by Engram.
+- Add a device-local Inbox for unassigned thoughts. Review and choose an accessible project before saving; retain the reviewed item if delivery fails. Keep Inbox items bound to their server/account and separate from project drafts and Ask retrieval.
+- Move the native runtime to `2.7.0-beta4-native1` for the speech module; Android build 6 and iOS build number 4 require rebuilding. Earlier beta4 Ask/history/template updates used the beta3 runtime.
+
+## 2.7.0-beta3 - unreleased
+
+- Add device-secured mobile favourites: keep up to 10 memories per project in the offline library even after they leave the recent list. Refresh newer copies when available.
+- Add memory type filters and the native iOS/Android share menu for a selected memory. Shared offline excerpts are labelled.
+- Add a project-scoped offline memory library on mobile. Save up to 20 recent memories in device secure storage, read excerpts while disconnected, and fall back to local search when the server is unreachable.
+- Show when an offline copy was saved and allow clearing a project's local copies from Settings. Full server search and long memory content still require a connection.
+- Add mobile Agent review actions, recent scan history, and navigation visible above Android system UI.
+- Add Android development builds and a dedicated EAS Update preview channel for compatible JavaScript and asset updates.
+- Bump the Android preview to build 5 and iOS build number to 3.
+
+## 2.7.0-beta2 - unreleased
+
+- Add one-tap mobile Quick Capture with device-secured offline drafts scoped to the original account and project.
+- Allow saved drafts to be edited, sent manually, or deleted. Keep an unfinished capture when switching projects or signing out.
+- Open the mobile app on Capture, keep a saved session usable while the server is offline, and bump the Android preview build version.
+- Add the installable iPhone home-screen web app; it requires a connection and has separate storage from the Expo app.
+
+## 2.7.0-dev-beta.1 - unreleased
+
+- Add project selection and project-bound API keys. Existing records migrate to Personal.
+- Enforce project boundaries on memory, document, import, graph and connector tables with PostgreSQL row-level security.
+- Carry project context into queued ingestion and enrichment jobs.
+- Add a read-only memory agent that proposes reviews for duplicates, conflicts, stale facts and missing provenance; it never edits memories.
+- Bind new OAuth MCP grants and renewed tokens to the project selected at consent. Existing grants remain in Personal.
+- Propose reviews for low-confidence memories and conflicts from document imports.
+- Add opt-in daily, three-day, or weekly agent scans per project, with a visible run history and failure status.
+- Add administrator-selected cross-project memory search and AI consolidation drafts that preserve both source memories.
+- Add an Expo iOS/Android beta app with secure device session storage, project switching, memory browsing and creation, search, and agent findings. Mobile sessions are revocable and expire after 30 days by default.
+- Check the beta app against a physical iPhone's Expo Go SDK and keep the Expo dependency aligned with the installed client during early testing.
+- This is a development beta. Apply migrations 009, 010, and 011 before starting the updated API and workers.
+
+## 6.5.0 - 2026-10-06
+
+### Changed
+
+- Renumbered the stable release line from v2.5.5 to v6.5.0. REST and MCP
+  metadata, health reporting and DR-monitor logs use the new version.
+- Included the backend, frontend, container and CI dependency updates already
+  merged into stable since v2.5.5.
+
+### Fixed
+
+- Import batch errors return safe messages while server logs retain diagnostics.
+- OAuth client metadata retrieval explicitly requires TLS 1.2 or newer.
+
+### Upgrade
+
+- No database migration or new environment variables are required. Existing
+  APIs and the v2.5.5 Memory Intelligence workflow remain compatible.
+- Draft PR #36's projects, mobile app, Ask Engram and memory agent remain on
+  their separate preview branch.
+
+## 2.5.5 - 2026-09-30
+
+### Added
+
+- Hybrid retrieval now combines semantic and full-text candidates with linked
+  entity context, temporal relevance, memory importance, source trust and
+  retrieval history. Search results explain the principal reasons for ranking.
+- A rule-based query planner recognises current, historical, relationship and
+  comparison questions. A bounded context builder returns source-labelled
+  excerpts and an estimated token count through REST, MCP and the web UI.
+- The Intelligence page suggests similar current memories for review. Users
+  can compare confidence, dates and provenance, then explicitly choose which
+  fact stays current. The other remains historical with a saved version,
+  relation and audit entry; nothing is silently deleted.
+
+### Upgrade
+
+- No database migration or new environment variables are required. Rebuild the
+  API, web and DR-monitor images and restart those services after taking the
+  usual encrypted database and object backups.
+- The v2.7 draft's Projects, memory agent, Ask Engram and mobile app are not
+  included in this stable release.
+
+## 2.4.5 - 2026-09-28
+
+### Fixed
+
+- Replaced unavailable Quay MinIO images with pinned, maintained Silo and `mc`
+  compatible images; made image pulls and helper-image builds required CI gates.
+- Added a Docker smoke test for S3 startup, bucket creation and versioning.
+
+## Engram rename - 2026-09-23
+
+- Renamed the public product, API metadata, browser extension, docs, and new-install defaults to Engram.
+- Existing deployments can keep their database, object bucket, backup artifacts, and credentials while adopting the branding.
+
+## 2.4.0 - 2026-09-23
+
+### Added
+
+- Gmail read-only connector preview using the existing scheduled connector flow.
+- OAuth state bound to the active administrator session, with one-use expiry.
+- Public About, Privacy and Terms pages for OAuth app verification.
+- Encrypted Google refresh tokens, explicit disconnect/revocation, selectable
+  Gmail query/label, bounded message polling and provenance-preserving source
+  documents routed through the Memory Inbox review workflow.
+- Restored the Memory Inbox page used to review imported content.
+- Google setup, restricted-scope and migration notes in `docs/GMAIL.md`.
+
+### Scope
+
+- Gmail API `gmail.readonly` only: no sending, modifying, deleting or attachments.
+- Gmail setup requires Google OAuth project configuration and migration 008 on
+  existing installations.
+- Each Gmail run is capped to the newest 500 matching messages; historical
+  backfill beyond that cap is not supported in this preview.
+
+## 2.3.1 DR polish - 2026-09-18
+
+This source update retains version 2.3.1 and all existing v2.3 APIs and database
+tables. The published v2.3.1 tag is unchanged.
+
+- Process manual DR requests before background scans and again after scans.
+- Cache successful archive verification for at most 24 hours using device, inode,
+  size, nanosecond mtime and ctime, and confirm the database still holds the verified
+  digest. Manual scans always force full SHA-256, decrypt and archive checks.
+- Verify only selected backups for manual restore/replicate requests. On a cold
+  inventory, discover the newest candidate of each type without scanning history.
+- Replicate selected backups manually and all inventoried verified backups on
+  automatic runs, preserving encrypted-only Blackwall-to-DarkMatter copy behavior.
+- Record actual rclone transfer counters and UTC operational logs, including
+  cache hits, verification failures, queue outcomes and operation durations.
+- Publish encrypted backups through an atomic `.partial` rename.
+- Add isolated PostgreSQL/rclone regression checks to CI and enforce LF for shell
+  scripts. No migration or new deployment environment variables are required.
+
+See [upgrade notes](UPGRADE-v2.3.1-DR-POLISH.md) for deployment and verification.
+
+## 2.3.1 - 2026-09-14
+
+### Added
+
+- Backend schema unit tests.
+- PostgreSQL + pgvector integration testing in GitHub Actions.
+- Redis connectivity and round-trip integration testing.
+- Deterministic frontend dependency installation using `package-lock.json` and `npm ci`.
+- CI validation that externally hosted production images remain pullable.
+
+### Changed
+
+- Production container images are pinned to immutable digests.
+- MinIO Community images use working Quay registry references.
+- CI uses the Python 3.14 production runtime.
+- Dependabot patch and minor updates can auto-merge after required CI checks.
+- Docker and Docker Compose dependency changes remain manual.
+- Main branch requires backend, web and Docker CI checks.
+
+### Fixed
+
+- Fresh deployments no longer depend on previously cached MinIO images.
+- Empty MinIO buckets now produce valid encrypted object backups.
+- PostgreSQL bootstrap schema is tracked for repeatable deployments.
+
+### Validation
+
+- Clean deployment successfully tested on a separate Linux host.
+- Engram health endpoint returned HTTP 200 through Caddy.
+- Real off-site encrypted backups successfully restored on a separate recovery host.
+- 672 memories restored.
+- 422 documents restored.
+- 422 object files restored.
+- Zero missing object references.
+- pgvector successfully validated after restore.
+- Full isolated recovery completed in 17 seconds.
+
+
+## 2.3.0 - 2026-09-12
+
+### Added
+
+- Disaster Recovery dashboard and resilience score.
+- Encrypted PostgreSQL and object backup artifact inventory.
+- SHA-256 and decrypt/integrity verification.
+- Automated isolated PostgreSQL restore tests.
+- pgvector validation and restored row counts.
+- MinIO archive extraction and document-object reference checks.
+- Backup filesystem capacity monitoring.
+- Optional encrypted off-site replication via rclone.
+- Manual verify, restore-test and replication actions.
+
+
+## 2.2.0 - 2026-09-12
+
+### Added
+
+- OAuth authorization code flow for MCP clients.
+- Mandatory PKCE S256.
+- Short-lived access tokens and rotating refresh tokens.
+- Refresh-token reuse detection and family revocation.
+- OAuth Protected Resource Metadata and Authorization Server Metadata.
+- Client ID Metadata Document support.
+- Pre-registered clients and legacy Dynamic Client Registration fallback.
+- Resource-bound MCP tokens and issuer-aware authorization responses.
+- OAuth client / grant management in AI & API settings.
+
+
+## 2.1.0 - 2026-09-11
+
+### Added
+
+- Connector framework and scheduled sync service.
+- GitHub App repository, README, docs, issues and pull-request ingestion.
+- Optional GitHub source-code ingestion.
+- Browser Capture endpoint and Chrome/Edge extension.
+- `capture:write` and `connector:admin` scopes.
+- Document source provenance and automatic connector/capture candidate analysis.
+
+
+## 2.0.1 - 2026-09-11
+
+### Fixed
+
+- Next.js production build issue in Timeline and Memory Health pages.
+
+## 2.0.0 - 2026-09-11
+
+### Added
+
+- Entity graph and entity relationships.
+- Temporal validity and superseding memories.
+- Dynamic memory scoring.
+- Event timeline.
+- Memory health dashboard.
+- Background knowledge enrichment.
+
+## 1.4.0
+
+- Unified ChatGPT and document candidate Memory Inbox.
+- One `Analyse everything` workflow.
+
+## 1.3.0
+
+- Generic document-to-memory candidate extraction.
+
+## 1.2.0
+
+- ChatGPT conversation export importer.
+- Candidate memory review and provenance.
+
+## 1.1.0
+
+- Bulk file, folder and ZIP ingestion.
+
+## 1.0.0
+
+- Initial Engram full-stack platform.
+
 ## 3.2.0 — 2026-11-18
 
 - Add optional per-project Telegram delivery with a test message and bounded retries.
